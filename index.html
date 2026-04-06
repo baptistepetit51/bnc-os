@@ -120,7 +120,125 @@ function Card({children,onClick,T,style={},accent}){
 }
 
 function MF({label,children,T}){return <div style={{marginBottom:14}}><div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:5,fontWeight:600}}>{label.toUpperCase()}</div>{children}</div>;}
-function Btns({color,onSave,onDelete,onClose,t}){return <div style={{display:"flex",gap:8,marginTop:22}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:7,padding:"11px",fontSize:13,fontWeight:600}}>{t.save}</button>{onDelete&&<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B30",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.delete}</button>}<button onClick={onClose} style={{background:"transparent",color:"#777",border:"1px solid #333",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.cancel}</button></div>;}
+function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:22}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:7,padding:"11px",fontSize:13,fontWeight:600}}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:7,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B30",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"#777",border:"1px solid #333",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.cancel}</button></div>;}
+
+// ─── MINI CALENDAR PICKER ─────────────────────────────────────────────────
+function DatePicker({value, onChange, color, T}){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const selected = value ? new Date(value+"T00:00:00") : null;
+
+  const initY = selected ? selected.getFullYear() : today.getFullYear();
+  const initM = selected ? selected.getMonth() : today.getMonth();
+  const [curYear,  setCurYear]  = useState(initY);
+  const [curMonth, setCurMonth] = useState(initM);
+
+  const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const DAYS_SHORT = ["Lu","Ma","Me","Je","Ve","Sa","Di"];
+  const DIM2 = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+  function daysInMonth(m,y){ return m===1&&y%4===0?29:DIM2[m]; }
+
+  // First weekday (monday-first)
+  const firstDow = new Date(curYear,curMonth,1).getDay();
+  const offset   = firstDow===0?6:firstDow-1;
+  const totalDays= daysInMonth(curMonth,curYear);
+
+  function selectDay(d){
+    const mm=String(curMonth+1).padStart(2,"0");
+    const dd=String(d).padStart(2,"0");
+    onChange(`${curYear}-${mm}-${dd}`);
+  }
+  function prevMonth(){ if(curMonth===0){setCurMonth(11);setCurYear(y=>y-1);}else setCurMonth(m=>m-1); }
+  function nextMonth(){ if(curMonth===11){setCurMonth(0);setCurYear(y=>y+1);}else setCurMonth(m=>m+1); }
+
+  function isSelected(d){ return selected&&selected.getFullYear()===curYear&&selected.getMonth()===curMonth&&selected.getDate()===d; }
+  function isToday(d){ return today.getFullYear()===curYear&&today.getMonth()===curMonth&&today.getDate()===d; }
+  function isPast(d){ const t=new Date(curYear,curMonth,d); return t<today; }
+
+  function deadlineDot(d){
+    if(!selected) return null;
+    const selDay=new Date(curYear,curMonth,d); selDay.setHours(0,0,0,0);
+    if(isSelected(d)){
+      const diff=Math.round((selDay-today)/86400000);
+      if(diff<0)  return "#FF3B30";
+      if(diff===0)return "#FF3B30";
+      if(diff<=2) return "#FF9F0A";
+      if(diff<=7) return "#FFD60A";
+      return "#00C896";
+    }
+    return null;
+  }
+
+  const cells = [...Array(offset).fill(null), ...Array.from({length:totalDays},(_,i)=>i+1)];
+  // pad to full weeks
+  while(cells.length%7!==0) cells.push(null);
+
+  return(
+    <div style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",userSelect:"none"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",padding:"12px 14px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>
+        <button onClick={prevMonth} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,width:28,height:28,cursor:"pointer",color:T.muted,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+        <div style={{flex:1,textAlign:"center"}}>
+          <span style={{fontSize:13,fontWeight:700,color:T.text}}>{MONTHS_FR[curMonth]}</span>
+          <span style={{fontSize:12,color:T.muted,marginLeft:6}}>{curYear}</span>
+        </div>
+        <button onClick={nextMonth} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,width:28,height:28,cursor:"pointer",color:T.muted,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+      </div>
+
+      {/* Day headers */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"8px 10px 4px"}}>
+        {DAYS_SHORT.map(d=>(
+          <div key={d} style={{textAlign:"center",fontSize:9,fontWeight:700,color:T.dim,letterSpacing:0.5,padding:"2px 0"}}>{d}</div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0 10px 10px",gap:2}}>
+        {cells.map((day,idx)=>{
+          if(!day) return <div key={`e${idx}`}/>;
+          const sel  = isSelected(day);
+          const tod  = isToday(day);
+          const past = isPast(day);
+          const dot  = deadlineDot(day);
+          return(
+            <button key={day} onClick={()=>selectDay(day)} style={{
+              background: sel ? color : tod ? color+"22" : "transparent",
+              color:      sel ? "#fff" : past ? T.dim : T.text,
+              border:     `1px solid ${sel?color:tod?color+"66":"transparent"}`,
+              borderRadius: 7,
+              padding:"5px 0",
+              fontSize:12,
+              fontWeight: sel||tod ? 700 : 400,
+              cursor:"pointer",
+              position:"relative",
+              transition:"all 0.1s",
+              opacity: past&&!sel ? 0.4 : 1,
+            }}
+            onMouseEnter={e=>{if(!sel)e.currentTarget.style.background=color+"22";}}
+            onMouseLeave={e=>{if(!sel)e.currentTarget.style.background="transparent";}}
+            >
+              {day}
+              {sel&&dot&&<div style={{position:"absolute",bottom:2,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:"#fff"}}/>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected display */}
+      {selected&&(
+        <div style={{padding:"8px 14px 10px",borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {(()=>{const dl=deadlineInfo(value);return dl?<><span style={{fontSize:12}}>{dl.icon}</span><span style={{fontSize:11,fontWeight:700,color:dl.color}}>{dl.label}</span></>:null;})()}
+          </div>
+          <span style={{fontSize:11,color:T.muted}}>
+            {selected.toLocaleDateString("fr-CA",{weekday:"short",day:"numeric",month:"long"})}
+          </span>
+          <button onClick={()=>onChange("")} style={{background:"transparent",border:"none",fontSize:10,color:T.dim,cursor:"pointer"}}>✕ effacer</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Donut({data,size=110}){
   const total=data.reduce((s,d)=>s+d.value,0)||1;
@@ -293,6 +411,10 @@ function App(){
     ...meetings.filter(x=>x.title.toLowerCase().includes(search.toLowerCase())).map(x=>({...x,_type:"meeting"})),
   ]:[];
 
+  const [expenses,  setExpenses]  = useState([]);
+  const [notifs,    setNotifs]    = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+
   const NAV=[
     {id:"dashboard",label:t.dashboard,icon:"◈"},
     {id:"tasks",    label:t.tasks,    icon:"☑"},
@@ -300,6 +422,7 @@ function App(){
     {id:"meetings", label:t.meetings, icon:"⊕"},
     {id:"media",    label:t.media,    icon:"★"},
     {id:"calendar", label:t.calendar, icon:"⊞"},
+    {id:"expenses", label:"Dépenses",  icon:"$"},
     ...(user?.role==="admin"?[{id:"access",label:t.access,icon:"⊙"}]:[]),
   ];
 
@@ -323,7 +446,91 @@ function App(){
   async function deleteCalEvent(id){await supa.from("cal_events").delete().eq("id",id);}
   async function addMember(form){await supa.from("profiles").insert({...form,avatar:form.name[0]});setMembers(await supa.from("profiles").select("*").then(r=>r.data||[]));}
 
-  if(!user){
+  // ── Expenses CRUD ──
+  async function loadExpenses(){
+    const {data}=await supa.from("expenses").select("*").eq("workspace",wsId).order("created_at",{ascending:false});
+    setExpenses(data||[]);
+  }
+  async function addExpense(form){
+    const {data}=await supa.from("expenses").insert({...form,workspace:wsId,created_by:user.name}).select().single();
+    if(data){
+      // Auto-notify if urgent
+      if(form.urgency==="Critique"||form.urgency==="Haute"){
+        addNotif({type:"expense",urgency:form.urgency,title:`💸 ${form.urgency}: ${form.title}`,body:`${form.amount}$ · ${form.location}`,id:Date.now()});
+      }
+    }
+    loadExpenses();
+  }
+  async function updateExpense(id,form){await supa.from("expenses").update(form).eq("id",id);loadExpenses();}
+  async function deleteExpense(id){await supa.from("expenses").delete().eq("id",id);loadExpenses();}
+
+  // ── Notification system complet ──
+  function addNotif(n){
+    setNotifs(prev=>{
+      // Éviter les doublons (même titre + même jour)
+      const today=new Date().toDateString();
+      const exists=prev.some(x=>x.title===n.title&&new Date(x.ts||0).toDateString()===today);
+      if(exists)return prev;
+      return [{...n,id:Date.now(),read:false,ts:Date.now(),time:new Date().toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"})},...prev];
+    });
+  }
+  function sendUrgentAlert(expense){
+    addNotif({type:"alert",urgency:"Critique",icon:"🚨",title:`ALERTE: ${expense.title}`,body:`${(+expense.amount).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})} requis · ${expense.location}`});
+  }
+  function markAllRead(){setNotifs(prev=>prev.map(n=>({...n,read:true})));}
+  function deleteNotif(id){setNotifs(prev=>prev.filter(n=>n.id!==id));}
+
+  // Générer les notifs de tâches automatiquement au chargement
+  useEffect(()=>{
+    if(!tasks.length)return;
+    const today=new Date(); today.setHours(0,0,0,0);
+    const newNotifs=[];
+
+    tasks.forEach(task=>{
+      if(task.status==="Done")return;
+      if(!task.due_date)return;
+      const due=new Date(task.due_date+"T00:00:00");
+      const diff=Math.round((due-today)/86400000);
+
+      if(diff<0){
+        newNotifs.push({type:"overdue",urgency:"Critique",icon:"🔴",
+          title:`En retard: ${task.title}`,
+          body:`${Math.abs(diff)} jour${Math.abs(diff)>1?"s":""} de retard · ${task.location} · Assigné à ${task.owner}`,
+          taskId:task.id});
+      } else if(diff===0){
+        newNotifs.push({type:"today",urgency:"Haute",icon:"🟠",
+          title:`Aujourd'hui: ${task.title}`,
+          body:`À compléter aujourd'hui · ${task.location} · ${task.owner}`,
+          taskId:task.id});
+      } else if(diff<=2){
+        newNotifs.push({type:"soon",urgency:"Haute",icon:"🟠",
+          title:`Dans ${diff}j: ${task.title}`,
+          body:`Échéance ${due.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"short"})} · ${task.owner}`,
+          taskId:task.id});
+      } else if(diff<=7){
+        newNotifs.push({type:"week",urgency:"Moyenne",icon:"🟡",
+          title:`Cette semaine: ${task.title}`,
+          body:`Dans ${diff} jours · ${due.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})} · ${task.owner}`,
+          taskId:task.id});
+      }
+    });
+
+    // Meetings à venir aujourd'hui ou demain
+    meetings.forEach(m=>{
+      if(m.status!=="Upcoming")return;
+      if(!m.date)return;
+      newNotifs.push({type:"meeting",urgency:"Moyenne",icon:"📅",
+        title:`Meeting: ${m.title}`,
+        body:`${m.date} · Organisé par ${m.owner}`,
+        meetingId:m.id});
+    });
+
+    newNotifs.forEach(n=>addNotif(n));
+  },[tasks,meetings]);
+
+  const unreadCount=notifs.filter(n=>!n.read).length;
+
+  useEffect(()=>{if(user&&seeded)loadExpenses();},[user,wsId,seeded]);
     return <LoginPage onLogin={u=>{setUser(u);if(!u.workspace_access.includes("bnc")&&u.workspace_access[0])setWsId(u.workspace_access[0]);}} T={T} t={t} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang}/>;
   }
 
@@ -403,15 +610,151 @@ function App(){
             </button>
           )}
           {module==="calendar"&&<button onClick={()=>setModal({type:"add_calendar"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ {t.addEvent}</button>}
+          {module==="expenses"&&<button onClick={()=>setModal({type:"add_expenses"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ Dépense</button>}
+
+          {/* Notification bell */}
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setNotifOpen(o=>!o)} style={{
+              background:unreadCount>0?ws.color+"18":"transparent",
+              border:`1px solid ${unreadCount>0?ws.color:T.border}`,
+              borderRadius:8,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:17,position:"relative",cursor:"pointer",transition:"all 0.15s",
+            }}>
+              🔔
+              {unreadCount>0&&(
+                <span style={{
+                  position:"absolute",top:-5,right:-5,
+                  minWidth:18,height:18,borderRadius:9,
+                  background:"#FF3B30",border:`2px solid ${T.surface}`,
+                  color:"#fff",fontSize:9,fontWeight:700,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  padding:"0 4px",
+                }}>{unreadCount>9?"9+":unreadCount}</span>
+              )}
+            </button>
+
+            {notifOpen&&(
+              <div onClick={e=>e.stopPropagation()} style={{
+                position:"absolute",right:0,top:46,
+                width:380,maxWidth:"95vw",
+                background:T.surface,border:`1px solid ${T.border}`,
+                borderRadius:12,boxShadow:T.shadow,zIndex:500,overflow:"hidden",
+              }}>
+                {/* Header */}
+                <div style={{padding:"14px 16px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:T.s2}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:15}}>🔔</span>
+                    <span style={{fontSize:13,fontWeight:700}}>Notifications</span>
+                    {unreadCount>0&&<span style={{background:"#FF3B30",color:"#fff",fontSize:9,fontWeight:700,padding:"1px 7px",borderRadius:10}}>{unreadCount} new</span>}
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={markAllRead} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>
+                      ✓ Tout lire
+                    </button>
+                    <button onClick={()=>setNotifOpen(false)} style={{background:"transparent",border:"none",fontSize:14,color:T.muted,cursor:"pointer"}}>✕</button>
+                  </div>
+                </div>
+
+                {/* Today summary banner */}
+                {(()=>{
+                  const overdue=notifs.filter(n=>n.type==="overdue").length;
+                  const todayN =notifs.filter(n=>n.type==="today").length;
+                  const soon   =notifs.filter(n=>n.type==="soon").length;
+                  if(!overdue&&!todayN&&!soon)return null;
+                  return(
+                    <div style={{padding:"10px 16px",background:overdue?"#FF3B3012":"#FF9F0A12",borderBottom:`1px solid ${T.border}`,display:"flex",gap:12,flexWrap:"wrap"}}>
+                      {overdue>0&&<span style={{fontSize:11,color:"#FF3B30",fontWeight:700}}>🔴 {overdue} en retard</span>}
+                      {todayN>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:700}}>🟠 {todayN} aujourd'hui</span>}
+                      {soon>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:600}}>⚠️ {soon} dans 2j</span>}
+                    </div>
+                  );
+                })()}
+
+                {/* Notif list */}
+                <div style={{maxHeight:380,overflowY:"auto"}}>
+                  {notifs.length===0&&(
+                    <div style={{padding:"32px",textAlign:"center"}}>
+                      <div style={{fontSize:28,marginBottom:8}}>✅</div>
+                      <div style={{fontSize:13,color:T.muted,fontWeight:500}}>Tout est à jour !</div>
+                      <div style={{fontSize:11,color:T.dim,marginTop:4}}>Aucune tâche en retard</div>
+                    </div>
+                  )}
+                  {notifs.map(n=>{
+                    const bgColor={
+                      "Critique":"#FF3B30",
+                      "Haute":"#FF9F0A",
+                      "Moyenne":"#FF9F0A",
+                    }[n.urgency]||ws.color;
+                    return(
+                      <div key={n.id} style={{
+                        padding:"12px 16px",
+                        borderBottom:`1px solid ${T.border}`,
+                        background:n.read?"transparent":bgColor+"08",
+                        display:"flex",gap:10,alignItems:"flex-start",
+                        transition:"background 0.15s",
+                        cursor:"pointer",
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                      onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":bgColor+"08"}
+                      onClick={()=>{
+                        setNotifs(prev=>prev.map(x=>x.id===n.id?{...x,read:true}:x));
+                        if(n.type==="overdue"||n.type==="today"||n.type==="soon"||n.type==="week"){setModule("tasks");setNotifOpen(false);}
+                        if(n.type==="meeting"){setModule("meetings");setNotifOpen(false);}
+                        if(n.type==="expense"||n.type==="alert"){setModule("expenses");setNotifOpen(false);}
+                      }}>
+                        {/* Icon */}
+                        <div style={{
+                          width:34,height:34,borderRadius:8,flexShrink:0,
+                          background:bgColor+"18",border:`1px solid ${bgColor}33`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:16,
+                        }}>{n.icon||"📌"}</div>
+
+                        {/* Content */}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                            <div style={{fontSize:12,fontWeight:n.read?500:700,color:n.read?T.muted:T.text,lineHeight:1.4}}>{n.title}</div>
+                            {!n.read&&<div style={{width:7,height:7,borderRadius:"50%",background:bgColor,flexShrink:0,marginTop:3}}/>}
+                          </div>
+                          <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.4}}>{n.body}</div>
+                          <div style={{fontSize:9,color:T.dim,marginTop:4}}>{n.time}</div>
+                        </div>
+
+                        {/* Delete */}
+                        <button onClick={e=>{e.stopPropagation();deleteNotif(n.id);}} style={{
+                          background:"transparent",border:"none",
+                          color:T.dim,fontSize:12,cursor:"pointer",
+                          padding:"2px 4px",borderRadius:4,flexShrink:0,
+                          opacity:0,
+                        }}
+                        onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                        onMouseLeave={e=>e.currentTarget.style.opacity="0"}
+                        >✕</button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Footer */}
+                {notifs.length>0&&(
+                  <div style={{padding:"10px 16px",borderTop:`1px solid ${T.border}`,background:T.s2,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:10,color:T.dim}}>{notifs.length} notification{notifs.length>1?"s":""}</span>
+                    <button onClick={()=>setNotifs([])} style={{background:"transparent",border:"none",fontSize:10,color:T.dim,cursor:"pointer"}}>Tout effacer</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:"22px"}}>
-          {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t}/>}
-          {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t}/>}
+          {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses}/>}
+          {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} setModal={setModal} T={T} t={t}/>}
           {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
+          {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T}/>}
           {module==="access"   &&<Access ws={ws} members={members} setModal={setModal} T={T} t={t}/>}
         </div>
       </div>
@@ -452,6 +795,7 @@ function App(){
         addMeeting={addMeeting} updateMeeting={updateMeeting} deleteMeeting={deleteMeeting}
         addInfluencer={addInfluencer} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer}
         addCalEvent={addCalEvent} updateCalEvent={updateCalEvent} deleteCalEvent={deleteCalEvent}
+        addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense}
         addMember={addMember} T={T} t={t} wsId={wsId}/>}
     </div>
   );
@@ -542,42 +886,203 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t}){
 }
 
 // ─── TASKS ────────────────────────────────────────────────────────────────
-function Tasks({ws,tasks,allMembers,setModal,T,t}){
-  const [view,setVw]=useState("board");
+// ─── DEADLINE HELPER ──────────────────────────────────────────────────────
+function deadlineInfo(due_date){
+  if(!due_date) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(due_date+"T00:00:00");
+  const diff  = Math.round((due-today)/86400000);
+  if(diff < 0)  return { label:"En retard",  color:"#FF3B30", bg:"#FF3B3015", icon:"🔴" };
+  if(diff === 0) return { label:"Aujourd'hui",color:"#FF3B30", bg:"#FF3B3015", icon:"🔴" };
+  if(diff <= 2)  return { label:`${diff}j`,   color:"#FF9F0A", bg:"#FF9F0A15", icon:"🟠" };
+  if(diff <= 7)  return { label:`${diff}j`,   color:"#FFD60A", bg:"#FFD60A15", icon:"🟡" };
+  return          { label:`${diff}j`,          color:"#00C896", bg:"#00C89615", icon:"🟢" };
+}
+
+// ─── TASKS ────────────────────────────────────────────────────────────────
+function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask}){
+  const [view,   setVw]      = useState("board");
+  const [dragging,setDragging] = useState(null);
+  const [dragOver,setDragOver] = useState(null);
+  const [dragPos, setDragPos]  = useState({x:0,y:0});
+
+  function onDragStart(e,task){
+    setDragging(task);
+    e.dataTransfer.effectAllowed="move";
+    // Ghost image
+    const ghost=document.createElement("div");
+    ghost.style.cssText=`position:fixed;top:-100px;left:-100px;width:180px;padding:10px;background:#1e1e1e;border:1px solid #444;border-radius:8px;color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.5);`;
+    ghost.innerText=task.title;
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost,90,20);
+    setTimeout(()=>document.body.removeChild(ghost),0);
+  }
+  function onDragOver(e,status){
+    e.preventDefault();
+    e.dataTransfer.dropEffect="move";
+    setDragOver(status);
+  }
+  function onDrop(e,status){
+    e.preventDefault();
+    if(dragging && dragging.status!==status){
+      updateTask(dragging.id,{...dragging,status});
+    }
+    setDragging(null);
+    setDragOver(null);
+  }
+  function onDragEnd(){setDragging(null);setDragOver(null);}
+
+  const COLS=[
+    {id:"To Do",     label:"À faire",    color:"#6b6b6b", dot:"#6b6b6b"},
+    {id:"In Progress",label:"En cours",  color:"#FF9F0A", dot:"#FF9F0A"},
+    {id:"Done",      label:"Terminé",    color:"#00C896", dot:"#00C896"},
+    {id:"Blocked",   label:"Bloqué",     color:"#FF3B30", dot:"#FF3B30"},
+  ];
+
   if(view==="board") return(
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:18}}>
-        {["board","list"].map(v=><button key={v} onClick={()=>setVw(v)} style={{background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:7,padding:"5px 14px",fontSize:12}}>{v==="board"?t.kanban:t.list}</button>)}
+      {/* Header row */}
+      <div style={{display:"flex",gap:8,marginBottom:20,alignItems:"center"}}>
+        {["board","list"].map(v=>(
+          <button key={v} onClick={()=>setVw(v)} style={{
+            background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,
+            border:`1px solid ${view===v?ws.color:T.border}`,
+            borderRadius:8,padding:"6px 16px",fontSize:12,fontWeight:500,
+          }}>{v==="board"?t.kanban:t.list}</button>
+        ))}
+        <div style={{marginLeft:"auto",display:"flex",gap:12}}>
+          {[{label:"🔴 En retard",c:"#FF3B30"},{label:"🟠 ≤2j",c:"#FF9F0A"},{label:"🟡 ≤7j",c:"#FFD60A"},{label:"🟢 OK",c:"#00C896"}].map(d=>(
+            <div key={d.label} style={{fontSize:10,color:T.muted,display:"flex",alignItems:"center",gap:4}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:d.c}}/>{d.label}
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,alignItems:"start"}}>
-        {Object.entries(TASK_STATUS).map(([status,sc])=>{
-          const col=tasks.filter(x=>x.status===status);
+
+      {/* Board */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,alignItems:"start"}}>
+        {COLS.map(col=>{
+          const colTasks=tasks.filter(x=>x.status===col.id);
+          const isOver=dragOver===col.id;
           return(
-            <div key={status}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:sc.dot}}/>
-                <span style={{fontSize:11,fontWeight:600,color:T.muted,letterSpacing:0.5}}>{status.toUpperCase()}</span>
-                <span style={{fontSize:11,color:T.dim,marginLeft:"auto",background:T.s2,padding:"1px 7px",borderRadius:10}}>{col.length}</span>
+            <div key={col.id}
+              onDragOver={e=>onDragOver(e,col.id)}
+              onDrop={e=>onDrop(e,col.id)}
+              onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}}
+            >
+              {/* Column header */}
+              <div style={{
+                display:"flex",alignItems:"center",gap:8,marginBottom:12,
+                padding:"8px 12px",
+                background:isOver?col.color+"18":T.s2,
+                borderRadius:8,border:`1px solid ${isOver?col.color:T.border}`,
+                transition:"all 0.15s",
+              }}>
+                <div style={{width:9,height:9,borderRadius:"50%",background:col.color,boxShadow:`0 0 6px ${col.color}66`}}/>
+                <span style={{fontSize:12,fontWeight:700,color:isOver?col.color:T.text}}>{col.label}</span>
+                <span style={{
+                  marginLeft:"auto",fontSize:11,fontWeight:700,
+                  background:col.color+"22",color:col.color,
+                  padding:"1px 8px",borderRadius:20,
+                }}>{colTasks.length}</span>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {col.map(task=>(
-                  <div key={task.id} onClick={()=>setModal({type:"edit_tasks",payload:task})}
-                    style={{background:T.surface,border:`1px solid ${T.border}`,borderLeft:`3px solid ${sc.dot}`,borderRadius:9,padding:"13px",cursor:"pointer"}}
-                    onMouseEnter={e=>{e.currentTarget.style.background=T.s2;}} onMouseLeave={e=>{e.currentTarget.style.background=T.surface;}}>
-                    <div style={{fontSize:13,fontWeight:500,marginBottom:9,lineHeight:1.4}}>{task.title}</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-                      {(task.tags||[]).map(tag=><Badge key={tag} label={tag} color={ws.color} small/>)}
-                      <Badge label={task.location} color={T.dim} small/>
+
+              {/* Drop zone */}
+              <div style={{
+                display:"flex",flexDirection:"column",gap:8,
+                minHeight:80,borderRadius:10,
+                background:isOver?col.color+"08":"transparent",
+                border:`2px dashed ${isOver?col.color:"transparent"}`,
+                padding:isOver?"6px":"0",
+                transition:"all 0.15s",
+              }}>
+                {colTasks.map(task=>{
+                  const dl=deadlineInfo(task.due_date);
+                  const isDragging=dragging?.id===task.id;
+                  return(
+                    <div key={task.id}
+                      draggable
+                      onDragStart={e=>onDragStart(e,task)}
+                      onDragEnd={onDragEnd}
+                      onClick={()=>!isDragging&&setModal({type:"edit_tasks",payload:task})}
+                      style={{
+                        background:isDragging?"transparent":T.surface,
+                        border:`1px solid ${isDragging?"transparent":T.border}`,
+                        borderRadius:10,padding:"14px",
+                        cursor:"grab",
+                        opacity:isDragging?0.3:1,
+                        transform:isDragging?"scale(0.98)":"scale(1)",
+                        transition:"all 0.15s",
+                        boxShadow:isDragging?"none":`0 2px 8px rgba(0,0,0,0.12)`,
+                        userSelect:"none",
+                      }}
+                      onMouseEnter={e=>{if(!isDragging){e.currentTarget.style.borderColor=col.color;e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 4px 16px rgba(0,0,0,0.2)`;} }}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow=`0 2px 8px rgba(0,0,0,0.12)`;}}
+                    >
+                      {/* Priority stripe */}
+                      <div style={{height:3,borderRadius:2,background:TASK_PRI[task.priority]||"#555",marginBottom:10,opacity:0.8}}/>
+
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:8,lineHeight:1.4,color:T.text}}>{task.title}</div>
+
+                      {/* Tags */}
+                      {(task.tags||[]).length>0&&(
+                        <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                          {task.tags.map(tag=><Badge key={tag} label={tag} color={ws.color} small/>)}
+                        </div>
+                      )}
+
+                      {/* Location */}
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                        <span style={{fontSize:10,color:T.dim}}>📍</span>
+                        <span style={{fontSize:10,color:T.muted}}>{task.location}</span>
+                      </div>
+
+                      {/* Deadline badge */}
+                      {dl&&(
+                        <div style={{
+                          display:"inline-flex",alignItems:"center",gap:5,
+                          background:dl.bg,border:`1px solid ${dl.color}44`,
+                          borderRadius:6,padding:"3px 8px",marginBottom:8,
+                        }}>
+                          <span style={{fontSize:10}}>{dl.icon}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:dl.color}}>{dl.label}</span>
+                          <span style={{fontSize:9,color:dl.color,opacity:0.7}}>
+                            {task.due_date?new Date(task.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"}):""}
+                          </span>
+                        </div>
+                      )}
+                      {!dl&&task.due&&task.due!=="—"&&(
+                        <div style={{fontSize:10,color:T.dim,marginBottom:8}}>📅 {task.due}</div>
+                      )}
+
+                      {/* Footer */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:8,borderTop:`1px solid ${T.border}`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5}}>
+                          <div style={{width:6,height:6,borderRadius:"50%",background:TASK_PRI[task.priority]||"#555"}}/>
+                          <span style={{fontSize:9,color:T.muted,fontWeight:500}}>{task.priority}</span>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:9,color:T.dim}}>{task.created_by}</span>
+                          <Avatar name={task.owner} size={22} color={ws.color}/>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{fontSize:10,color:T.muted,marginBottom:8}}>{t.createdBy}: <strong style={{color:T.text}}>{task.created_by}</strong> · {task.due||""}</div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:TASK_PRI[task.priority]}}/><span style={{fontSize:10,color:T.muted}}>{task.priority}</span></div>
-                      <Avatar name={task.owner} size={22} color={ws.color}/>
-                    </div>
-                  </div>
-                ))}
-                <button onClick={()=>setModal({type:"add_tasks",prefill:{status}})} style={{background:"transparent",border:`1px dashed ${T.border}`,borderRadius:9,padding:"10px",fontSize:12,color:T.dim,width:"100%"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor=ws.color} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>+ {t.newTask}</button>
+                  );
+                })}
+
+                {/* Add button */}
+                <button
+                  onClick={()=>setModal({type:"add_tasks",prefill:{status:col.id}})}
+                  style={{
+                    background:"transparent",
+                    border:`1.5px dashed ${T.border}`,
+                    borderRadius:10,padding:"10px",
+                    fontSize:12,color:T.dim,width:"100%",
+                    transition:"all 0.15s",cursor:"pointer",
+                  }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=col.color;e.currentTarget.style.color=col.color;e.currentTarget.style.background=col.color+"0a";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;e.currentTarget.style.background="transparent";}}
+                >+ {t.newTask}</button>
               </div>
             </div>
           );
@@ -585,34 +1090,58 @@ function Tasks({ws,tasks,allMembers,setModal,T,t}){
       </div>
     </div>
   );
+
+  // List view
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:18}}>
-        {["board","list"].map(v=><button key={v} onClick={()=>setVw(v)} style={{background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:7,padding:"5px 14px",fontSize:12}}>{v==="board"?t.kanban:t.list}</button>)}
-      </div>
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 1fr 60px",padding:"10px 16px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
-          {[t.title,t.location,t.priority,t.status,t.dueDate,t.createdBy,t.owner].map(h=><div key={h} style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.4}}>{h.toUpperCase()}</div>)}
-        </div>
-        {tasks.map((task,i)=>(
-          <div key={task.id} onClick={()=>setModal({type:"edit_tasks",payload:task})}
-            style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 1fr 60px",padding:"12px 16px",borderBottom:i<tasks.length-1?`1px solid ${T.border}`:"none",alignItems:"center",cursor:"pointer",transition:"background 0.1s"}}
-            onMouseEnter={e=>e.currentTarget.style.background=T.s2} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            <div style={{fontSize:13,fontWeight:500}}>{task.title}</div>
-            <Badge label={task.location} color={T.dim} small/>
-            <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:TASK_PRI[task.priority]}}/><span style={{fontSize:11,color:T.muted}}>{task.priority}</span></div>
-            <Badge label={task.status} color={TASK_STATUS[task.status]?.dot||"#777"} small/>
-            <span style={{fontSize:11,color:T.muted}}>{task.due}</span>
-            <span style={{fontSize:11,color:T.muted}}>{task.created_by}</span>
-            <Avatar name={task.owner} size={24} color={ws.color}/>
-          </div>
+        {["board","list"].map(v=>(
+          <button key={v} onClick={()=>setVw(v)} style={{background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:8,padding:"6px 16px",fontSize:12}}>{v==="board"?t.kanban:t.list}</button>
         ))}
+      </div>
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 80px 1fr 120px 100px 50px",padding:"10px 16px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
+          {[t.title,t.location,t.priority,t.status,"Deadline",t.createdBy,""].map((h,i)=>(
+            <div key={i} style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.4}}>{h.toUpperCase()}</div>
+          ))}
+        </div>
+        {tasks.map((task,i)=>{
+          const dl=deadlineInfo(task.due_date);
+          return(
+            <div key={task.id}
+              onClick={()=>setModal({type:"edit_tasks",payload:task})}
+              style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 80px 1fr 120px 100px 50px",padding:"12px 16px",borderBottom:i<tasks.length-1?`1px solid ${T.border}`:"none",alignItems:"center",cursor:"pointer",transition:"background 0.1s"}}
+              onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+            >
+              <div>
+                <div style={{height:2,width:28,borderRadius:1,background:TASK_PRI[task.priority]||"#555",marginBottom:4}}/>
+                <div style={{fontSize:13,fontWeight:500}}>{task.title}</div>
+              </div>
+              <Badge label={task.location} color={T.dim} small/>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:TASK_PRI[task.priority]}}/>
+                <span style={{fontSize:10,color:T.muted}}>{task.priority}</span>
+              </div>
+              <Badge label={task.status} color={TASK_STATUS[task.status]?.dot||"#777"} small/>
+              {dl
+                ? <div style={{display:"inline-flex",alignItems:"center",gap:4,background:dl.bg,border:`1px solid ${dl.color}33`,borderRadius:5,padding:"2px 8px"}}>
+                    <span style={{fontSize:10}}>{dl.icon}</span>
+                    <span style={{fontSize:10,fontWeight:700,color:dl.color}}>
+                      {task.due_date?new Date(task.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"}):""}
+                    </span>
+                  </div>
+                : <span style={{fontSize:11,color:T.dim}}>{task.due||"—"}</span>
+              }
+              <span style={{fontSize:11,color:T.muted}}>{task.created_by}</span>
+              <Avatar name={task.owner} size={24} color={ws.color}/>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
-
-// ─── PROJECTS ─────────────────────────────────────────────────────────────
 function Projects({ws,projects,setModal,T,t}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -802,6 +1331,86 @@ function CalModule({ws,calEvents,T,t,setModal}){
   );
 }
 
+// ─── EXPENSES ─────────────────────────────────────────────────────────────
+const URGENCY = {
+  "Critique": { color:"#FF3B30", bg:"#FF3B3022", icon:"🚨" },
+  "Haute":    { color:"#FF9F0A", bg:"#FF9F0A22", icon:"⚠️" },
+  "Moyenne":  { color:"#0A84FF", bg:"#0A84FF22", icon:"📋" },
+  "Basse":    { color:"#6b6b6b", bg:"#6b6b6b22", icon:"💡" },
+};
+const EXP_CATS = ["Équipement","Ingrédients","Marketing","RH","Loyer/Opérations","Tech","Autre"];
+
+function Expenses({ws,expenses,setModal,sendUrgentAlert,T}){
+  const [locFilt,setLocFilt]=useState("Global");
+  const filtered=expenses.filter(e=>locFilt==="Global"||e.location===locFilt);
+  const totalByUrgency=(u)=>filtered.filter(e=>e.urgency===u).reduce((s,e)=>s+(+e.amount||0),0);
+  const grandTotal=filtered.reduce((s,e)=>s+(+e.amount||0),0);
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:20}}>
+      {/* Location filter */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+        {LOCATIONS.map(l=>(
+          <button key={l} onClick={()=>setLocFilt(l)} style={{background:locFilt===l?ws.color:T.s2,color:locFilt===l?"#fff":T.muted,border:`1px solid ${locFilt===l?ws.color:T.border}`,borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:locFilt===l?600:400}}>{l}</button>
+        ))}
+        <div style={{marginLeft:"auto",background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 16px",textAlign:"center"}}>
+          <div style={{fontSize:20,fontWeight:800,color:ws.color}}>{grandTotal.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+          <div style={{fontSize:9,color:T.muted,letterSpacing:1}}>TOTAL À PRÉVOIR</div>
+        </div>
+      </div>
+
+      {/* Urgency KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+        {Object.entries(URGENCY).map(([u,uc])=>(
+          <div key={u} style={{background:uc.bg,border:`1px solid ${uc.color}33`,borderRadius:8,padding:"12px 14px",borderLeft:`3px solid ${uc.color}`}}>
+            <div style={{fontSize:18,marginBottom:4}}>{uc.icon}</div>
+            <div style={{fontSize:11,fontWeight:600,color:uc.color,marginBottom:4}}>{u.toUpperCase()}</div>
+            <div style={{fontSize:20,fontWeight:800,color:uc.color}}>{totalByUrgency(u).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+            <div style={{fontSize:9,color:T.muted,marginTop:2}}>{filtered.filter(e=>e.urgency===u).length} dépense{filtered.filter(e=>e.urgency===u).length!==1?"s":""}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Expenses list */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 100px 80px",padding:"10px 16px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
+          {["Dépense","Catégorie","Location","Montant","Urgence","Échéance",""].map((h,i)=>(
+            <div key={i} style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.4}}>{h.toUpperCase()}</div>
+          ))}
+        </div>
+        {filtered.length===0&&<div style={{padding:"40px",textAlign:"center",color:T.dim,fontSize:13}}>Aucune dépense planifiée.</div>}
+        {filtered.sort((a,b)=>{const order=["Critique","Haute","Moyenne","Basse"];return order.indexOf(a.urgency)-order.indexOf(b.urgency);}).map((exp,i)=>{
+          const uc=URGENCY[exp.urgency]||URGENCY["Moyenne"];
+          return(
+            <div key={exp.id}
+              style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 100px 80px",padding:"13px 16px",alignItems:"center",borderBottom:i<filtered.length-1?`1px solid ${T.border}`:"none",borderLeft:`3px solid ${uc.color}`}}
+              onMouseEnter={e=>e.currentTarget.style.background=T.s2} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600}}>{exp.title}</div>
+                {exp.notes&&<div style={{fontSize:10,color:T.muted,marginTop:2}}>{exp.notes}</div>}
+              </div>
+              <Badge label={exp.category||"Autre"} color={ws.color} small/>
+              <span style={{fontSize:12,color:T.muted}}>{exp.location}</span>
+              <span style={{fontSize:14,fontWeight:700,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:14}}>{uc.icon}</span>
+                <span style={{fontSize:10,fontWeight:600,color:uc.color}}>{exp.urgency}</span>
+              </div>
+              <span style={{fontSize:11,color:T.muted}}>{exp.due_date?new Date(exp.due_date+"T12:00:00").toLocaleDateString("fr-CA",{month:"short",day:"numeric"}):"—"}</span>
+              <div style={{display:"flex",gap:5}}>
+                <button onClick={()=>setModal({type:"edit_expenses",payload:exp})} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:5,padding:"4px 8px",fontSize:10,color:T.muted}}>✏</button>
+                {(exp.urgency==="Critique"||exp.urgency==="Haute")&&(
+                  <button onClick={()=>sendUrgentAlert(exp)} title="Envoyer alerte" style={{background:"#FF3B3022",border:"1px solid #FF3B3044",borderRadius:5,padding:"4px 8px",fontSize:11,color:"#FF3B30"}}>🚨</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── ACCESS ───────────────────────────────────────────────────────────────
 function Access({ws,members,setModal,T,t}){
   return(
@@ -836,7 +1445,7 @@ function Access({ws,members,setModal,T,t}){
 }
 
 // ─── MODAL ────────────────────────────────────────────────────────────────
-function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,addProject,updateProject,deleteProject,addMeeting,updateMeeting,deleteMeeting,addInfluencer,updateInfluencer,deleteInfluencer,addCalEvent,updateCalEvent,deleteCalEvent,addMember,T,t,wsId}){
+function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,addProject,updateProject,deleteProject,addMeeting,updateMeeting,deleteMeeting,addInfluencer,updateInfluencer,deleteInfluencer,addCalEvent,updateCalEvent,deleteCalEvent,addExpense,updateExpense,deleteExpense,addMember,T,t,wsId}){
   const [form,setForm]=useState(modal.payload||modal.prefill||{});
   const close=()=>setModal(null);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
@@ -846,21 +1455,54 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
   const isMtg=modal.type.includes("meeting");
   const isMed=modal.type.includes("media");
   const isCal=modal.type.includes("calendar");
+  const isExp=modal.type.includes("expense")||modal.type.includes("expenses");
   const isAcc=modal.type.includes("member")||modal.type==="invite";
   const isEdit=modal.type.startsWith("edit");
 
   async function save(){
     if(isTask){
       if(!form.title)return;
-      const ev={status:"To Do",priority:"Medium",owner:user.name,due:"—",tags:[],location:"Global",...form};
-      if(isEdit)await updateTask(form.id,ev); else await addTask(ev);
+      // Format due date nicely from date input (2026-04-12 → Apr 12)
+      let dueFormatted = "—";
+      let dueMonth = null, dueDay = null;
+      if(form.due_date){
+        const d = new Date(form.due_date + "T12:00:00");
+        dueFormatted = d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+        dueMonth = d.getMonth() + 1;
+        dueDay = d.getDate();
+      } else if(form.due && form.due !== "—") {
+        dueFormatted = form.due;
+      }
+      const ev={status:"To Do",priority:"Medium",owner:user.name,due:"—",tags:[],location:"Global",...form,due:dueFormatted};
+      if(isEdit) await updateTask(form.id,ev);
+      else {
+        await addTask(ev);
+        // Auto-add to calendar if checked and date selected
+        if(form.add_to_cal && dueMonth && dueDay){
+          await addCalEvent({
+            title: form.title,
+            category: "New Product",
+            location: form.location || "Global",
+            month: dueMonth,
+            day: dueDay,
+            end_month: null,
+            end_day: null,
+            has_end: false,
+            note: `Tâche: ${form.title}`,
+          });
+        }
+      }
     } else if(isProj){
       if(!form.title)return;
-      const ev={progress:0,status:"Planning",owner:user.name,location:"Global",description:"",...form};
+      let dueFormatted = form.due || "—";
+      if(form.due_date){ const d=new Date(form.due_date+"T12:00:00"); dueFormatted=d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
+      const ev={progress:0,status:"Planning",owner:user.name,location:"Global",description:"",...form,due:dueFormatted};
       if(isEdit)await updateProject(form.id,ev); else await addProject(ev);
     } else if(isMtg){
       if(!form.title)return;
-      const ev={owner:user.name,attendees:[],status:"Upcoming",notes:"",...form};
+      let dateFormatted = form.date || "—";
+      if(form.meeting_date){ const d=new Date(form.meeting_date+"T12:00:00"); dateFormatted=d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
+      const ev={owner:user.name,attendees:[],status:"Upcoming",notes:"",...form,date:dateFormatted};
       if(isEdit)await updateMeeting(form.id,ev); else await addMeeting(ev);
     } else if(isMed){
       if(!form.name)return;
@@ -870,6 +1512,10 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(!form.title)return;
       const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form};
       if(isEdit)await updateCalEvent(form.id,ev); else await addCalEvent(ev);
+    } else if(isExp){
+      if(!form.title||!form.amount)return;
+      const ev={urgency:"Moyenne",category:"Autre",location:"Global",notes:"",...form};
+      if(isEdit)await updateExpense(form.id,ev); else await addExpense(ev);
     } else if(isAcc){
       if(!form.name||!form.email)return;
       await addMember({...form,role:form.role||"staff",workspace_access:[wsId],locations:[form.location||"Global"],password_hash:form.password||"temp2026"});
@@ -877,12 +1523,16 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
     close();
   }
 
+  const [confirmDel,setConfirmDel]=useState(false);
+
   async function del(){
+    if(!confirmDel){setConfirmDel(true);return;}
     if(isTask)await deleteTask(form.id);
     else if(isProj)await deleteProject(form.id);
     else if(isMtg)await deleteMeeting(form.id);
     else if(isMed)await deleteInfluencer(form.id);
     else if(isCal)await deleteCalEvent(form.id);
+    else if(isExp)await deleteExpense(form.id);
     close();
   }
 
@@ -902,9 +1552,18 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{LOCATIONS.map(l=><option key={l}>{l}</option>)}</select></MF>
             <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
           </div>
-          <MF label={t.dueDate} T={T}><input value={form.due||""} onChange={e=>f("due",e.target.value)} placeholder="ex: Apr 10"/></MF>
+          <MF label={t.dueDate} T={T}>
+            <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
+          </MF>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:ws.color+"12",border:`1px solid ${ws.color}33`,borderRadius:7,marginBottom:14}}>
+            <input type="checkbox" id="addtocal" checked={form.add_to_cal||false} onChange={e=>f("add_to_cal",e.target.checked)}
+              style={{width:16,height:16,accentColor:ws.color,cursor:"pointer"}}/>
+            <label htmlFor="addtocal" style={{fontSize:12,color:T.text,cursor:"pointer",userSelect:"none"}}>
+              ⊞ Ajouter au calendrier marketing
+            </label>
+          </div>
           <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)}/></MF>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
 
         {isProj&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du projet"/></MF>
           <MF label={t.description} T={T}><textarea value={form.description||""} onChange={e=>f("description",e.target.value)}/></MF>
@@ -912,14 +1571,14 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             <MF label={t.status} T={T}><select value={form.status||"Planning"} onChange={e=>f("status",e.target.value)}>{Object.keys(PROJ_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
             <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{LOCATIONS.map(l=><option key={l}>{l}</option>)}</select></MF>
             <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
-            <MF label={t.dueDate} T={T}><input value={form.due||""} onChange={e=>f("due",e.target.value)} placeholder="ex: May 30"/></MF>
+            <MF label={t.dueDate} T={T}><DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/></MF>
           </div>
           <MF label={`${t.progress}: ${form.progress||0}%`} T={T}><input type="range" min={0} max={100} value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:ws.color,border:"none",padding:0}}/></MF>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
 
         {isMtg&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du meeting"/></MF>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label={t.dueDate} T={T}><input value={form.date||""} onChange={e=>f("date",e.target.value)} placeholder="ex: Apr 10"/></MF>
+            <MF label={t.dueDate} T={T}><DatePicker value={form.meeting_date||""} onChange={v=>f("meeting_date",v)} color={ws.color} T={T}/></MF>
             <MF label={t.status} T={T}><select value={form.status||"Upcoming"} onChange={e=>f("status",e.target.value)}>{["Upcoming","Récurrent","Done"].map(s=><option key={s}>{s}</option>)}</select></MF>
             <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
           </div>
@@ -964,6 +1623,44 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             </div></>}
           <MF label={t.notes} T={T}><input value={form.note||""} onChange={e=>f("note",e.target.value)} placeholder="Plateforme, détails..."/></MF>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
+
+        {isExp&&<>
+          <MF label="Titre de la dépense" T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Réparation friteuse Vancouver"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Montant (CAD $)" T={T}><input type="number" min={0} value={form.amount||""} onChange={e=>f("amount",e.target.value)} placeholder="ex: 450"/></MF>
+            <MF label="Niveau d'urgence" T={T}>
+              <select value={form.urgency||"Moyenne"} onChange={e=>f("urgency",e.target.value)}>
+                {Object.keys(URGENCY).map(u=><option key={u}>{u}</option>)}
+              </select>
+            </MF>
+            <MF label="Catégorie" T={T}>
+              <select value={form.category||"Autre"} onChange={e=>f("category",e.target.value)}>
+                {EXP_CATS.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </MF>
+            <MF label="Location" T={T}>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+                {LOCATIONS.map(l=><option key={l}>{l}</option>)}
+              </select>
+            </MF>
+          </div>
+          <MF label="Date prévue" T={T}>
+            <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
+          </MF>
+          <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
+          {/* Urgency preview */}
+          {form.urgency&&(()=>{const uc=URGENCY[form.urgency];return(
+            <div style={{background:uc.bg,border:`1px solid ${uc.color}44`,borderRadius:7,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>{uc.icon}</span>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:uc.color}}>{form.urgency}</div>
+                <div style={{fontSize:11,color:T.muted}}>{form.urgency==="Critique"?"🚨 Alerte automatique envoyée à l'équipe":form.urgency==="Haute"?"⚠️ Notification envoyée":"Ajouté sans alerte"}</div>
+              </div>
+              {form.amount&&<div style={{marginLeft:"auto",fontSize:18,fontWeight:800,color:uc.color}}>{(+form.amount).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>}
+            </div>
+          );})()}
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
+        </>}
 
         {isAcc&&<><MF label={t.name} T={T}><input value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="Prénom Nom"/></MF>
           <MF label={t.email} T={T}><input value={form.email||""} onChange={e=>f("email",e.target.value)} placeholder="email@exemple.com"/></MF>
