@@ -123,6 +123,13 @@ function MF({label,children,T}){return <div style={{marginBottom:14}}><div style
 function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:22}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:7,padding:"11px",fontSize:13,fontWeight:600}}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:7,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B30",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"#777",border:"1px solid #333",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.cancel}</button></div>;}
 
 // ─── MINI CALENDAR PICKER ─────────────────────────────────────────────────
+function DeadlineBadge({value}){
+  if(!value)return null;
+  const dl=deadlineInfo(value);
+  if(!dl)return null;
+  return <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:12}}>{dl.icon}</span><span style={{fontSize:11,fontWeight:700,color:dl.color}}>{dl.label}</span></div>;
+}
+
 function DatePicker({value, onChange, color, T}){
   const today = new Date(); today.setHours(0,0,0,0);
   const selected = value ? new Date(value+"T00:00:00") : null;
@@ -227,9 +234,7 @@ function DatePicker({value, onChange, color, T}){
       {/* Selected display */}
       {selected&&(
         <div style={{padding:"8px 14px 10px",borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            {(()=>{const dl=deadlineInfo(value);return dl?<><span style={{fontSize:12}}>{dl.icon}</span><span style={{fontSize:11,fontWeight:700,color:dl.color}}>{dl.label}</span></>:null;})()}
-          </div>
+          <DeadlineBadge value={value}/>
           <span style={{fontSize:11,color:T.muted}}>
             {selected.toLocaleDateString("fr-CA",{weekday:"short",day:"numeric",month:"long"})}
           </span>
@@ -249,6 +254,36 @@ function Donut({data,size=110}){
   </svg>;
 }
 function MiniBar({data,color,T}){const mx=Math.max(...data.map(d=>d.v),1);return <div style={{display:"flex",alignItems:"flex-end",gap:4,height:50}}>{data.map((d,i)=><div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><div style={{width:"100%",height:Math.max(2,(d.v/mx)*44),background:color,borderRadius:2,opacity:0.6+0.4*(d.v/mx)}}/><span style={{fontSize:8,color:T.muted}}>{d.l}</span></div>)}</div>;}
+
+function NotifSummaryBanner({notifs,T}){
+  const overdue=notifs.filter(n=>n.type==="overdue").length;
+  const todayN =notifs.filter(n=>n.type==="today").length;
+  const soon   =notifs.filter(n=>n.type==="soon").length;
+  if(!overdue&&!todayN&&!soon)return null;
+  return(
+    <div style={{padding:"10px 16px",background:overdue?"#FF3B3012":"#FF9F0A12",borderBottom:`1px solid ${T.border}`,display:"flex",gap:12,flexWrap:"wrap"}}>
+      {overdue>0&&<span style={{fontSize:11,color:"#FF3B30",fontWeight:700}}>🔴 {overdue} en retard</span>}
+      {todayN>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:700}}>🟠 {todayN} aujourd'hui</span>}
+      {soon>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:600}}>⚠️ {soon} dans 2j</span>}
+    </div>
+  );
+}
+
+function UrgencyPreview({urgency,amount,T}){
+  if(!urgency)return null;
+  const uc=URGENCY[urgency];
+  if(!uc)return null;
+  return(
+    <div style={{background:uc.bg,border:`1px solid ${uc.color}44`,borderRadius:7,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:20}}>{uc.icon}</span>
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:uc.color}}>{urgency}</div>
+        <div style={{fontSize:11,color:T.muted}}>{urgency==="Critique"?"🚨 Alerte auto envoyée":urgency==="Haute"?"⚠️ Notification envoyée":"Ajouté sans alerte"}</div>
+      </div>
+      {amount&&<div style={{marginLeft:"auto",fontSize:18,fontWeight:800,color:uc.color}}>{(+amount).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>}
+    </div>
+  );
+}
 
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────
 function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
@@ -495,38 +530,36 @@ function App(){
       if(diff<0){
         newNotifs.push({type:"overdue",urgency:"Critique",icon:"🔴",
           title:`En retard: ${task.title}`,
-          body:`${Math.abs(diff)} jour${Math.abs(diff)>1?"s":""} de retard · ${task.location} · Assigné à ${task.owner}`,
+          body:`${Math.abs(diff)} jour${Math.abs(diff)>1?"s":""} de retard · ${task.location} · ${task.owner}`,
           taskId:task.id});
       } else if(diff===0){
         newNotifs.push({type:"today",urgency:"Haute",icon:"🟠",
-          title:`Aujourd'hui: ${task.title}`,
-          body:`À compléter aujourd'hui · ${task.location} · ${task.owner}`,
+          title:"Aujourd\u2019hui: "+task.title,
+          body:"À compléter aujourd\u2019hui · "+task.location+" · "+task.owner,
           taskId:task.id});
       } else if(diff<=2){
         newNotifs.push({type:"soon",urgency:"Haute",icon:"🟠",
           title:`Dans ${diff}j: ${task.title}`,
-          body:`Échéance ${due.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"short"})} · ${task.owner}`,
+          body:`Échéance proche · ${task.owner}`,
           taskId:task.id});
       } else if(diff<=7){
         newNotifs.push({type:"week",urgency:"Moyenne",icon:"🟡",
           title:`Cette semaine: ${task.title}`,
-          body:`Dans ${diff} jours · ${due.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})} · ${task.owner}`,
+          body:`Dans ${diff} jours · ${task.owner}`,
           taskId:task.id});
       }
     });
 
-    // Meetings à venir aujourd'hui ou demain
     meetings.forEach(m=>{
       if(m.status!=="Upcoming")return;
-      if(!m.date)return;
       newNotifs.push({type:"meeting",urgency:"Moyenne",icon:"📅",
         title:`Meeting: ${m.title}`,
-        body:`${m.date} · Organisé par ${m.owner}`,
+        body:`${m.date||""} · ${m.owner}`,
         meetingId:m.id});
     });
 
     newNotifs.forEach(n=>addNotif(n));
-  },[tasks,meetings]);
+  },[tasks.length, meetings.length]);
 
   const unreadCount=notifs.filter(n=>!n.read).length;
 
@@ -603,7 +636,7 @@ function App(){
               ))}
             </div>
           )}
-          {!["dashboard","calendar","access"].includes(module)&&(
+          {!["dashboard","calendar","access","expenses"].includes(module)&&(
             <button onClick={()=>setModal({type:`add_${module}`})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:16,lineHeight:1}}>+</span>
               {module==="tasks"?t.newTask:module==="projects"?t.newProject:module==="meetings"?t.newMeeting:t.newInfluencer}
@@ -656,19 +689,7 @@ function App(){
                 </div>
 
                 {/* Today summary banner */}
-                {(()=>{
-                  const overdue=notifs.filter(n=>n.type==="overdue").length;
-                  const todayN =notifs.filter(n=>n.type==="today").length;
-                  const soon   =notifs.filter(n=>n.type==="soon").length;
-                  if(!overdue&&!todayN&&!soon)return null;
-                  return(
-                    <div style={{padding:"10px 16px",background:overdue?"#FF3B3012":"#FF9F0A12",borderBottom:`1px solid ${T.border}`,display:"flex",gap:12,flexWrap:"wrap"}}>
-                      {overdue>0&&<span style={{fontSize:11,color:"#FF3B30",fontWeight:700}}>🔴 {overdue} en retard</span>}
-                      {todayN>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:700}}>🟠 {todayN} aujourd'hui</span>}
-                      {soon>0&&<span style={{fontSize:11,color:"#FF9F0A",fontWeight:600}}>⚠️ {soon} dans 2j</span>}
-                    </div>
-                  );
-                })()}
+                <NotifSummaryBanner notifs={notifs} T={T}/>
 
                 {/* Notif list */}
                 <div style={{maxHeight:380,overflowY:"auto"}}>
@@ -911,7 +932,7 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask}){
     e.dataTransfer.effectAllowed="move";
     // Ghost image
     const ghost=document.createElement("div");
-    ghost.style.cssText=`position:fixed;top:-100px;left:-100px;width:180px;padding:10px;background:#1e1e1e;border:1px solid #444;border-radius:8px;color:#fff;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.5);`;
+    ghost.style.cssText="position:fixed;top:-100px;left:-100px;width:180px;padding:10px;background:#1e1e1e;border:1px solid #444;border-radius:8px;color:#fff;font-size:12px;font-family:DM Sans,sans-serif;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
     ghost.innerText=task.title;
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost,90,20);
@@ -1649,16 +1670,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
           </MF>
           <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
           {/* Urgency preview */}
-          {form.urgency&&(()=>{const uc=URGENCY[form.urgency];return(
-            <div style={{background:uc.bg,border:`1px solid ${uc.color}44`,borderRadius:7,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:20}}>{uc.icon}</span>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:uc.color}}>{form.urgency}</div>
-                <div style={{fontSize:11,color:T.muted}}>{form.urgency==="Critique"?"🚨 Alerte automatique envoyée à l'équipe":form.urgency==="Haute"?"⚠️ Notification envoyée":"Ajouté sans alerte"}</div>
-              </div>
-              {form.amount&&<div style={{marginLeft:"auto",fontSize:18,fontWeight:800,color:uc.color}}>{(+form.amount).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>}
-            </div>
-          );})()}
+          <UrgencyPreview urgency={form.urgency} amount={form.amount} T={T}/>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
 
