@@ -564,6 +564,8 @@ function App(){
   const unreadCount=notifs.filter(n=>!n.read).length;
 
   useEffect(()=>{if(user&&seeded)loadExpenses();},[user,wsId,seeded]);
+
+  if(!user){
     return <LoginPage onLogin={u=>{setUser(u);if(!u.workspace_access.includes("bnc")&&u.workspace_access[0])setWsId(u.workspace_access[0]);}} T={T} t={t} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang}/>;
   }
 
