@@ -158,42 +158,56 @@ function lsDel(key,id){ lsSet(key,lsGet(key).filter(x=>String(x.id)!==String(id)
     {id:4,workspace:"bnc",title:"Négociation CloudKitchens",location:"Miami",status:"In Progress",priority:"High",owner:"Tito",created_by:"Tito",due:"Apr 10",tags:["Business"]},
     {id:10,workspace:"tk",title:"R&D recette signature",location:"Global",status:"In Progress",priority:"High",owner:"Tito",created_by:"Tito",due:"Apr 20",tags:["Produit"]},
     // ── DELIVERY EDGE — Phase 1: Legal & Financial ──
-    {id:100,workspace:"de",title:"Vérifier disponibilité nom sur Sunbiz.org",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Search DeliveryEdge LLC sur sunbiz.org"},
-    {id:101,workspace:"de",title:"Déposer Articles of Organization",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"En ligne sur sunbiz.org — ~10 minutes. Coût: $125"},
+    {id:100,workspace:"de",title:"Vérifier disponibilité nom sur Sunbiz.org",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Search 'DeliveryEdge LLC' sur sunbiz.org — gratuit"},
+    {id:101,workspace:"de",title:"Déposer Articles of Organization",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"En ligne sur sunbiz.org — ~10 min. Coût: $125"},
     {id:102,workspace:"de",title:"Engager un Registered Agent",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Requis en Floride. floridaregisteredagent.net — $50-150/an"},
-    {id:103,workspace:"de",title:"Obtenir EIN (numéro fiscal)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Sur irs.gov — gratuit et instantané"},
-    {id:104,workspace:"de",title:"Déposer rapport BOI avec FinCEN",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Obligatoire depuis 2024. Dans les 30 jours après création LLC. fincen.gov"},
-    {id:105,workspace:"de",title:"Consulter un CPA pour la structure fiscale",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Important comme non-résident aux USA. Budget: $500-1500"},
-    // ── DELIVERY EDGE — Phase 1: Bank & Payments ──
+    {id:103,workspace:"de",title:"Obtenir EIN (numéro fiscal IRS)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"irs.gov — gratuit et instantané en ligne"},
+    {id:104,workspace:"de",title:"Déposer rapport BOI avec FinCEN",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Obligatoire depuis 2024. À faire dans les 30 jours post-LLC. fincen.gov"},
+    {id:105,workspace:"de",title:"Consulter un CPA pour structure fiscale",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Important comme non-résident aux USA. Budget: $500-1500"},
     {id:110,workspace:"de",title:"Ouvrir compte Mercury Bank",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"100% en ligne, gratuit. Meilleur pour non-résidents. mercury.com"},
     {id:111,workspace:"de",title:"Créer compte Stripe",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"Lier à Mercury Bank. Vérifier identité avec passeport. stripe.com"},
-    {id:112,workspace:"de",title:"Créer 6 Stripe Payment Links",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"Tier 1/2/3 — chacun avec 50% dépôt + 50% solde"},
-    {id:113,workspace:"de",title:"Tester paiement $1 end-to-end",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"S'envoyer à soi-même pour confirmer le flow complet"},
+    {id:112,workspace:"de",title:"Créer 6 Stripe Payment Links",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"Tier 1/2/3 — chacun avec 50% dépôt + 50% solde. stripe.com"},
+    {id:113,workspace:"de",title:"Tester paiement $1 end-to-end",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"S'envoyer à soi-même pour confirmer le flow complet avant premier client"},
     // ── DELIVERY EDGE — Phase 2: Digital Identity ──
     {id:120,workspace:"de",title:"Acheter domaine deliveryedge.com",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"namecheap.com — $15-20/an. Si pris: deliveryedge.co ou getdeliveryedge.com"},
-    {id:121,workspace:"de",title:"Créer Google Workspace + email pro",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"hello@deliveryedge.com — $6/mois"},
-    {id:122,workspace:"de",title:"Configurer le site Framer",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Connecter le domaine, vérifier tous les liens et formulaires"},
-    {id:123,workspace:"de",title:"Créer compte Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Lier à Google Calendar. Plan gratuit suffisant. Lien vers la page contact du site"},
-    // ── DELIVERY EDGE — Phase 3: Social Media ──
-    {id:130,workspace:"de",title:"Créer profil Instagram @deliveryedge",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Bio + lien Calendly + logo. Passer en compte professionnel."},
-    {id:131,workspace:"de",title:"Créer profil LinkedIn DeliveryEdge",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Page entreprise + profil personnel mis à jour"},
-    {id:132,workspace:"de",title:"Publier 3 premiers carousels Instagram",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Adapter les carousels déjà créés avec les vraies stats BNC"},
-    {id:133,workspace:"de",title:"Définir planning de posts",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Lundi / Mercredi / Vendredi — 3x par semaine minimum"},
+    {id:121,workspace:"de",title:"Créer Google Workspace + email pro",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"hello@deliveryedge.com — $6/mois. workspace.google.com"},
+    {id:122,workspace:"de",title:"Publier landing page sur Framer",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Uploader le fichier HTML. Connecter le domaine. Tester sur mobile. framer.com"},
+    {id:123,workspace:"de",title:"Créer compte Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Event: 'Free Strategy Call — 30 min'. Lier au calendrier. Plan gratuit. calendly.com"},
+    {id:124,workspace:"de",title:"Connecter bouton questionnaire à Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Remplacer le lien Calendly dans le fichier HTML du questionnaire"},
+    {id:125,workspace:"de",title:"Tester flow complet: landing → questionnaire → Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Simuler un faux client. Corriger les liens cassés."},
+    {id:126,workspace:"de",title:"Configurer Zapier: Calendly → email d'onboarding auto",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Quand quelqu'un booke un call, il reçoit l'email de prépa automatiquement. zapier.com"},
+    // ── DELIVERY EDGE — Phase 3: Instagram & Contenu ──
+    {id:130,workspace:"de",title:"Créer compte Instagram @deliveryedge",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Passer immédiatement en compte professionnel après création."},
+    {id:131,workspace:"de",title:"Uploader photo de profil (logo DE)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Utiliser la version icône PNG sur fond noir de DeliveryEdge"},
+    {id:132,workspace:"de",title:"Écrire bio Instagram",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Menu & Platform Optimization for Uber Eats and DoorDash. 6+ years operating ghost kitchens. deliveryedge.com'"},
+    {id:133,workspace:"de",title:"Ajouter lien en bio (deliveryedge.com)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Lier directement au site. Pas de Linktree nécessaire au début."},
+    {id:134,workspace:"de",title:"Créer Canva brand kit",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Couleurs: #FF6B00 + noir. Police: Syne ou alternative proche. canva.com"},
+    {id:135,workspace:"de",title:"Documenter before/after depuis tes restaurants",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Screenshots + chiffres réels de BNC. C'est ta preuve la plus forte."},
+    {id:136,workspace:"de",title:"Créer post before/after avec données réelles",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Vrais chiffres de tes restaurants. Contenu le plus puissant."},
+    {id:137,workspace:"de",title:"Adapter et publier carousel 01",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'5 raisons pourquoi ton menu Uber Eats ne convertit pas'"},
+    {id:138,workspace:"de",title:"Adapter et publier carousel 02",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Ce qu'une photo optimisée fait vraiment à tes ventes'"},
+    {id:139,workspace:"de",title:"Adapter et publier carousel 03",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Les promos qui tuent tes marges (et comment les corriger)'"},
+    {id:140,workspace:"de",title:"Définir planning de posts",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Lundi / Mercredi / Vendredi — 3x par semaine minimum"},
+    {id:141,workspace:"de",title:"Publier les 9 carousels restants sur 3 semaines",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Utiliser le pack 12 carousels déjà créé"},
     // ── DELIVERY EDGE — Phase 4: Operations ──
-    {id:140,workspace:"de",title:"Créer compte Fireflies.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Connecter à Google Meet. Transcription automatique des calls clients."},
-    {id:141,workspace:"de",title:"Créer compte Ideogram.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Pour photos food AI clients Tier 2 et 3. ideogram.ai"},
-    {id:142,workspace:"de",title:"Créer structure Google Drive",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Dossier: DeliveryEdge Clients. Sous-dossier par client: Questionnaire / Transcript / Report / Invoice"},
-    {id:143,workspace:"de",title:"Sauvegarder les 4 prompts Claude",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Copier depuis le Playbook dans un Google Doc pour accès rapide"},
+    {id:150,workspace:"de",title:"Créer compte Fireflies.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Connecter à Google Meet. Transcription automatique des calls clients. fireflies.ai"},
+    {id:151,workspace:"de",title:"Créer compte Ideogram.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Pour photos food AI pour clients Tier 2 et 3. ideogram.ai"},
+    {id:152,workspace:"de",title:"Créer structure Google Drive",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Dossier: DeliveryEdge Clients. Sous-dossier par client: Questionnaire / Transcript / Report / Invoice"},
+    {id:153,workspace:"de",title:"Sauvegarder les 4 prompts Claude",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Copier depuis l'Operational Playbook dans un Google Doc pour accès rapide"},
+    {id:154,workspace:"de",title:"Créer signature email professionnelle",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Nom + Titre + hello@deliveryedge.com + deliveryedge.com + téléphone"},
     // ── DELIVERY EDGE — Phase 5: Client Acquisition ──
-    {id:150,workspace:"de",title:"Construire liste 20 prospects Uber Eats Miami",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Browser Uber Eats Miami. Noter: nom, Instagram, problème visible."},
-    {id:151,workspace:"de",title:"Trouver Instagram/LinkedIn des prospects",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Chercher le nom du resto sur Instagram. La plupart ont un compte."},
-    {id:152,workspace:"de",title:"Identifier le problème principal de chaque prospect",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Regarder menu, photos, classement. Avoir 1 problème spécifique pour le message."},
-    {id:153,workspace:"de",title:"Envoyer 10 premiers DMs Instagram",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Personnaliser chaque message. Ne pas envoyer le même message en masse."},
-    {id:154,workspace:"de",title:"Envoyer 10 autres messages",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Différents prospects. Continuer."},
-    {id:155,workspace:"de",title:"Follow-up non-répondants après 5 jours",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Un seul follow-up. Court. Just following up on my message last week."},
-    {id:156,workspace:"de",title:"Tracker les réponses dans Google Sheet",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Colonnes: Nom / Plateforme / Message envoyé / Réponse / Call booké / Statut"},
-    {id:157,workspace:"de",title:"Conduire 3 strategy calls",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Utiliser Fireflies + trame de call du Playbook."},
-    {id:158,workspace:"de",title:"OBJECTIF: Signer 3 premiers clients payants",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"3 clients = concept validé. Budget estimé premier revenu: $1800-$5400"},
+    {id:160,workspace:"de",title:"Construire liste 20 prospects Uber Eats Miami",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Browser Uber Eats Miami. Noter: nom, Instagram si dispo, type de problème visible."},
+    {id:161,workspace:"de",title:"Trouver Instagram/LinkedIn des prospects",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Chercher le nom du resto sur Instagram. La plupart des ghost kitchens ont un compte."},
+    {id:162,workspace:"de",title:"Identifier le problème principal de chaque prospect",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Regarder menu, photos, classement. Avoir 1 problème spécifique à mentionner dans le message."},
+    {id:163,workspace:"de",title:"Rédiger message DM Instagram (max 3 lignes)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Personnel, spécifique, pas copier-coller. Mentionner 1 chose vue sur leur menu."},
+    {id:164,workspace:"de",title:"Rédiger message LinkedIn (si applicable)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Même approche mais légèrement plus long. Focus sur ROI."},
+    {id:165,workspace:"de",title:"Rédiger template cold email",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Objet: 'Quick question about your Uber Eats menu'. Court, spécifique, CTA clair."},
+    {id:166,workspace:"de",title:"Envoyer 10 premiers DMs Instagram",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Personnaliser chaque message. Ne pas envoyer le même message en masse."},
+    {id:167,workspace:"de",title:"Envoyer 10 autres messages",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Différents prospects. Continuer sans s'arrêter."},
+    {id:168,workspace:"de",title:"Follow-up non-répondants après 5 jours",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Un seul follow-up. Court. 'Just following up on my message last week.'"},
+    {id:169,workspace:"de",title:"Tracker les réponses dans Google Sheet",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Colonnes: Nom / Plateforme / Message envoyé / Réponse / Call booké / Statut"},
+    {id:170,workspace:"de",title:"Conduire 3 strategy calls",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Utiliser Fireflies + trame de call du Playbook. Prendre des notes."},
+    {id:171,workspace:"de",title:"🎯 OBJECTIF: Signer 3 premiers clients payants",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"3 clients = concept validé. Budget premier revenu estimé: $1,800–$5,400. Augmenter les prix après."},
   ]);
   lsSet("projects",[
     {id:1,workspace:"bnc",title:"Portland Launch",status:"Planning",progress:25,owner:"Tito",created_by:"Tito",due:"May 1",location:"Portland",description:"Ouverture CloudKitchens Portland."},
@@ -772,13 +786,14 @@ function App(){
     {id:"tito_inbox",   label:"Inbox / Idées", icon:"💡"},
     {id:"global_cal",   label:"Calendrier",    icon:"⊞"},
   ] : wsId==="de" ? [
-    {id:"dashboard", label:t.dashboard, icon:"◈"},
-    {id:"tasks",     label:t.tasks,     icon:"☑"},
-    {id:"projects",  label:t.projects,  icon:"◎"},
-    {id:"meetings",  label:t.meetings,  icon:"⊕"},
-    {id:"clients",   label:"Clients",   icon:"👤"},
-    {id:"calendar",  label:t.calendar,  icon:"⊞"},
-    {id:"expenses",  label:"Dépenses",  icon:"$"},
+    {id:"dashboard",  label:t.dashboard,       icon:"◈"},
+    {id:"de_launch",  label:"Launch Tracker",  icon:"🚀"},
+    {id:"tasks",      label:t.tasks,           icon:"☑"},
+    {id:"projects",   label:t.projects,        icon:"◎"},
+    {id:"meetings",   label:t.meetings,        icon:"⊕"},
+    {id:"clients",    label:"Clients",         icon:"👤"},
+    {id:"calendar",   label:t.calendar,        icon:"⊞"},
+    {id:"expenses",   label:"Dépenses",        icon:"$"},
   ] : [
     {id:"dashboard", label:t.dashboard, icon:"◈"},
     {id:"tasks",     label:t.tasks,     icon:"☑"},
@@ -1212,6 +1227,7 @@ function App(){
         <div style={{flex:1,overflowY:"auto",padding:"22px"}}>
           {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses}/>}
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes}/>}
+          {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t}/>}
           {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget}/>}
@@ -1440,6 +1456,276 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
         </button>
         <button onClick={()=>{setOpen(false);setTitle("");}} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",fontSize:11,color:T.muted,cursor:"pointer"}}>✕</button>
       </div>
+    </div>
+  );
+}
+
+// ─── DE LAUNCH TRACKER ────────────────────────────────────────────────────
+const DE_PHASES = [
+  {
+    id:"legal", label:"Phase 1 — Légal & Financier", icon:"🏛️",
+    sections:[
+      {label:"Création LLC", color:"#FF6B00", tags:["Legal"]},
+      {label:"Banque & Paiements", color:"#FF9F0A", tags:["Finance"]},
+    ]
+  },
+  {
+    id:"web", label:"Phase 2 — Identité Digitale", icon:"🌐",
+    sections:[{label:"Domaine, Email & Site", color:"#0A84FF", tags:["Web"]}]
+  },
+  {
+    id:"social", label:"Phase 3 — Instagram & Contenu", icon:"📱",
+    sections:[
+      {label:"Setup Instagram", color:"#BF5AF2", tags:["Marketing"]},
+      {label:"Création de contenu", color:"#BF5AF2", tags:["Marketing"]},
+    ]
+  },
+  {
+    id:"ops", label:"Phase 4 — Opérations", icon:"⚙️",
+    sections:[{label:"Outils Core", color:"#00C896", tags:["Ops"]}]
+  },
+  {
+    id:"sales", label:"Phase 5 — Acquisition Clients", icon:"🎯",
+    sections:[
+      {label:"Liste de prospects", color:"#FF3B30", tags:["Sales"]},
+      {label:"Messages & Outreach", color:"#FF3B30", tags:["Sales"]},
+      {label:"Envoi & Suivi", color:"#FF3B30", tags:["Sales"]},
+    ]
+  },
+];
+
+const DE_BUDGET = [
+  {item:"Florida LLC (Articles of Organization)", cost:"$125", type:"One-time"},
+  {item:"Registered Agent (Florida)", cost:"$50–150", type:"Par an"},
+  {item:"EIN — IRS Tax Number", cost:"GRATUIT", type:"Instantané"},
+  {item:"BOI Report (FinCEN)", cost:"GRATUIT", type:"Dans 30j après LLC"},
+  {item:"Mercury Bank", cost:"GRATUIT", type:"Sans frais mensuels"},
+  {item:"Stripe", cost:"GRATUIT + 2.9%", type:"Par transaction"},
+  {item:"Domaine deliveryedge.com", cost:"$15–20", type:"Par an"},
+  {item:"Google Workspace email", cost:"$6", type:"Par mois"},
+  {item:"Framer (site)", cost:"$0–20", type:"Par mois"},
+  {item:"Calendly", cost:"GRATUIT", type:"Plan gratuit"},
+  {item:"Fireflies.ai", cost:"GRATUIT", type:"Plan gratuit"},
+  {item:"Ideogram.ai", cost:"GRATUIT", type:"Limité"},
+  {item:"Canva", cost:"GRATUIT", type:"Plan gratuit"},
+];
+
+function DELaunchTracker({ws,tasks,updateTask,T}){
+  const [expanded,setExpanded]=React.useState({legal:true,web:false,social:false,ops:false,sales:false});
+  const [showBudget,setShowBudget]=React.useState(false);
+  const [filter,setFilter]=React.useState("all"); // all | todo | done
+
+  const deTasks=tasks.filter(tk=>tk.workspace==="de"||!tk.workspace||true).filter(tk=>["Legal","Finance","Web","Marketing","Ops","Sales","Content"].some(tag=>(tk.tags||[]).includes(tag)));
+
+  function getTasksForSection(sec){
+    return deTasks.filter(tk=>sec.tags.some(tag=>(tk.tags||[]).includes(tag)));
+  }
+
+  function toggleTask(task){
+    const newStatus=task.status==="Done"?"To Do":"Done";
+    updateTask(task.id,{...task,status:newStatus});
+  }
+
+  const totalTasks=deTasks.length;
+  const doneTasks=deTasks.filter(t=>t.status==="Done").length;
+  const pct=totalTasks>0?Math.round((doneTasks/totalTasks)*100):0;
+
+  const phaseProgress=(phase)=>{
+    const pts=phase.sections.flatMap(s=>getTasksForSection(s));
+    const done=pts.filter(t=>t.status==="Done").length;
+    return pts.length>0?Math.round((done/pts.length)*100):0;
+  };
+
+  // Global color mapping
+  const tagColor={"Legal":"#FF6B00","Finance":"#FF9F0A","Web":"#0A84FF","Marketing":"#BF5AF2","Content":"#BF5AF2","Ops":"#00C896","Sales":"#FF3B30"};
+  const priBg={"High":"#FF3B3022","Medium":"#FF9F0A22","Low":"#6b6b6b22"};
+  const priColor={"High":"#FF3B30","Medium":"#FF9F0A","Low":"#6b6b6b"};
+
+  return(
+    <div style={{fontFamily:"'DM Sans',sans-serif",maxWidth:900,margin:"0 auto"}}>
+
+      {/* HEADER KPI */}
+      <div style={{background:`linear-gradient(135deg,${ws.color},${ws.color}cc)`,borderRadius:14,padding:"20px 24px",marginBottom:20,display:"flex",alignItems:"center",gap:20}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",letterSpacing:1,marginBottom:4}}>DELIVERY EDGE — LAUNCH TRACKER</div>
+          <div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:8}}>Progression globale</div>
+          <div style={{height:8,background:"rgba(255,255,255,0.2)",borderRadius:4,overflow:"hidden",marginBottom:6}}>
+            <div style={{height:"100%",width:pct+"%",background:"#fff",borderRadius:4,transition:"width 0.5s"}}/>
+          </div>
+          <div style={{display:"flex",gap:16}}>
+            <span style={{fontSize:12,color:"rgba(255,255,255,0.9)",fontWeight:700}}>{pct}% complété</span>
+            <span style={{fontSize:12,color:"rgba(255,255,255,0.7)"}}>{doneTasks} / {totalTasks} tâches</span>
+          </div>
+        </div>
+        <div style={{textAlign:"center",background:"rgba(255,255,255,0.15)",borderRadius:12,padding:"14px 20px",minWidth:80}}>
+          <div style={{fontSize:36,fontWeight:900,color:"#fff",lineHeight:1}}>{pct}%</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",marginTop:4}}>DONE</div>
+        </div>
+      </div>
+
+      {/* FILTER ROW */}
+      <div style={{display:"flex",gap:8,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
+        {["all","todo","done"].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{
+            background:filter===f?ws.color:T.s2,color:filter===f?"#fff":T.muted,
+            border:`1px solid ${filter===f?ws.color:T.border}`,
+            borderRadius:20,padding:"5px 14px",fontSize:11,fontWeight:filter===f?700:400,cursor:"pointer",
+          }}>{f==="all"?"Tout voir":f==="todo"?"À faire":"Complétées"}</button>
+        ))}
+        <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
+          <button onClick={()=>setShowBudget(v=>!v)} style={{
+            background:showBudget?"#00C89622":T.s2,color:showBudget?"#00C896":T.muted,
+            border:`1px solid ${showBudget?"#00C89666":T.border}`,
+            borderRadius:20,padding:"5px 14px",fontSize:11,cursor:"pointer",fontWeight:500,
+          }}>💰 Budget (~$200-320)</button>
+        </div>
+      </div>
+
+      {/* BUDGET TABLE */}
+      {showBudget&&(
+        <div style={{background:T.surface,border:`1px solid #00C89633`,borderRadius:12,padding:16,marginBottom:20,borderLeft:`3px solid #00C896`}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#00C896",letterSpacing:1,marginBottom:12}}>💰 BUDGET TOTAL DE LANCEMENT</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {DE_BUDGET.map((b,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"7px 10px",background:i%2===0?T.s2:"transparent",borderRadius:6}}>
+                <span style={{flex:1,fontSize:12,color:T.text}}>{b.item}</span>
+                <span style={{fontSize:12,fontWeight:700,color:b.cost==="GRATUIT"?"#00C896":ws.color,minWidth:80,textAlign:"right"}}>{b.cost}</span>
+                <span style={{fontSize:10,color:T.dim,minWidth:120,textAlign:"right"}}>{b.type}</span>
+              </div>
+            ))}
+            <div style={{borderTop:`1px solid ${T.border}`,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:13,fontWeight:700,color:T.text}}>TOTAL DE LANCEMENT</span>
+              <span style={{fontSize:16,fontWeight:900,color:ws.color}}>~$200–320</span>
+            </div>
+            <div style={{fontSize:11,color:T.dim,fontStyle:"italic",marginTop:4}}>💡 Remboursé avec le premier client dès la première semaine.</div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASES */}
+      {DE_PHASES.map(phase=>{
+        const phPct=phaseProgress(phase);
+        const isOpen=expanded[phase.id];
+        const phAllTasks=phase.sections.flatMap(s=>getTasksForSection(s));
+        const phDone=phAllTasks.filter(t=>t.status==="Done").length;
+
+        return(
+          <div key={phase.id} style={{marginBottom:12,background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.08)"}}>
+
+            {/* Phase Header */}
+            <div onClick={()=>setExpanded(e=>({...e,[phase.id]:!e[phase.id]}))}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",cursor:"pointer",
+                background:isOpen?ws.color+"10":"transparent",
+                borderBottom:isOpen?`1px solid ${T.border}`:"none",
+                transition:"all 0.15s",
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=ws.color+"10"}
+              onMouseLeave={e=>e.currentTarget.style.background=isOpen?ws.color+"10":"transparent"}>
+              <span style={{fontSize:18}}>{phase.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:4}}>{phase.label}</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{flex:1,height:4,background:T.s3,borderRadius:2,overflow:"hidden",maxWidth:200}}>
+                    <div style={{height:"100%",width:phPct+"%",background:phPct===100?"#00C896":ws.color,borderRadius:2,transition:"width 0.4s"}}/>
+                  </div>
+                  <span style={{fontSize:10,color:phPct===100?"#00C896":T.muted,fontWeight:600}}>{phDone}/{phAllTasks.length} tâches</span>
+                </div>
+              </div>
+              {phPct===100&&<span style={{fontSize:10,background:"#00C89622",color:"#00C896",padding:"3px 8px",borderRadius:10,fontWeight:700}}>✓ COMPLÉTÉ</span>}
+              <span style={{fontSize:11,color:T.dim,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</span>
+            </div>
+
+            {/* Phase Content */}
+            {isOpen&&(
+              <div style={{padding:"12px 16px"}}>
+                {phase.sections.map((sec,si)=>{
+                  let secTasks=getTasksForSection(sec);
+                  if(filter==="todo") secTasks=secTasks.filter(t=>t.status!=="Done");
+                  if(filter==="done") secTasks=secTasks.filter(t=>t.status==="Done");
+
+                  if(secTasks.length===0&&filter!=="all") return null;
+
+                  return(
+                    <div key={si} style={{marginBottom:16}}>
+                      <div style={{fontSize:10,fontWeight:700,color:sec.color,letterSpacing:1,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:sec.color,boxShadow:`0 0 4px ${sec.color}`}}/>
+                        {sec.label.toUpperCase()}
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        {secTasks.length===0&&(
+                          <div style={{fontSize:12,color:T.dim,fontStyle:"italic",padding:"8px 12px"}}>Aucune tâche dans cette catégorie.</div>
+                        )}
+                        {secTasks.map(task=>{
+                          const isDone=task.status==="Done";
+                          return(
+                            <div key={task.id}
+                              style={{
+                                display:"flex",alignItems:"flex-start",gap:10,
+                                padding:"10px 12px",borderRadius:8,
+                                background:isDone?T.s2:T.bg||"#0f0f0f",
+                                border:`1px solid ${isDone?"#00C89622":T.border}`,
+                                opacity:isDone?0.7:1,
+                                transition:"all 0.15s",
+                              }}
+                              onMouseEnter={e=>{if(!isDone)e.currentTarget.style.borderColor=sec.color+"66";}}
+                              onMouseLeave={e=>{e.currentTarget.style.borderColor=isDone?"#00C89622":T.border;}}>
+
+                              {/* Checkbox */}
+                              <div onClick={()=>toggleTask(task)}
+                                style={{
+                                  width:20,height:20,borderRadius:5,flexShrink:0,marginTop:1,
+                                  background:isDone?"#00C896":"transparent",
+                                  border:`2px solid ${isDone?"#00C896":sec.color}`,
+                                  display:"flex",alignItems:"center",justifyContent:"center",
+                                  cursor:"pointer",transition:"all 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                                  boxShadow:isDone?"0 0 6px #00C89666":"none",
+                                }}>
+                                {isDone&&<span style={{color:"#fff",fontSize:10,fontWeight:900,lineHeight:1}}>✓</span>}
+                              </div>
+
+                              {/* Content */}
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:13,fontWeight:600,color:isDone?T.muted:T.text,textDecoration:isDone?"line-through":"none",marginBottom:task.notes?4:0,lineHeight:1.4}}>
+                                  {task.title}
+                                </div>
+                                {task.notes&&<div style={{fontSize:11,color:T.dim,lineHeight:1.5}}>{task.notes}</div>}
+                              </div>
+
+                              {/* Priority + Tag */}
+                              <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+                                {task.priority==="High"&&!isDone&&(
+                                  <span style={{fontSize:9,background:"#FF3B3018",color:"#FF3B30",border:"1px solid #FF3B3033",borderRadius:10,padding:"2px 7px",fontWeight:700}}>URGENT</span>
+                                )}
+                                {(task.tags||[]).slice(0,1).map(tag=>(
+                                  <span key={tag} style={{fontSize:9,background:(tagColor[tag]||"#777")+"18",color:tagColor[tag]||"#777",border:`1px solid ${(tagColor[tag]||"#777")}33`,borderRadius:10,padding:"2px 7px",fontWeight:600}}>{tag}</span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* DONE SECTION — tasks not matching any phase tag */}
+      {filter!=="todo"&&(()=>{
+        const doneMisc=deTasks.filter(t=>t.status==="Done"&&!DE_PHASES.flatMap(p=>p.sections).flatMap(s=>s.tags).some(tag=>(t.tags||[]).includes(tag)));
+        return doneMisc.length>0?(
+          <div style={{marginTop:8,padding:"10px 14px",background:T.s2,borderRadius:10,border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:10,color:"#00C896",fontWeight:700,letterSpacing:1,marginBottom:8}}>✓ AUTRES COMPLÉTÉES</div>
+            {doneMisc.map(task=>(
+              <div key={task.id} style={{fontSize:12,color:T.muted,padding:"4px 0",textDecoration:"line-through"}}>{task.title}</div>
+            ))}
+          </div>
+        ):null;
+      })()}
+
     </div>
   );
 }
