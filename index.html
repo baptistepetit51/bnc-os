@@ -9,12 +9,102 @@
   <meta name="apple-mobile-web-app-title" content="BNC OS"/>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/icon-192.png"/>
-  <title>BNC OS</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <title>BNC OS — Business Intelligence Platform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     html,body,#root{height:100%;overflow:hidden;}
-    body{background:#0f0f0f;}
+    body{background:#08080a; font-family:'Inter',system-ui,sans-serif;}
+    
+    /* ── PREMIUM SCROLLBAR ── */
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:8px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.16)}
+    
+    /* ── PREMIUM INPUTS ── */
+    input,select,textarea{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      color:#f2f2f2;
+      border-radius:10px;
+      padding:10px 14px;
+      font-family:'Inter',sans-serif;
+      font-size:13px;
+      width:100%;
+      transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
+      outline:none;
+    }
+    input:focus,select:focus,textarea:focus{
+      border-color:var(--accent,#FF6B00);
+      background:rgba(255,255,255,0.06);
+      box-shadow:0 0 0 3px rgba(255,107,0,0.12);
+    }
+    input::placeholder{color:rgba(255,255,255,0.25);}
+    select option{background:#1a1a1e;color:#f2f2f2;}
+    button{cursor:pointer;font-family:'Inter',sans-serif;}
+    textarea{resize:vertical;min-height:80px;line-height:1.6;}
+    
+    /* ── PREMIUM ANIMATIONS ── */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 5px rgba(255,59,48,0)}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    @keyframes mascotBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes mascotWave{0%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}100%{transform:rotate(0deg)}}
+    @keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+    
+    .fade-up{animation:fadeUp 0.25s cubic-bezier(0.4,0,0.2,1)}
+    .fade-in{animation:fadeIn 0.2s ease}
+    
+    /* ── PREMIUM NAV ITEM ── */
+    .nav-item{
+      display:flex;align-items:center;gap:10px;
+      padding:8px 12px;border-radius:10px;
+      border:none;width:100%;text-align:left;
+      transition:all 0.15s cubic-bezier(0.4,0,0.2,1);
+      background:transparent;color:rgba(255,255,255,0.45);
+      font-size:12.5px;font-weight:500;letter-spacing:0.01em;
+      position:relative;overflow:hidden;
+    }
+    .nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
+    .nav-item.active{background:rgba(255,107,0,0.15);color:#FF6B00;font-weight:600;}
+    .nav-item.active::before{
+      content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+      width:3px;height:60%;border-radius:0 3px 3px 0;background:currentColor;
+    }
+    
+    /* ── GLASS CARD ── */
+    .glass-card{
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.07);
+      border-radius:16px;
+      backdrop-filter:blur(20px);
+    }
+    
+    /* ── PREMIUM BUTTON ── */
+    .btn-primary{
+      background:var(--accent,#FF6B00);color:#fff;
+      border:none;border-radius:10px;padding:10px 20px;
+      font-size:13px;font-weight:600;letter-spacing:0.02em;
+      transition:all 0.15s;display:inline-flex;align-items:center;gap:6px;
+    }
+    .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,107,0,0.3);}
+    .btn-primary:active{transform:translateY(0);filter:brightness(0.95);}
+    
+    /* ── LIGHT MODE OVERRIDES ── */
+    body.light-mode{background:#f0f2f5;}
+    body.light-mode input,body.light-mode select,body.light-mode textarea{
+      background:#fff;border-color:rgba(0,0,0,0.1);color:#1a1a1e;
+    }
+    body.light-mode input::placeholder{color:rgba(0,0,0,0.3);}
+    body.light-mode select option{background:#fff;color:#1a1a1e;}
+    body.light-mode .glass-card{background:rgba(255,255,255,0.9);border-color:rgba(0,0,0,0.08);}
+    body.light-mode ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);}
+    body.light-mode .nav-item{color:rgba(0,0,0,0.45);}
+    body.light-mode .nav-item:hover{background:rgba(0,0,0,0.05);color:rgba(0,0,0,0.8);}
+    body.light-mode .nav-item.active{background:rgba(255,107,0,0.1);color:#FF6B00;}
   </style>
 </head>
 <body>
@@ -249,8 +339,8 @@ const LOGO_DE  = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 
 // ─── THEMES ───────────────────────────────────────────────────────────────
 const THEMES = {
-  dark:  { bg:"#0a0a0b", surface:"#111113", s2:"#18181b", s3:"#222226", border:"#27272a", text:"#fafafa", muted:"#71717a", dim:"#3f3f46", inputBg:"#09090b", shadow:"0 20px 60px rgba(0,0,0,0.6),0 4px 16px rgba(0,0,0,0.4)" },
-  light: { bg:"#f1f5f9", surface:"#ffffff", s2:"#f8fafc", s3:"#f1f5f9", border:"#e2e8f0", text:"#0f172a", muted:"#64748b", dim:"#94a3b8", inputBg:"#ffffff", shadow:"0 20px 60px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.04)" },
+  dark:  { bg:"#08080a", surface:"#111114", s2:"#16161a", s3:"#1e1e23", border:"rgba(255,255,255,0.07)", text:"#f2f2f7", muted:"rgba(255,255,255,0.45)", dim:"rgba(255,255,255,0.2)", inputBg:"rgba(255,255,255,0.04)", shadow:"0 24px 64px rgba(0,0,0,0.7),0 4px 16px rgba(0,0,0,0.5)" },
+  light: { bg:"#f0f2f5", surface:"#ffffff", s2:"#f7f8fa", s3:"#edeef0", border:"rgba(0,0,0,0.08)", text:"#1a1a1e", muted:"rgba(0,0,0,0.45)", dim:"rgba(0,0,0,0.2)", inputBg:"#ffffff", shadow:"0 24px 64px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.04)" },
 };
 
 // ─── i18n ─────────────────────────────────────────────────────────────────
@@ -322,28 +412,28 @@ function WSLogo({ws, size=32, light=false}){
 }
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────
-function Badge({label,color,small}){return <span style={{background:color+"18",color,border:`1px solid ${color}33`,borderRadius:20,padding:small?"2px 8px":"3px 12px",fontSize:small?9:11,fontWeight:600,letterSpacing:0.2,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center"}}>{label}</span>;}
-function Avatar({name,size=26,color="#FF6B00"}){return <div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${color}33,${color}18)`,border:`1.5px solid ${color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:800,color,flexShrink:0,boxShadow:`0 1px 4px ${color}22`}}>{name?.[0]?.toUpperCase()}</div>;}
-function PBar({value,color="#FF6B00",T}){return <div style={{height:6,background:T.s3,borderRadius:8,overflow:"hidden",width:"100%"}}><div style={{width:`${Math.min(100,value||0)}%`,height:"100%",background:`linear-gradient(90deg,${color},${color}cc)`,borderRadius:8,transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)",boxShadow:`0 0 8px ${color}44`}}/></div>;}
+function Badge({label,color,small}){return <span style={{background:color+"14",color,border:`1px solid ${color}28`,borderRadius:20,padding:small?"2px 8px":"4px 12px",fontSize:small?9:11,fontWeight:600,letterSpacing:0.3,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",backdropFilter:"blur(4px)"}}>{label}</span>;}
+function Avatar({name,size=26,color="#FF6B00"}){return <div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${color}28,${color}14)`,border:`1.5px solid ${color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:800,color,flexShrink:0,boxShadow:`0 2px 8px ${color}22`,backdropFilter:"blur(4px)"}}>{name?.[0]?.toUpperCase()}</div>;}
+function PBar({value,color="#FF6B00",T}){return <div style={{height:5,background:"rgba(255,255,255,0.06)",borderRadius:8,overflow:"hidden",width:"100%"}}><div style={{width:`${Math.min(100,value||0)}%`,height:"100%",background:`linear-gradient(90deg,${color}cc,${color})`,borderRadius:8,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)",boxShadow:`0 0 10px ${color}55`}}/></div>;}
 
 function Card({children,onClick,T,style={},accent}){
   const [h,setH]=useState(false);
   return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)}
     style={{
       background:h?T.s2:T.surface,
-      border:`1px solid ${h&&onClick?T.muted+"44":T.border}`,
-      borderRadius:12,padding:"18px 20px",
+      border:`1px solid ${h&&onClick?"rgba(255,255,255,0.12)":T.border}`,
+      borderRadius:14,padding:"18px 20px",
       cursor:onClick?"pointer":"default",
-      transition:"all 0.15s",
-      boxShadow:h&&onClick?`0 8px 24px rgba(0,0,0,0.15)`:`0 1px 4px rgba(0,0,0,0.06)`,
-      transform:h&&onClick?"translateY(-1px)":"translateY(0)",
-      ...(accent?{borderLeft:`3px solid ${accent}`}:{}),
+      transition:"all 0.2s cubic-bezier(0.4,0,0.2,1)",
+      boxShadow:h&&onClick?"0 12px 32px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.12)":"0 1px 3px rgba(0,0,0,0.08)",
+      transform:h&&onClick?"translateY(-2px)":"translateY(0)",
+      ...(accent?{borderLeft:`3px solid ${accent}`,paddingLeft:17}:{}),
       ...style
     }}>{children}</div>;
 }
 
-function MF({label,children,T}){return <div style={{marginBottom:14}}><div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:5,fontWeight:600}}>{label.toUpperCase()}</div>{children}</div>;}
-function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:22}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:7,padding:"11px",fontSize:13,fontWeight:600}}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:7,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B30",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"#777",border:"1px solid #333",borderRadius:7,padding:"11px 14px",fontSize:13}}>{t.cancel}</button></div>;}
+function MF({label,children,T}){return <div style={{marginBottom:15}}><div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,textTransform:"uppercase"}}>{label}</div>{children}</div>;}
+function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:24}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:600,boxShadow:`0 2px 12px ${color}44`,transition:"all 0.15s"}}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:10,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B3044",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"rgba(255,255,255,0.4)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.cancel}</button></div>;}
 
 // ─── MINI CALENDAR PICKER ─────────────────────────────────────────────────
 function DeadlineBadge({value}){
@@ -552,7 +642,7 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
   }
 
   return(
-    <div style={{height:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{height:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Inter',system-ui,sans-serif"}}>
       <div style={{width:380,padding:40,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:T.shadow}}>
         <div style={{display:"flex",justifyContent:"center",marginBottom:28}}>
           <img src={LOGO_BNC_LIGHT} style={{width:90,height:90,objectFit:"contain",background:"transparent"}}/>
@@ -583,7 +673,14 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
           <span style={{fontSize:12,color:T.muted,userSelect:"none"}}>Se souvenir de moi</span>
         </div>
 
-        <button onClick={handleLogin} disabled={loading} style={{width:"100%",background:"#FF6B00",color:"#fff",border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:loading?0.7:1}}>
+        <button onClick={handleLogin} disabled={loading} style={{
+          width:"100%",background:"#FF6B00",color:"#fff",border:"none",
+          borderRadius:12,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",
+          opacity:loading?0.7:1,transition:"all 0.2s",
+          boxShadow:"0 4px 20px #FF6B0044",letterSpacing:0.02,
+        }}
+        onMouseEnter={e=>{if(!loading){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow="0 6px 24px #FF6B0066";}}}
+        onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 4px 20px #FF6B0044";}}>
           {loading?t.loading:t.loginBtn}
         </button>
 
@@ -981,37 +1078,73 @@ function App(){
 
   // Keep showing UI while data loads — no flash
 
-  return(
-    <div style={{display:"flex",height:"100vh",background:T.bg,fontFamily:"'DM Sans',sans-serif",color:T.text,overflow:"hidden"}}>
-      <style>{`*{box-sizing:border-box;}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.dim};border-radius:8px}::-webkit-scrollbar-thumb:hover{background:${T.muted}}input,select,textarea{background:${T.inputBg};border:1.5px solid ${T.border};color:${T.text};border-radius:8px;padding:9px 12px;font-family:"DM Sans",sans-serif;font-size:13px;width:100%;transition:border-color 0.15s;}input:focus,select:focus,textarea:focus{outline:none;border-color:${ws.color};box-shadow:0 0 0 3px ${ws.color}18;}button{cursor:pointer;font-family:"DM Sans",sans-serif;}textarea{resize:vertical;min-height:72px;}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 4px rgba(255,59,48,0)}}@keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.fade-in{animation:fadeIn 0.2s ease}`}</style>
+  // Apply body class for light/dark mode
+  React.useEffect(()=>{
+    document.body.classList.toggle('light-mode', theme==='light');
+    document.documentElement.style.setProperty('--accent', ws.color);
+    document.documentElement.style.setProperty('--ws-color', ws.color);
+  },[theme, ws.color]);
 
-      {/* SIDEBAR */}
-      <aside style={{width:sideCol?62:224,flexShrink:0,background:theme==="dark"?"rgba(8,8,10,0.98)":"#fff",borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",transition:"width 0.25s cubic-bezier(0.4,0,0.2,1)",overflow:"hidden"}}>
-        <div style={{padding:"12px 10px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10}}>
-          <WSLogo ws={ws} size={34}/>
-          {!sideCol&&<div style={{overflow:"hidden",flex:1}}><div style={{fontSize:12,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ws.name}</div><div style={{fontSize:9,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{t.workspace}</div></div>}
-          <button onClick={()=>setSideCol(c=>!c)} style={{background:"transparent",border:`1px solid ${T.border}`,color:T.muted,borderRadius:5,width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,flexShrink:0}}>{sideCol?"›":"‹"}</button>
+    return(
+    <div style={{display:"flex",height:"100vh",background:T.bg,fontFamily:"'Inter',system-ui,sans-serif",color:T.text,overflow:"hidden"}}>
+      <style>{`*{box-sizing:border-box;}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.dim};border-radius:8px}::-webkit-scrollbar-thumb:hover{background:${T.muted}}input,select,textarea{background:${T.inputBg};border:1.5px solid ${T.border};color:${T.text};border-radius:8px;padding:9px 12px;font-family:'Inter',system-ui,sans-serif;font-size:13px;width:100%;transition:border-color 0.15s;}input:focus,select:focus,textarea:focus{outline:none;border-color:${ws.color};box-shadow:0 0 0 3px ${ws.color}18;}button{cursor:pointer;font-family:'Inter',system-ui,sans-serif;}textarea{resize:vertical;min-height:72px;}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 4px rgba(255,59,48,0)}}@keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.fade-in{animation:fadeIn 0.2s ease}`}</style>
+
+      {/* ── PREMIUM SIDEBAR ── */}
+      <aside style={{
+        width:sideCol?64:240,flexShrink:0,
+        background:theme==="dark"?"rgba(8,8,10,0.98)":"rgba(255,255,255,0.97)",
+        borderRight:`1px solid ${T.border}`,
+        display:"flex",flexDirection:"column",
+        transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",
+        overflow:"hidden",
+        backdropFilter:"blur(20px)",
+        position:"relative",zIndex:50,
+      }}>
+        {/* Brand */}
+        <div style={{padding:"16px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:11,minHeight:64}}>
+          <div style={{position:"relative",flexShrink:0}}>
+            <WSLogo ws={ws} size={36}/>
+            <div style={{position:"absolute",bottom:-2,right:-2,width:10,height:10,borderRadius:"50%",background:"#00C896",border:`2px solid ${T.bg}`}}/>
+          </div>
+          {!sideCol&&<div style={{overflow:"hidden",flex:1}}>
+            <div style={{fontSize:13,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:-0.2}}>{ws.name}</div>
+            <div style={{fontSize:9,color:T.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:1,textTransform:"uppercase"}}>{t.workspace}</div>
+          </div>}
+          <button onClick={()=>setSideCol(c=>!c)} style={{
+            background:"transparent",border:`1px solid ${T.border}`,
+            color:T.muted,borderRadius:7,width:24,height:24,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:11,flexShrink:0,transition:"all 0.15s",
+          }}>{sideCol?"›":"‹"}</button>
         </div>
 
         {/* WS switcher */}
-        <div style={{padding:"8px",borderBottom:`1px solid ${T.border}`}}>
+        <div style={{padding:"10px 10px 6px",borderBottom:`1px solid ${T.border}`}}>
+          {!sideCol&&<div style={{fontSize:9,color:T.dim,letterSpacing:1,fontWeight:600,marginBottom:6,paddingLeft:4,textTransform:"uppercase",opacity:0.6}}>Workspaces</div>}
           {accessibleWS.map(w=>{
             const urgent=wsUrgentCount(w.id);
             const isActive=wsId===w.id;
             return(
               <button key={w.id} onClick={()=>switchWs(w.id)} title={w.name}
-                style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"6px 8px",borderRadius:8,border:"none",
-                  background:isActive?w.color+"20":"transparent",marginBottom:2,
-                  transition:"all 0.12s",outline:isActive?`1.5px solid ${w.color}44`:"none",
+                style={{
+                  width:"100%",display:"flex",alignItems:"center",
+                  gap:sideCol?0:10,
+                  padding:sideCol?"9px 0":"7px 10px",
+                  justifyContent:sideCol?"center":"flex-start",
+                  borderRadius:10,border:"none",
+                  background:isActive?w.color+"18":"transparent",marginBottom:2,
+                  transition:"all 0.15s cubic-bezier(0.4,0,0.2,1)",
+                  outline:isActive?`1.5px solid ${w.color}33`:"none",
                   position:"relative",
-                }}>
-                {/* Logo with badge */}
+                }}
+                onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background="rgba(255,255,255,0.05)";}}
+                onMouseLeave={e=>{if(!isActive)e.currentTarget.style.background="transparent";}}>
                 <div style={{position:"relative",flexShrink:0}}>
-                  <WSLogo ws={w} size={26}/>
+                  <WSLogo ws={w} size={28}/>
                   {urgent>0&&!isActive&&(
                     <div style={{
                       position:"absolute",top:-4,right:-4,
-                      minWidth:15,height:15,borderRadius:8,
+                      minWidth:16,height:16,borderRadius:8,
                       background:"#FF3B30",border:`2px solid ${T.bg}`,
                       color:"#fff",fontSize:8,fontWeight:800,
                       display:"flex",alignItems:"center",justifyContent:"center",
@@ -1019,115 +1152,201 @@ function App(){
                     }}>{urgent>9?"9+":urgent}</div>
                   )}
                 </div>
-                {!sideCol&&<span style={{fontSize:11,fontWeight:700,color:isActive?w.color:T.muted,whiteSpace:"nowrap",letterSpacing:0.5,flex:1}}>{w.abbr}</span>}
-                {!sideCol&&urgent>0&&!isActive&&(
-                  <span style={{background:"#FF3B30",color:"#fff",fontSize:8,fontWeight:800,padding:"1px 5px",borderRadius:8,minWidth:16,textAlign:"center"}}>{urgent}</span>
-                )}
+                {!sideCol&&<>
+                  <span style={{fontSize:12,fontWeight:700,color:isActive?w.color:T.muted,whiteSpace:"nowrap",letterSpacing:0.3,flex:1}}>{w.abbr}</span>
+                  {urgent>0&&!isActive&&<span style={{background:"#FF3B30",color:"#fff",fontSize:8,fontWeight:800,padding:"1px 5px",borderRadius:6}}>{urgent}</span>}
+                  {isActive&&<div style={{width:6,height:6,borderRadius:"50%",background:w.color,flexShrink:0,boxShadow:`0 0 8px ${w.color}`}}/>}
+                </>}
               </button>
             );
           })}
         </div>
 
-        {!sideCol&&<button onClick={()=>setSO(true)} style={{margin:"8px 10px",background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"7px 10px",display:"flex",alignItems:"center",gap:8,color:T.muted,fontSize:12,cursor:"pointer"}}>
-          <span>⌕</span><span style={{flex:1,textAlign:"left"}}>{t.searchPlaceholder}</span><span style={{fontSize:9,background:T.s3,padding:"1px 5px",borderRadius:3}}>⌘K</span>
-        </button>}
+        {/* ── INLINE SEARCH ── */}
+        {!sideCol&&(
+          <div style={{margin:"10px 12px 4px",position:"relative"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:T.dim,pointerEvents:"none",zIndex:1}}>⌕</span>
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={e=>{setSearch(e.target.value);setSO(e.target.value.length>=2);}}
+              onKeyDown={e=>{
+                if(e.key==="Escape"){setSearch("");setSO(false);}
+                if(e.key==="Enter"&&searchResults.length>0){
+                  const r=searchResults[0];
+                  setModule(r._type==="task"?"tasks":r._type==="project"?"projects":"meetings");
+                  setSearch("");setSO(false);
+                }
+              }}
+              placeholder={t.searchPlaceholder}
+              style={{
+                width:"100%",
+                background:T.s2,border:`1px solid ${T.border}`,
+                borderRadius:10,padding:"8px 28px 8px 32px",
+                fontSize:12,color:T.text,outline:"none",
+                transition:"all 0.15s",
+                fontFamily:"'Inter',system-ui,sans-serif",
+              }}
+              onFocus={e=>{e.target.style.borderColor=ws.color;e.target.style.background=T.s3;}}
+              onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.background=T.s2;}}
+            />
+            {search&&<button onClick={()=>{setSearch("");setSO(false);}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:T.dim,fontSize:11,cursor:"pointer",lineHeight:1,padding:2}}>✕</button>}
+          </div>
+        )}
 
+        {/* Inline search results */}
+        {!sideCol&&searchOpen&&search.length>=2&&(
+          <div style={{
+            margin:"0 12px 4px",
+            background:T.surface,border:`1px solid ${T.border}`,
+            borderRadius:10,overflow:"hidden",
+            boxShadow:"0 8px 24px rgba(0,0,0,0.25)",
+            maxHeight:220,overflowY:"auto",
+          }}>
+            {searchResults.length===0&&(
+              <div style={{padding:"14px",textAlign:"center",color:T.muted,fontSize:12}}>{t.noResults}</div>
+            )}
+            {searchResults.slice(0,6).map(r=>(
+              <div key={r.id+r._type}
+                onClick={()=>{setModule(r._type==="task"?"tasks":r._type==="project"?"projects":"meetings");setSearch("");setSO(false);}}
+                style={{padding:"9px 14px",borderBottom:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"background 0.1s"}}
+                onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <span style={{fontSize:13,opacity:0.5,flexShrink:0}}>{r._type==="task"?"☑":r._type==="project"?"◎":"⊕"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.title}</div>
+                  <div style={{fontSize:10,color:T.muted}}>{r._type.toUpperCase()}</div>
+                </div>
+                {r.status&&<span style={{fontSize:9,color:TASK_STATUS[r.status]?.dot||PROJ_STATUS[r.status]||"#777",fontWeight:600,flexShrink:0}}>{r.status}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+
+        {/* Nav */}
         <nav style={{flex:1,padding:"6px 8px",overflowY:"auto"}}>
+          {!sideCol&&<div style={{fontSize:9,color:T.dim,letterSpacing:1,fontWeight:600,margin:"8px 0 4px 4px",textTransform:"uppercase",opacity:0.6}}>Navigation</div>}
           {NAV.map(n=>(
             <button key={n.id} onClick={()=>setModule(n.id)} title={n.label}
-              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"none",
-                background:module===n.id?ws.color+"22":"transparent",
-                color:module===n.id?ws.color:T.muted,marginBottom:1,
-                transition:"all 0.12s",textAlign:"left",
-                boxShadow:module===n.id?`inset 0 0 0 1px ${ws.color}33`:"none",
-              }}
-              onMouseEnter={e=>{if(module!==n.id)e.currentTarget.style.background=T.s2;e.currentTarget.style.color=module===n.id?ws.color:T.text;}}
-              onMouseLeave={e=>{e.currentTarget.style.background=module===n.id?ws.color+"22":"transparent";e.currentTarget.style.color=module===n.id?ws.color:T.muted;}}>
-              <span style={{fontSize:15,flexShrink:0,width:20,textAlign:"center",lineHeight:1}}>{n.icon}</span>
-              {!sideCol&&<span style={{fontSize:12,fontWeight:module===n.id?700:400,whiteSpace:"nowrap",letterSpacing:module===n.id?0.2:0}}>{n.label}</span>}
+              className={`nav-item${module===n.id?" active":""}`}
+              style={{justifyContent:sideCol?"center":"flex-start",marginBottom:1,padding:sideCol?"10px 0":"8px 12px",width:"100%"}}>
+              <span style={{fontSize:16,flexShrink:0,width:sideCol?"auto":20,textAlign:"center",lineHeight:1}}>{n.icon}</span>
+              {!sideCol&&<span style={{fontSize:12.5,fontWeight:module===n.id?600:400,whiteSpace:"nowrap"}}>{n.label}</span>}
             </button>
           ))}
         </nav>
 
-        <div style={{padding:"10px 8px",borderTop:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:6}}>
+        {/* Footer */}
+        <div style={{padding:"10px 10px",borderTop:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:6}}>
           {!sideCol&&<button onClick={()=>gcalConnect().then(()=>setGcalConnected(gcalIsConnected()))} style={{
-            background:gcalConnected?"#00C89618":"#1a73e818",
-            border:`1px solid ${gcalConnected?"#00C89655":"#1a73e855"}`,
-            borderRadius:7,padding:"7px 10px",fontSize:11,fontWeight:600,
-            color:gcalConnected?"#00C896":"#1a73e8",cursor:"pointer",width:"100%",textAlign:"left",
-            display:"flex",alignItems:"center",gap:6,
+            background:gcalConnected?"#00C89610":"rgba(255,255,255,0.04)",
+            border:`1px solid ${gcalConnected?"#00C89640":T.border}`,
+            borderRadius:9,padding:"7px 10px",fontSize:11,fontWeight:600,
+            color:gcalConnected?"#00C896":T.muted,cursor:"pointer",width:"100%",textAlign:"left",
+            display:"flex",alignItems:"center",gap:6,transition:"all 0.15s",
           }}>
             <span>{gcalConnected?"✅":"📅"}</span>
-            <span>{gcalConnected?"Google Calendar connecté":"Connecter Google Calendar"}</span>
+            <span style={{fontSize:11}}>{gcalConnected?"Calendar connecté":"Connecter Calendar"}</span>
           </button>}
           {!sideCol&&<div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setTheme(v=>{const n=v==="dark"?"light":"dark";localStorage.setItem('bnc_theme',n);return n;})} style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"6px",fontSize:10,color:T.muted,cursor:"pointer"}}>{theme==="dark"?"☀ "+t.lightMode:"☾ "+t.darkMode}</button>
-            <button onClick={()=>setLang(v=>v==="fr"?"en":"fr")} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"6px 10px",fontSize:10,color:T.muted,fontWeight:700,cursor:"pointer"}}>{lang==="fr"?"EN":"FR"}</button>
+            <button onClick={()=>setTheme(v=>{const n=v==="dark"?"light":"dark";localStorage.setItem('bnc_theme',n);return n;})} style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>{theme==="dark"?"☀️ Light":"🌙 Dark"}</button>
+            <button onClick={()=>setLang(v=>v==="fr"?"en":"fr")} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:10,color:T.muted,fontWeight:700,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>{lang==="fr"?"EN":"FR"}</button>
           </div>}
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"4px"}}>
-            <Avatar name={user.name} size={28} color={ws.color}/>
+          <div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 2px"}}>
+            <Avatar name={user.name} size={30} color={ws.color}/>
             {!sideCol&&<div style={{flex:1,overflow:"hidden"}}>
               <div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name}</div>
               <div style={{fontSize:10,color:T.muted}}>{t.roles[user.role]}</div>
             </div>}
-            {!sideCol&&<button title={t.logout} onClick={()=>{localStorage.removeItem("bnc_saved_email");localStorage.removeItem("bnc_saved_pass");localStorage.removeItem("bnc_session_user");setUser(null);}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"3px 6px",fontSize:10,color:T.muted,cursor:"pointer"}}>↩</button>}
+            {!sideCol&&<button title={t.logout} onClick={()=>{localStorage.removeItem("bnc_saved_email");localStorage.removeItem("bnc_saved_pass");localStorage.removeItem("bnc_session_user");setUser(null);}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>↩</button>}
           </div>
         </div>
       </aside>
 
-      {/* MAIN */}
+
+      {/* ── PREMIUM TOPBAR ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <div style={{height:56,borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",padding:"0 24px",gap:14,background:theme==="dark"?"rgba(10,10,11,0.95)":T.surface,flexShrink:0,backdropFilter:"blur(12px)",position:"sticky",top:0,zIndex:10}}>
+        <div style={{
+          height:60,borderBottom:`1px solid ${T.border}`,
+          display:"flex",alignItems:"center",padding:"0 24px",gap:12,
+          background:theme==="dark"?"rgba(8,8,10,0.95)":T.surface,
+          flexShrink:0,backdropFilter:"blur(20px)",
+          position:"sticky",top:0,zIndex:10,
+        }}>
+          {/* Breadcrumb */}
           <div style={{flex:1,display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{ws.abbr} /</span>
-            <span style={{fontSize:14,fontWeight:600}}>{NAV.find(n=>n.id===module)?.label}</span>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:T.dim,letterSpacing:1,textTransform:"uppercase"}}>{ws.abbr}</span>
+            <span style={{color:T.dim,fontSize:12}}>/</span>
+            <span style={{fontSize:14,fontWeight:600,letterSpacing:-0.1}}>{NAV.find(n=>n.id===module)?.label}</span>
           </div>
-          {["tasks","projects","media"].includes(module)&&wsId==="bnc"&&(
+
+          {/* Location filter (projects + media only — tasks has built-in location view) */}
+          {["projects","media"].includes(module)&&wsId==="bnc"&&(
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {LOCATIONS.map(l=>(
-                <button key={l} onClick={()=>setLocFilt(l)} style={{background:locFilt===l?ws.color:T.s2,color:locFilt===l?"#fff":T.muted,border:`1px solid ${locFilt===l?ws.color:T.border}`,borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:locFilt===l?600:400}}>{l}</button>
+                <button key={l} onClick={()=>setLocFilt(l)} style={{
+                  background:locFilt===l?ws.color:"transparent",
+                  color:locFilt===l?"#fff":T.muted,
+                  border:`1px solid ${locFilt===l?ws.color:T.border}`,
+                  borderRadius:20,padding:"4px 12px",fontSize:11,
+                  fontWeight:locFilt===l?600:400,
+                  transition:"all 0.15s",
+                }}>{l}</button>
               ))}
             </div>
           )}
+
+          {/* CTA Button */}
           {!["dashboard","calendar","access","expenses","products","tito_home","tito_notes","tito_goals","tito_inbox","daily_brief","global_cal","clients"].includes(module)&&(
-            <button onClick={()=>setModal({type:`add_${module}`})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+            <button onClick={()=>setModal({type:`add_${module}`})} style={{
+              background:ws.color,color:"#fff",border:"none",
+              borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,
+              display:"flex",alignItems:"center",gap:6,
+              transition:"all 0.15s",letterSpacing:0.02,
+              boxShadow:`0 2px 12px ${ws.color}44`,
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.filter="brightness(1.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+            onMouseLeave={e=>{e.currentTarget.style.filter="brightness(1)";e.currentTarget.style.transform="translateY(0)";}}>
               <span style={{fontSize:16,lineHeight:1}}>+</span>
               {module==="tasks"?t.newTask:module==="projects"?t.newProject:module==="meetings"?t.newMeeting:t.newInfluencer}
             </button>
           )}
-          {module==="products"&&<button onClick={()=>setModal({type:"add_products"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ Nouveau produit</button>}
-          {module==="clients"&&<button onClick={()=>setModal({type:"add_clients"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ Nouveau client</button>}
-          {module==="calendar"&&<button onClick={()=>setModal({type:"add_calendar"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ {t.addEvent}</button>}
-          {module==="expenses"&&<button onClick={()=>setModal({type:"add_expenses"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:600}}>+ Dépense</button>}
+          {module==="products"&&<button onClick={()=>setModal({type:"add_products"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,boxShadow:`0 2px 12px ${ws.color}44`}}>+ Nouveau produit</button>}
+          {module==="clients"&&<button onClick={()=>setModal({type:"add_clients"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,boxShadow:`0 2px 12px ${ws.color}44`}}>+ Nouveau client</button>}
+          {module==="calendar"&&<button onClick={()=>setModal({type:"add_calendar"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,boxShadow:`0 2px 12px ${ws.color}44`}}>+ {t.addEvent}</button>}
+          {module==="expenses"&&<button onClick={()=>setModal({type:"add_expenses"})} style={{background:ws.color,color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,boxShadow:`0 2px 12px ${ws.color}44`}}>+ Dépense</button>}
 
           {/* Notification bell */}
           <div style={{position:"relative"}}>
-            <button onClick={()=>setNotifOpen(o=>!o)} title="Notifications — tous workspaces" style={{
-              background:unreadCount>0?"#FF3B3018":"transparent",
-              border:`1px solid ${unreadCount>0?"#FF3B30":T.border}`,
-              borderRadius:8,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",
+            <button onClick={()=>setNotifOpen(o=>!o)} title="Notifications" style={{
+              background:unreadCount>0?"#FF3B3012":"transparent",
+              border:`1px solid ${unreadCount>0?"#FF3B3044":T.border}`,
+              borderRadius:10,width:40,height:40,
+              display:"flex",alignItems:"center",justifyContent:"center",
               fontSize:17,position:"relative",cursor:"pointer",transition:"all 0.15s",
-            }}>
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.background=T.s2;}}
+            onMouseLeave={e=>{e.currentTarget.style.background=unreadCount>0?"#FF3B3012":"transparent";}}>
               🔔
               {unreadCount>0&&(
                 <span style={{
-                  position:"absolute",top:-5,right:-5,
+                  position:"absolute",top:-4,right:-4,
                   minWidth:18,height:18,borderRadius:9,
-                  background:"#FF3B30",border:`2px solid ${T.surface}`,
+                  background:"#FF3B30",border:`2px solid ${T.bg}`,
                   color:"#fff",fontSize:9,fontWeight:700,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  padding:"0 4px",
-                  animation:"pulse 2s infinite",
+                  padding:"0 4px",animation:"pulse 2s infinite",
                 }}>{unreadCount>9?"9+":unreadCount}</span>
               )}
             </button>
 
             {notifOpen&&(
               <div onClick={e=>e.stopPropagation()} style={{
-                position:"absolute",right:0,top:46,
+                position:"absolute",right:0,top:48,
                 width:380,maxWidth:"95vw",
                 background:T.surface,border:`1px solid ${T.border}`,
-                borderRadius:12,boxShadow:T.shadow,zIndex:500,overflow:"hidden",
+                borderRadius:16,boxShadow:T.shadow,zIndex:500,overflow:"hidden",
               }}>
                 {/* Header */}
                 <div style={{padding:"14px 16px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:T.s2}}>
@@ -1137,7 +1356,7 @@ function App(){
                     {unreadCount>0&&<span style={{background:"#FF3B30",color:"#fff",fontSize:9,fontWeight:700,padding:"1px 7px",borderRadius:10}}>{unreadCount} new</span>}
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <button onClick={markAllRead} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>
+                    <button onClick={markAllRead} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>
                       ✓ Tout lire
                     </button>
                     <button onClick={()=>setNotifOpen(false)} style={{background:"transparent",border:"none",fontSize:14,color:T.muted,cursor:"pointer"}}>✕</button>
@@ -1168,8 +1387,7 @@ function App(){
                         borderBottom:`1px solid ${T.border}`,
                         background:n.read?"transparent":bgColor+"08",
                         display:"flex",gap:10,alignItems:"flex-start",
-                        transition:"background 0.15s",
-                        cursor:"pointer",
+                        transition:"background 0.15s",cursor:"pointer",
                       }}
                       onMouseEnter={e=>e.currentTarget.style.background=T.s2}
                       onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":bgColor+"08"}
@@ -1181,7 +1399,7 @@ function App(){
                       }}>
                         {/* Icon */}
                         <div style={{
-                          width:34,height:34,borderRadius:8,flexShrink:0,
+                          width:34,height:34,borderRadius:10,flexShrink:0,
                           background:bgColor+"18",border:`1px solid ${bgColor}33`,
                           display:"flex",alignItems:"center",justifyContent:"center",
                           fontSize:16,
@@ -1198,15 +1416,12 @@ function App(){
                         </div>
 
                         {/* Delete */}
-                        <button onClick={e=>{e.stopPropagation();deleteNotif(n.id);}} style={{
-                          background:"transparent",border:"none",
-                          color:T.dim,fontSize:12,cursor:"pointer",
-                          padding:"2px 4px",borderRadius:4,flexShrink:0,
-                          opacity:0,
-                        }}
-                        onMouseEnter={e=>e.currentTarget.style.opacity="1"}
-                        onMouseLeave={e=>e.currentTarget.style.opacity="0"}
-                        >✕</button>
+                        <button
+                          onClick={e=>{e.stopPropagation();deleteNotif(n.id);}}
+                          style={{background:"transparent",border:"none",fontSize:12,color:T.dim,cursor:"pointer",flexShrink:0,padding:2,opacity:0,transition:"opacity 0.15s"}}
+                          onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                          onMouseLeave={e=>e.currentTarget.style.opacity="0"}
+                          >✕</button>
                       </div>
                     );
                   })}
@@ -1224,7 +1439,7 @@ function App(){
           </div>
         </div>
 
-        <div style={{flex:1,overflowY:"auto",padding:"22px"}}>
+        <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
           {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses}/>}
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
@@ -1248,34 +1463,9 @@ function App(){
       {/* AI ASSISTANT */}
       {user&&<AIAssistant ws={ws} user={user} addTask={addTask} addMeeting={addMeeting} addExpense={addExpense} addCalEvent={addCalEvent} deleteTask={deleteTask} deleteMeeting={deleteMeeting} meetings={meetings} tasks={tasks} members={members} T={T} t={t} wsId={wsId}/>}
 
-      {/* SEARCH */}
-      {searchOpen&&(
-        <div onClick={()=>{setSO(false);setSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)",zIndex:2000,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"12vh"}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:560,maxWidth:"95vw",background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,boxShadow:T.shadow,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderBottom:`1px solid ${T.border}`}}>
-              <span style={{fontSize:18,color:T.muted}}>⌕</span>
-              <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder={t.searchPlaceholder} style={{flex:1,background:"transparent",border:"none",fontSize:15,color:T.text,outline:"none",padding:0}}/>
-              <span style={{fontSize:10,color:T.dim,background:T.s2,padding:"2px 7px",borderRadius:4}}>ESC</span>
-            </div>
-            <div style={{maxHeight:360,overflowY:"auto"}}>
-              {search.length<2&&<div style={{padding:"32px",textAlign:"center",color:T.muted,fontSize:13}}>{t.searchPlaceholder}</div>}
-              {search.length>=2&&searchResults.length===0&&<div style={{padding:"32px",textAlign:"center",color:T.muted,fontSize:13}}>{t.noResults}</div>}
-              {searchResults.map(r=>(
-                <div key={r.id+r._type} onClick={()=>{setModule(r._type==="task"?"tasks":r._type==="project"?"projects":"meetings");setSO(false);setSearch("");}}
-                  style={{padding:"12px 18px",borderBottom:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,transition:"background 0.1s"}}
-                  onMouseEnter={e=>e.currentTarget.style.background=T.s2} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <span style={{fontSize:18,opacity:0.4}}>{r._type==="task"?"☑":r._type==="project"?"◎":"⊕"}</span>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:500}}>{r.title}</div>
-                    <div style={{fontSize:10,color:T.muted,letterSpacing:0.5}}>{r._type.toUpperCase()} · {t.createdBy} {r.created_by}</div>
-                  </div>
-                  {r.status&&<Badge label={r.status} color={TASK_STATUS[r.status]?.dot||PROJ_STATUS[r.status]||"#777"} small/>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Search handled inline in sidebar */}
+
+
 
       {/* MODAL */}
       {modal&&<Modal modal={modal} setModal={setModal} ws={ws} members={members} user={user}
@@ -1318,7 +1508,7 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t}){
         <WSLogo ws={ws} size={54}/>
         <div><div style={{fontSize:24,fontWeight:700,letterSpacing:-0.5}}>{ws.name}</div><div style={{fontSize:13,color:T.muted}}>{new Date().toLocaleDateString(t===I18N.fr?"fr-CA":"en-CA",{weekday:"long",day:"numeric",month:"long"})}</div></div>
         <div style={{marginLeft:"auto",background:ws.color+"18",border:`1px solid ${ws.color}33`,borderRadius:8,padding:"8px 18px",textAlign:"center"}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:28,fontWeight:700,color:ws.color,lineHeight:1}}>{rate}%</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:28,fontWeight:700,color:ws.color,lineHeight:1}}>{rate}%</div>
           <div style={{fontSize:10,color:T.muted,marginTop:2}}>{t.completionRate}</div>
         </div>
       </div>
@@ -1542,7 +1732,7 @@ function DELaunchTracker({ws,tasks,updateTask,T}){
   const priColor={"High":"#FF3B30","Medium":"#FF9F0A","Low":"#6b6b6b"};
 
   return(
-    <div style={{fontFamily:"'DM Sans',sans-serif",maxWidth:900,margin:"0 auto"}}>
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",maxWidth:900,margin:"0 auto"}}>
 
       {/* HEADER KPI */}
       <div style={{background:`linear-gradient(135deg,${ws.color},${ws.color}cc)`,borderRadius:14,padding:"20px 24px",marginBottom:20,display:"flex",alignItems:"center",gap:20}}>
@@ -1732,7 +1922,7 @@ function DELaunchTracker({ws,tasks,updateTask,T}){
 
 // ─── TASKS ────────────────────────────────────────────────────────────────
 function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
-  const [view,   setVw]       = useState("board");
+  const [view,   setVw]       = useState("board"); // board | list | location
   const [showDone,setShowDone]= useState(false);
   const [dragging,setDragging] = useState(null);
   const [dragOver,setDragOver] = useState(null);
@@ -1775,16 +1965,21 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
   ];
 
   if(view==="board") return(
-    <div>
-      {/* Header row */}
-      <div style={{display:"flex",gap:8,marginBottom:20,alignItems:"center"}}>
-        {["board","list"].map(v=>(
-          <button key={v} onClick={()=>setVw(v)} style={{
-            background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,
-            border:`1px solid ${view===v?ws.color:T.border}`,
-            borderRadius:8,padding:"6px 16px",fontSize:12,fontWeight:500,cursor:"pointer",
-          }}>{v==="board"?t.kanban:t.list}</button>
-        ))}
+    <div className="fade-up">
+      {/* ── VIEW SELECTOR ── */}
+      <div style={{display:"flex",gap:8,marginBottom:20,alignItems:"center",flexWrap:"wrap"}}>
+        {/* View tabs */}
+        <div style={{display:"flex",gap:4,background:T.s2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
+          {[{id:"board",label:"🗂 Kanban"},{id:"list",label:"≡ Liste"},{id:"location",label:"📍 Locations"}].map(v=>(
+            <button key={v.id} onClick={()=>setVw(v.id)} style={{
+              background:view===v.id?ws.color:"transparent",
+              color:view===v.id?"#fff":T.muted,
+              border:"none",borderRadius:7,padding:"6px 14px",
+              fontSize:12,fontWeight:view===v.id?600:400,
+              cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",
+            }}>{v.label}</button>
+          ))}
+        </div>
         {/* Archive toggle */}
         <button onClick={()=>setShowDone(v=>!v)} style={{
           background:showDone?"#00C89622":T.s2,
@@ -1796,13 +1991,13 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
           <span style={{fontSize:13}}>📦</span>
           Archives {doneCount>0&&<span style={{background:showDone?"#00C896":"#6b6b6b",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700}}>{doneCount}</span>}
         </button>
-        <div style={{marginLeft:"auto",display:"flex",gap:12}}>
+        {view!=="location"&&<div style={{marginLeft:"auto",display:"flex",gap:12}}>
           {[{label:"🔴 En retard",c:"#FF3B30"},{label:"🟠 ≤2j",c:"#FF9F0A"},{label:"🟡 ≤7j",c:"#FFD60A"},{label:"🟢 OK",c:"#00C896"}].map(d=>(
             <div key={d.label} style={{fontSize:10,color:T.muted,display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:d.c}}/>{d.label}
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Board */}
@@ -1965,13 +2160,153 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
     </div>
   );
 
-  // List view
+  // ── LOCATION VIEW ──
+  if(view==="location"){
+    const LOCS_BNC = ["Vancouver","Toronto","Seattle","Miami","Global"];
+    const locGroups = LOCS_BNC.map(loc=>({
+      loc,
+      tasks: activeTasks.filter(tk=>tk.location===loc||(!LOCS_BNC.filter(l=>l!=="Global").includes(tk.location)&&loc==="Global")),
+    })).filter(g=>g.tasks.length>0);
+    return(
+      <div className="fade-up">
+        {/* ── VIEW SELECTOR ── */}
+        <div style={{display:"flex",gap:8,marginBottom:20,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:4,background:T.s2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
+            {[{id:"board",label:"🗂 Kanban"},{id:"list",label:"≡ Liste"},{id:"location",label:"📍 Locations"}].map(v=>(
+              <button key={v.id} onClick={()=>setVw(v.id)} style={{
+                background:view===v.id?ws.color:"transparent",
+                color:view===v.id?"#fff":T.muted,
+                border:"none",borderRadius:7,padding:"6px 14px",
+                fontSize:12,fontWeight:view===v.id?600:400,
+                cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",
+              }}>{v.label}</button>
+            ))}
+          </div>
+          <button onClick={()=>setShowDone(v=>!v)} style={{
+            background:showDone?"#00C89622":T.s2,
+            color:showDone?"#00C896":T.muted,
+            border:`1px solid ${showDone?"#00C89666":T.border}`,
+            borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:showDone?600:400,
+            display:"flex",alignItems:"center",gap:6,cursor:"pointer",
+          }}>
+            <span>📦</span>
+            Archives {doneCount>0&&<span style={{background:showDone?"#00C896":"#6b6b6b",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700}}>{doneCount}</span>}
+          </button>
+          <div style={{marginLeft:"auto",fontSize:12,color:T.muted,fontWeight:500}}>
+            {activeTasks.length} tâche{activeTasks.length>1?"s":""} · {locGroups.length} location{locGroups.length>1?"s":""}
+          </div>
+        </div>
+
+        {/* Location columns grid */}
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(locGroups.length,3)},1fr)`,gap:16,alignItems:"start"}}>
+          {locGroups.map(({loc,tasks:locTasks})=>{
+            const LOC_COLOR={"Vancouver":"#0A84FF","Toronto":"#00C896","Seattle":"#BF5AF2","Miami":"#FF3B30","Global":"#FF9F0A"}[loc]||ws.color;
+            const doneL=locTasks.filter(t=>t.status==="Done").length;
+            const blokedL=locTasks.filter(t=>t.status==="Blocked").length;
+            const inProg=locTasks.filter(t=>t.status==="In Progress").length;
+            const toDo=locTasks.filter(t=>t.status==="To Do").length;
+            return(
+              <div key={loc} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden"}}>
+                {/* Location header */}
+                <div style={{
+                  padding:"14px 16px",
+                  borderBottom:`1px solid ${T.border}`,
+                  background:LOC_COLOR+"0e",
+                  display:"flex",alignItems:"center",gap:10,
+                }}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:LOC_COLOR,boxShadow:`0 0 8px ${LOC_COLOR}88`,flexShrink:0}}/>
+                  <span style={{fontSize:14,fontWeight:700,letterSpacing:-0.2}}>{loc}</span>
+                  <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
+                    <span style={{fontSize:11,background:LOC_COLOR+"22",color:LOC_COLOR,borderRadius:20,padding:"2px 10px",fontWeight:700}}>{locTasks.length}</span>
+                  </div>
+                </div>
+                {/* Mini stat bar */}
+                <div style={{padding:"8px 16px",borderBottom:`1px solid ${T.border}`,display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {toDo>0&&<span style={{fontSize:10,color:"#6b6b6b",background:"#6b6b6b18",borderRadius:20,padding:"2px 8px",fontWeight:600}}>📌 {toDo} à faire</span>}
+                  {inProg>0&&<span style={{fontSize:10,color:"#FF9F0A",background:"#FF9F0A18",borderRadius:20,padding:"2px 8px",fontWeight:600}}>⚡ {inProg} en cours</span>}
+                  {blokedL>0&&<span style={{fontSize:10,color:"#FF3B30",background:"#FF3B3018",borderRadius:20,padding:"2px 8px",fontWeight:600}}>🚫 {blokedL} bloqué</span>}
+                  {doneL>0&&<span style={{fontSize:10,color:"#00C896",background:"#00C89618",borderRadius:20,padding:"2px 8px",fontWeight:600}}>✅ {doneL} fait</span>}
+                </div>
+                {/* Progress bar */}
+                <div style={{height:3,background:T.s3}}>
+                  <div style={{height:"100%",width:`${doneL/locTasks.length*100}%`,background:LOC_COLOR,transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)"}}/>
+                </div>
+                {/* Tasks list */}
+                <div style={{padding:"8px 0",maxHeight:400,overflowY:"auto"}}>
+                  {locTasks.map(task=>{
+                    const isDone=task.status==="Done";
+                    const isBlock=task.status==="Blocked";
+                    const isActive=task.status==="In Progress";
+                    const dl=task.due_date?deadlineInfo(task.due_date):null;
+                    return(
+                      <div key={task.id}
+                        onClick={()=>setModal({type:"edit_tasks",data:task})}
+                        style={{
+                          padding:"10px 16px",
+                          borderBottom:`1px solid ${T.border}`,
+                          cursor:"pointer",
+                          opacity:isDone?0.5:1,
+                          transition:"background 0.1s",
+                          borderLeft:`3px solid ${isBlock?"#FF3B30":isActive?"#FF9F0A":"transparent"}`,
+                        }}
+                        onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:4}}>
+                          <div style={{width:8,height:8,borderRadius:"50%",background:TASK_STATUS[task.status]?.dot||"#6b6b6b",flexShrink:0,marginTop:4}}/>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12.5,fontWeight:isDone?400:500,textDecoration:isDone?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</div>
+                          </div>
+                          <Avatar name={task.owner} size={20} color={isDone?"#00C896":ws.color}/>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:16}}>
+                          <Badge label={task.priority} color={TASK_PRI[task.priority]||"#6b6b6b"} small/>
+                          {dl&&<div style={{display:"inline-flex",alignItems:"center",gap:3,background:dl.bg,borderRadius:5,padding:"1px 6px"}}>
+                            <span style={{fontSize:9}}>{dl.icon}</span>
+                            <span style={{fontSize:9,fontWeight:700,color:dl.color}}>{task.due_date?new Date(task.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"}):"due "+task.due}</span>
+                          </div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Add task for this location */}
+                  <button
+                    onClick={()=>setModal({type:"add_tasks",prefill:{location:loc}})}
+                    style={{
+                      width:"100%",padding:"10px 16px",
+                      background:"transparent",border:"none",
+                      color:T.dim,fontSize:12,cursor:"pointer",
+                      textAlign:"left",display:"flex",alignItems:"center",gap:6,
+                      transition:"background 0.1s",
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <span style={{fontSize:14,opacity:0.5}}>+</span>
+                    <span>Ajouter une tâche à {loc}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──
   return(
-    <div>
+    <div className="fade-up">
       <div style={{display:"flex",gap:8,marginBottom:18,alignItems:"center"}}>
-        {["board","list"].map(v=>(
-          <button key={v} onClick={()=>setVw(v)} style={{background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:8,padding:"6px 16px",fontSize:12,cursor:"pointer"}}>{v==="board"?t.kanban:t.list}</button>
-        ))}
+        <div style={{display:"flex",gap:4,background:T.s2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
+          {[{id:"board",label:"🗂 Kanban"},{id:"list",label:"≡ Liste"},{id:"location",label:"📍 Locations"}].map(v=>(
+            <button key={v.id} onClick={()=>setVw(v.id)} style={{
+              background:view===v.id?ws.color:"transparent",
+              color:view===v.id?"#fff":T.muted,
+              border:"none",borderRadius:7,padding:"6px 14px",
+              fontSize:12,fontWeight:view===v.id?600:400,
+              cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",
+            }}>{v.label}</button>
+          ))}
+        </div>
         <button onClick={()=>setShowDone(v=>!v)} style={{background:showDone?"#00C89622":T.s2,color:showDone?"#00C896":T.muted,border:`1px solid ${showDone?"#00C89666":T.border}`,borderRadius:8,padding:"6px 14px",fontSize:12,display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
           <span>📦</span>Archives {doneCount>0&&<span style={{background:showDone?"#00C896":"#6b6b6b",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700}}>{doneCount}</span>}
         </button>
@@ -4079,7 +4414,7 @@ function Access({ws,members,setModal,T,t}){
         {members.map((m,i)=>(
           <div key={m.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 1fr 1.5fr 80px",padding:"14px 18px",alignItems:"center",borderBottom:i<members.length-1?`1px solid ${T.border}`:"none"}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><Avatar name={m.name} size={32} color={ROLE_COLOR[m.role]}/><div><div style={{fontSize:13,fontWeight:600}}>{m.name}</div></div></div>
-            <span style={{fontSize:12,color:T.muted,fontFamily:"'DM Mono',monospace"}}>{m.email}</span>
+            <span style={{fontSize:12,color:T.muted,fontFamily:"'JetBrains Mono',monospace"}}>{m.email}</span>
             <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:7,height:7,borderRadius:"50%",background:ROLE_COLOR[m.role]}}/><span style={{fontSize:11,fontWeight:600,color:ROLE_COLOR[m.role]}}>{t.roles[m.role]}</span></div>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{(m.locations||[]).map(l=><Badge key={l} label={l} color={T.dim} small/>)}</div>
             <button onClick={()=>setModal({type:"edit_member",payload:m})} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"5px 10px",fontSize:11,color:T.muted}}>Modifier</button>
@@ -4589,17 +4924,17 @@ function AIAssistant({ws,user,addTask,addMeeting,addExpense,addCalEvent,deleteTa
   }
 
   return(
-    <div style={{position:"fixed",bottom:24,right:24,zIndex:2000,fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{position:"fixed",bottom:24,right:24,zIndex:2000,fontFamily:"'Inter',system-ui,sans-serif"}}>
       {open&&(
-        <div style={{position:"absolute",bottom:72,right:0,width:340,height:480,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 20px 60px rgba(0,0,0,0.3)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{position:"absolute",bottom:72,right:0,width:360,height:500,background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,boxShadow:"0 24px 72px rgba(0,0,0,0.45)",display:"flex",flexDirection:"column",overflow:"hidden",backdropFilter:"blur(20px)"}}>
           {/* Header */}
           <div style={{background:"linear-gradient(135deg,#FF6B00,#FF9F0A)",padding:"12px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <img src={MASCOT_BNC} style={{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.4)"}}/>
+            <img src={MASCOT_BNC} style={{width:34,height:34,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.5)",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}/>
             <div>
-              <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>Assistant BNC</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.8)"}}>Powered by Claude AI</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#fff",letterSpacing:-0.1}}>Assistant BNC</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.8)",letterSpacing:0.3}}>Powered by Claude AI</div>
             </div>
-            <button onClick={()=>setOpen(false)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"rgba(255,255,255,0.8)",fontSize:18,cursor:"pointer",lineHeight:1}}>✕</button>
+            <button onClick={()=>setOpen(false)} style={{marginLeft:"auto",background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:7,color:"rgba(255,255,255,0.9)",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,cursor:"pointer",lineHeight:1,transition:"all 0.15s"}}>✕</button>
           </div>
           {/* Messages */}
           <div style={{flex:1,overflowY:"auto",padding:"12px",display:"flex",flexDirection:"column",gap:10}}>
@@ -4630,12 +4965,12 @@ function AIAssistant({ws,user,addTask,addMeeting,addExpense,addCalEvent,deleteTa
             <input ref={inputRef} value={input} onChange={function(e){setInput(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
               placeholder="Ajoute un meeting avec Samy..."
               style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 12px",fontSize:12,color:T.text,outline:"none"}}/>
-            <button onClick={send} disabled={loading} style={{background:"#FF6B00",border:"none",borderRadius:10,padding:"9px 14px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",opacity:loading?0.6:1}}>→</button>
+            <button onClick={send} disabled={loading} style={{background:"linear-gradient(135deg,#FF6B00,#FF9F0A)",border:"none",borderRadius:10,padding:"9px 14px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",opacity:loading?0.6:1,boxShadow:"0 2px 8px #FF6B0044",transition:"all 0.15s"}}>→</button>
           </div>
         </div>
       )}
       {/* Bubble */}
-      {!open&&<div onClick={()=>setOpen(true)} style={{position:"absolute",bottom:96,right:8,background:"#FF6B00",color:"#fff",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer",boxShadow:"0 4px 12px rgba(255,107,0,0.4)",animation:"fadeIn 0.3s ease",whiteSpace:"nowrap"}}>Ask AI 🧀</div>}
+      {!open&&<div onClick={()=>setOpen(true)} style={{position:"absolute",bottom:96,right:8,background:"linear-gradient(135deg,#FF6B00,#FF9F0A)",color:"#fff",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer",boxShadow:"0 4px 20px rgba(255,107,0,0.5)",animation:"fadeIn 0.3s ease",whiteSpace:"nowrap",letterSpacing:0.3}}>Ask AI 🧀</div>}
       {/* Mascot button */}
       <div onClick={()=>setOpen(v=>!v)} style={{width:80,height:80,cursor:"pointer",filter:"drop-shadow(0 6px 20px rgba(255,107,0,0.5))",animation:open?"":bounce?"mascotWave 0.5s ease-in-out":"mascotBob 3s ease-in-out infinite",transition:"filter 0.2s"}}
         onMouseEnter={function(e){e.currentTarget.style.filter="drop-shadow(0 10px 28px rgba(255,107,0,0.8))";}}
