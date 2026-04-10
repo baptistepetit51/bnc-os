@@ -837,6 +837,7 @@ function App(){
   const [titoNotes,  setTitoNotes]  = useState("");
   const [titoGoals,  setTitoGoals]  = useState([]);
   const [titoInbox,  setTitoInbox]  = useState([]);
+  const [titoJournal,setTitoJournal]= useState([]);
   const [notifs,    setNotifs]    = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [gcalConnected,setGcalConnected]=useState(()=>gcalIsConnected());
@@ -881,6 +882,7 @@ function App(){
     {id:"tito_notes",   label:"Notes",         icon:"📝"},
     {id:"tito_goals",   label:"Objectifs",     icon:"🎯"},
     {id:"tito_inbox",   label:"Inbox / Idées", icon:"💡"},
+    {id:"tito_journal", label:"Journal",        icon:"📓"},
     {id:"global_cal",   label:"Calendrier",    icon:"⊞"},
   ] : wsId==="de" ? [
     {id:"dashboard",  label:t.dashboard,       icon:"◈"},
@@ -965,6 +967,7 @@ function App(){
     setTitoNotes(localStorage.getItem("tito_notes")||"");
     setTitoGoals(lsGet("tito_goals")||[]);
     setTitoInbox(lsGet("tito_inbox")||[]);
+    setTitoJournal(lsGet("tito_journal")||[]);
   }
   function addProduct(form){ lsIns("products",{...form,workspace:wsId,created_by:user.name,phase:"Idée",updates:[]}); loadExpenses(); }
   function addClient(form){ lsIns("clients",{...form,workspace:wsId,created_by:user.name,status:"Prospect",notes:"",interactions:[]}); loadExpenses(); }
@@ -1298,7 +1301,7 @@ function App(){
           )}
 
           {/* CTA Button */}
-          {!["dashboard","calendar","access","expenses","products","tito_home","tito_notes","tito_goals","tito_inbox","daily_brief","global_cal","clients"].includes(module)&&(
+          {!["dashboard","calendar","access","expenses","products","tito_home","tito_notes","tito_goals","tito_inbox","tito_journal","daily_brief","global_cal","clients"].includes(module)&&(
             <button onClick={()=>setModal({type:`add_${module}`})} style={{
               background:ws.color,color:"#fff",border:"none",
               borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,
@@ -1440,14 +1443,14 @@ function App(){
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
-          {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses}/>}
+          {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses} updateExpense={updateExpense}/>}
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t}/>}
-          {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget}/>}
+          {module==="media"    &&<Media ws={ws} influencers={influencers} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
-          {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers}/>}
+          {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
           {module==="products" &&<Products2 ws={ws} products={products} setModal={setModal} updateProduct={updateProduct} T={T} t={t}/>}
           {module==="access"   &&<Access ws={ws} members={members} setModal={setModal} T={T} t={t}/>}
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
@@ -1456,7 +1459,8 @@ function App(){
           {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet("tito_focus",v);setTitoFocus(v);}} T={T}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem("tito_notes",v);setTitoNotes(v);}} T={T}/>}
           {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet("tito_goals",v);setTitoGoals(v);}} T={T}/>}
-          {module==="tito_inbox" &&<TitoInbox ws={ws} inbox={titoInbox}  setInbox={v=>{lsSet("tito_inbox",v);setTitoInbox(v);}} T={T}/>}
+          {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet("tito_inbox",v);setTitoInbox(v);}} T={T}/>}
+          {module==="tito_journal" &&<TitoJournal ws={ws} journal={titoJournal} setJournal={v=>{lsSet("tito_journal",v);setTitoJournal(v);}} T={T}/>}
         </div>
       </div>
 
@@ -1485,7 +1489,7 @@ function App(){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────
-function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t}){
+function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expenses,updateExpense}){
   const done=tasks.filter(x=>x.status==="Done").length;
   const open=tasks.filter(x=>x.status!=="Done").length;
   const blk=tasks.filter(x=>x.status==="Blocked").length;
@@ -1543,6 +1547,45 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t}){
           </div>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* ── À PAYER ── */}
+          {(()=>{
+            const unpaid = (expenses||[]).filter(e=>e.payment_status!=="Payé");
+            const totalUnpaid = unpaid.reduce((s,e)=>s+(+e.amount||0),0);
+            if(unpaid.length===0&&(expenses||[]).length===0) return null;
+            return(
+              <Card T={T} accent="#FF9F0A">
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:11,fontWeight:600,color:T.muted,letterSpacing:1}}>⏳ À PAYER</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#FF9F0A"}}>{totalUnpaid.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+                </div>
+                {unpaid.length===0&&(
+                  <div style={{fontSize:12,color:T.dim,textAlign:"center",padding:"8px 0"}}>✅ Tout est à jour !</div>
+                )}
+                {unpaid.slice(0,5).map(exp=>{
+                  const uc=URGENCY[exp.urgency]||URGENCY["Moyenne"];
+                  return(
+                    <div key={exp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,marginBottom:6,borderLeft:`3px solid ${uc.color}`}}>
+                      <span style={{fontSize:13,flexShrink:0}}>{uc.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{exp.title}</div>
+                        <div style={{fontSize:10,color:T.muted}}>{exp.location} · {exp.category||"Autre"}</div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
+                        <span style={{fontSize:13,fontWeight:800,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+                        <button onClick={()=>updateExpense(exp.id,{...exp,payment_status:"Payé"})} style={{
+                          background:"#00C89618",border:"1px solid #00C89644",
+                          borderRadius:5,padding:"2px 8px",
+                          fontSize:9,fontWeight:700,color:"#00C896",cursor:"pointer",
+                        }}>Marquer payé ✓</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {unpaid.length>5&&<div style={{fontSize:10,color:T.muted,textAlign:"center",marginTop:4}}>+{unpaid.length-5} autres</div>}
+                <button onClick={()=>setModule("expenses")} style={{width:"100%",marginTop:8,background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"6px",fontSize:11,color:T.muted,cursor:"pointer"}}>Voir toutes les dépenses →</button>
+              </Card>
+            );
+          })()}
           <Card T={T}>
             <div style={{fontSize:11,fontWeight:600,color:T.muted,letterSpacing:1,marginBottom:14}}>{t.projects.toUpperCase()}</div>
             {projects.map(p=>(
@@ -2923,49 +2966,135 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
 
 
 // ─── MEDIA PRO ────────────────────────────────────────────────────────────
-function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget}){
-  const [tab,setTab]=useState("influencers");
-  const currentMonth=new Date().toISOString().slice(0,7);
-  const budgetEntry=mediaBudget.find(b=>b.month===currentMonth&&b.location==="Global");
-  const monthlyBudget=budgetEntry?+budgetEntry.budget:0;
-  const totalSpent=allInfluencers.filter(i=>i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0);
-  const remaining=monthlyBudget-totalSpent;
+function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer}){
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0,7); // "2026-04"
 
-  // Spend by location
-  const spendByLoc=["Vancouver","Toronto","Seattle","Miami"].map(loc=>({
+  // ── Parse visit string → "YYYY-MM" ──────────────────────────────────────
+  // visit field is free text: "Apr 20", "May 3", "Jun 12", "Every Monday", etc.
+  const MONTH_MAP = {jan:"01",feb:"01",fév:"01",mar:"03",apr:"04",avr:"04",may:"05",mai:"05",jun:"06",jul:"07",aug:"08",aoû:"08",sep:"09",oct:"10",nov:"11",dec:"12",déc:"12"};
+  function parseVisitMonth(visit){
+    if(!visit) return null;
+    const low = visit.toLowerCase().trim();
+    for(const [key,num] of Object.entries(MONTH_MAP)){
+      if(low.startsWith(key)){
+        // Guess year: if month number < current month → next year, else current year
+        const mNum = parseInt(num);
+        const curM = now.getMonth()+1;
+        const yr = mNum < curM ? now.getFullYear()+1 : now.getFullYear();
+        return `${yr}-${num}`;
+      }
+    }
+    return null;
+  }
+
+  // ── Build month tabs: current + next 4 months + any months with influencers ──
+  function addMonths(date, n){
+    const d = new Date(date.getFullYear(), date.getMonth()+n, 1);
+    return d.toISOString().slice(0,7);
+  }
+  const futureMths = [0,1,2,3,4].map(n=>addMonths(now,n)); // Apr, May, Jun, Jul, Aug
+  const inflMths = [...new Set(allInfluencers.map(i=>parseVisitMonth(i.visit)).filter(Boolean))];
+  const allMths = [...new Set([...futureMths, ...inflMths])].sort();
+
+  const MONTH_LABELS = {
+    "01":"Janvier","02":"Février","03":"Mars","04":"Avril","05":"Mai","06":"Juin",
+    "07":"Juillet","08":"Août","09":"Septembre","10":"Octobre","11":"Novembre","12":"Décembre"
+  };
+  function mthLabel(ym){ // "2026-04" → "Avr 2026"
+    const [y,m] = ym.split("-");
+    const short = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"][parseInt(m)-1];
+    return parseInt(y)===now.getFullYear() ? short : `${short} ${y}`;
+  }
+
+  const [selMonth, setSelMonth] = useState(currentMonth);
+
+  // ── Influencers for selected month ──
+  const monthInfluencers = allInfluencers.filter(i=>{
+    const m = parseVisitMonth(i.visit);
+    return m === selMonth;
+  });
+  // Influencers with no visit date → show in current month tab only
+  const noDateInfls = selMonth===currentMonth ? allInfluencers.filter(i=>!parseVisitMonth(i.visit)) : [];
+  const visibleInfluencers = [...monthInfluencers, ...noDateInfls];
+
+  // ── Budget for selected month ──
+  const budgetEntry = mediaBudget.find(b=>b.month===selMonth&&b.location==="Global");
+  const monthlyBudget = budgetEntry?+budgetEntry.budget:0;
+  const monthSpent = monthInfluencers.filter(i=>i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0);
+  const remaining = monthlyBudget - monthSpent;
+
+  // ── Global stats (all months) ──
+  const spendByLoc = ["Vancouver","Toronto","Seattle","Miami"].map(loc=>({
     loc,
-    spent:allInfluencers.filter(i=>i.location===loc&&i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0),
-    count:allInfluencers.filter(i=>i.location===loc).length,
+    spent: allInfluencers.filter(i=>i.location===loc&&i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0),
+    count: allInfluencers.filter(i=>i.location===loc).length,
   }));
-  const maxSpend=Math.max(...spendByLoc.map(x=>x.spent),1);
+  const maxSpend = Math.max(...spendByLoc.map(x=>x.spent),1);
+
+  // ── Status counts for selected month ──
+  const statusCounts = Object.keys(INFL_STATUS).reduce((acc,s)=>{
+    acc[s]=visibleInfluencers.filter(i=>i.status===s).length;
+    return acc;
+  },{});
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      {/* Budget header */}
+
+      {/* ── MONTH TABS ── */}
+      <div style={{display:"flex",gap:0,borderBottom:`1px solid ${T.border}`,overflowX:"auto"}}>
+        {allMths.map(ym=>{
+          const isActive = ym===selMonth;
+          const isCurrent = ym===currentMonth;
+          const cnt = allInfluencers.filter(i=>parseVisitMonth(i.visit)===ym).length + (ym===currentMonth?allInfluencers.filter(i=>!parseVisitMonth(i.visit)).length:0);
+          return(
+            <button key={ym} onClick={()=>setSelMonth(ym)} style={{
+              padding:"10px 18px",border:"none",
+              background:"transparent",cursor:"pointer",
+              borderBottom:isActive?`2px solid ${ws.color}`:"2px solid transparent",
+              color:isActive?ws.color:T.muted,
+              fontWeight:isActive?700:400,
+              fontSize:13,whiteSpace:"nowrap",
+              transition:"all 0.15s",
+              position:"relative",
+            }}>
+              {isCurrent&&!isActive&&<div style={{position:"absolute",top:8,right:10,width:6,height:6,borderRadius:"50%",background:ws.color}}/>}
+              {mthLabel(ym)}
+              {cnt>0&&<span style={{
+                marginLeft:6,fontSize:10,fontWeight:700,
+                background:isActive?ws.color:T.s3,
+                color:isActive?"#fff":T.muted,
+                borderRadius:20,padding:"1px 7px",
+              }}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── BUDGET HEADER (per selected month) ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 2fr",gap:12}}>
         <Card T={T}>
-          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>BUDGET MENSUEL</div>
-          <div style={{fontSize:26,fontWeight:800,color:ws.color}}>{monthlyBudget.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <button onClick={()=>setModal({type:"set_budget"})} style={{marginTop:8,background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>Modifier</button>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>BUDGET {mthLabel(selMonth).toUpperCase()}</div>
+          <div style={{fontSize:24,fontWeight:800,color:ws.color}}>{monthlyBudget.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+          <button onClick={()=>setModal({type:"set_budget",prefillMonth:selMonth})} style={{marginTop:8,background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>Modifier</button>
         </Card>
         <Card T={T}>
           <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>DÉPENSÉ</div>
-          <div style={{fontSize:26,fontWeight:800,color:"#FF9F0A"}}>{totalSpent.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{allInfluencers.filter(i=>i.cost&&i.status!=="Annulé").length} influenceurs</div>
+          <div style={{fontSize:24,fontWeight:800,color:"#FF9F0A"}}>{monthSpent.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthInfluencers.filter(i=>i.cost&&i.status!=="Annulé").length} influenceur{monthInfluencers.length>1?"s":""}</div>
         </Card>
         <Card T={T} style={{borderLeft:`3px solid ${remaining>=0?"#00C896":"#FF3B30"}`}}>
           <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>RESTANT</div>
-          <div style={{fontSize:26,fontWeight:800,color:remaining>=0?"#00C896":"#FF3B30"}}>{remaining.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthlyBudget>0?Math.round((totalSpent/monthlyBudget)*100):0}% utilisé</div>
+          <div style={{fontSize:24,fontWeight:800,color:remaining>=0?"#00C896":"#FF3B30"}}>{remaining.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthlyBudget>0?Math.round((monthSpent/monthlyBudget)*100):0}% utilisé</div>
         </Card>
-        {/* Bar chart by location */}
         <Card T={T}>
-          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:10}}>DÉPENSES MEDIA PAR LOCATION</div>
-          <div style={{display:"flex",alignItems:"flex-end",gap:8,height:56}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:10}}>PAR LOCATION (tous mois)</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:8,height:52}}>
             {spendByLoc.map(d=>(
               <div key={d.loc} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
                 <div style={{fontSize:9,fontWeight:700,color:ws.color}}>{d.spent>0?d.spent.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}):""}</div>
-                <div style={{width:"100%",height:Math.max(4,(d.spent/maxSpend)*40),background:ws.color,borderRadius:3,opacity:d.spent>0?1:0.2}}/>
+                <div style={{width:"100%",height:Math.max(4,(d.spent/maxSpend)*36),background:ws.color,borderRadius:3,opacity:d.spent>0?1:0.2}}/>
                 <span style={{fontSize:9,color:T.muted}}>{d.loc.slice(0,3)}</span>
               </div>
             ))}
@@ -2977,53 +3106,338 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
       {monthlyBudget>0&&(
         <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-            <span style={{fontSize:11,color:T.muted}}>Utilisation du budget</span>
-            <span style={{fontSize:11,fontWeight:600,color:remaining>=0?"#00C896":"#FF3B30"}}>{Math.round((totalSpent/monthlyBudget)*100)}%</span>
+            <span style={{fontSize:11,color:T.muted}}>Utilisation du budget — {mthLabel(selMonth)}</span>
+            <span style={{fontSize:11,fontWeight:600,color:remaining>=0?"#00C896":"#FF3B30"}}>{Math.round((monthSpent/monthlyBudget)*100)}%</span>
           </div>
-          <div style={{height:8,background:T.s3,borderRadius:4,overflow:"hidden"}}>
-            <div style={{height:"100%",width:Math.min(100,(totalSpent/monthlyBudget)*100)+"%",background:remaining>=0?ws.color:"#FF3B30",borderRadius:4,transition:"width 0.4s"}}/>
+          <div style={{height:6,background:T.s3,borderRadius:4,overflow:"hidden"}}>
+            <div style={{height:"100%",width:Math.min(100,(monthSpent/monthlyBudget)*100)+"%",background:remaining>=0?ws.color:"#FF3B30",borderRadius:4,transition:"width 0.5s"}}/>
           </div>
         </div>
       )}
 
       {/* Status pills */}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:11,color:T.muted,marginRight:4}}>{mthLabel(selMonth)} :</span>
         {Object.entries(INFL_STATUS).map(([s,c])=>(
-          <div key={s} style={{display:"flex",alignItems:"center",gap:6,background:c+"15",border:`1px solid ${c}33`,borderRadius:20,padding:"4px 12px"}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:c}}/>
-            <span style={{fontSize:11,fontWeight:600,color:c}}>{s}</span>
-            <span style={{fontSize:11,color:c,opacity:0.7}}>{allInfluencers.filter(i=>i.status===s).length}</span>
-          </div>
+          statusCounts[s]>0&&(
+            <div key={s} style={{display:"flex",alignItems:"center",gap:6,background:c+"15",border:`1px solid ${c}33`,borderRadius:20,padding:"4px 12px"}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:c}}/>
+              <span style={{fontSize:11,fontWeight:600,color:c}}>{s}</span>
+              <span style={{fontSize:11,color:c,opacity:0.7}}>{statusCounts[s]}</span>
+            </div>
+          )
         ))}
+        {visibleInfluencers.length===0&&<span style={{fontSize:11,color:T.dim}}>Aucun influenceur ce mois</span>}
       </div>
 
-      {/* Table */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1.5fr 100px 110px 80px 90px 90px 100px 90px",padding:"10px 16px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
-          {["Nom","Plateforme","Location","Followers","Coût","Statut","Visite","Contenu"].map(h=><div key={h} style={{fontSize:9,fontWeight:700,color:T.muted,letterSpacing:0.5}}>{h.toUpperCase()}</div>)}
-        </div>
-        {influencers.length===0&&<div style={{padding:"40px",textAlign:"center",color:T.dim,fontSize:13}}>Aucun influenceur. Clique + pour ajouter.</div>}
-        {influencers.map((inf,i)=>(
-          <div key={inf.id} onClick={()=>setModal({type:"edit_media",payload:inf})}
-            style={{display:"grid",gridTemplateColumns:"1.5fr 100px 110px 80px 90px 90px 100px 90px",padding:"12px 16px",alignItems:"center",borderBottom:i<influencers.length-1?`1px solid ${T.border}`:"none",cursor:"pointer",transition:"background 0.1s"}}
-            onMouseEnter={e=>e.currentTarget.style.background=T.s2} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            <div>
-              <div style={{fontSize:13,fontWeight:600}}>{inf.name}</div>
-              {inf.notes&&<div style={{fontSize:10,color:T.dim,marginTop:1}}>{inf.notes}</div>}
-            </div>
-            <Badge label={inf.platform} color={inf.platform==="TikTok"?"#ff2d55":"#E1306C"} small/>
-            <span style={{fontSize:11,color:T.muted}}>{inf.location}</span>
-            <span style={{fontSize:12,fontWeight:600}}>{inf.followers}</span>
-            <span style={{fontSize:12,fontWeight:700,color:inf.cost?ws.color:T.dim}}>{inf.cost?(+inf.cost).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}):"—"}</span>
-            <Badge label={inf.status} color={INFL_STATUS[inf.status]} small/>
-            <span style={{fontSize:11,color:T.muted}}>{inf.visit||"—"}</span>
-            <span style={{fontSize:11,color:T.dim}}>{inf.content||"—"}</span>
-          </div>
-        ))}
-      </div>
+      {/* ── INLINE EDITABLE TABLE ── */}
+      <InlineInfluencerTable
+        influencers={visibleInfluencers}
+        ws={ws} T={T}
+        parseVisitMonth={parseVisitMonth}
+        updateInfluencer={updateInfluencer}
+        deleteInfluencer={deleteInfluencer}
+        addInfluencer={addInfluencer}
+        selMonth={selMonth}
+        mthLabel={mthLabel}
+        setModal={setModal}
+      />
     </div>
   );
 }
+
+// ─── INLINE INFLUENCER TABLE (édition Monday-style) ──────────────────────
+function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluencer,deleteInfluencer,addInfluencer,selMonth,mthLabel,setModal}){
+  const [editId, setEditId] = useState(null);
+  const [editField, setEditField] = useState(null);
+  const [editVal, setEditVal] = useState("");
+  const [showCal, setShowCal] = useState(null); // id of row showing calendar
+  const [addingNew, setAddingNew] = useState(false);
+  const [pending, setPending] = useState([]); // optimistic rows not yet in props
+  const [newRow, setNewRow] = useState({name:"",platform:"Instagram",location:"Vancouver",followers:"",cost:"",status:"À contacter",visit:"",content:""});
+
+  const PLATFORMS = ["Instagram","TikTok","YouTube","Twitter","LinkedIn"];
+
+  // Clear pending when real data arrives from parent
+  React.useEffect(()=>{
+    if(influencers.length > 0){
+      setPending(p=>p.filter(r=>!influencers.some(i=>i.name===r.name&&i.name)));
+    }
+  },[influencers]);
+  const LOCATIONS_INFL = ["Vancouver","Toronto","Seattle","Miami","Global"];
+  const STATUSES = Object.keys(INFL_STATUS);
+  const PLAT_COLOR = {"Instagram":"#E1306C","TikTok":"#ff2d55","YouTube":"#FF0000","Twitter":"#1DA1F2","LinkedIn":"#0A66C2"};
+
+  function startEdit(inf, field){
+    setEditId(inf.id);
+    setEditField(field);
+    setEditVal(inf[field]||"");
+    setShowCal(null);
+  }
+
+  function commitEdit(inf){
+    if(!editField) return;
+    // Update immediately in local display via optimistic approach
+    // Replace pending if it's a pending row
+    if(inf._pending){
+      setPending(p=>p.map(r=>r.id===inf.id?{...r,[editField]:editVal}:r));
+    } else {
+      updateInfluencer(inf.id, {...inf, [editField]: editVal});
+    }
+    setEditId(null); setEditField(null); setEditVal("");
+  }
+
+  function commitVisit(inf, dateStr){
+    const d = new Date(dateStr+"T12:00:00");
+    const label = d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    if(inf._pending){
+      setPending(p=>p.map(r=>r.id===inf.id?{...r,visit:label}:r));
+    } else {
+      updateInfluencer(inf.id, {...inf, visit: label});
+    }
+    setShowCal(null); setEditId(null);
+  }
+
+  function handleKey(e, inf){
+    if(e.key==="Enter"){ e.preventDefault(); commitEdit(inf); }
+    if(e.key==="Escape"){ setEditId(null); setEditField(null); }
+  }
+
+  function saveNewRow(){
+    if(!newRow.name.trim()) return;
+    // Optimistic: show immediately with a temp id
+    const tempItem = {...newRow, id:"temp_"+Date.now(), _pending:true};
+    setPending(p=>[...p, tempItem]);
+    addInfluencer(newRow).then(()=>{
+      // After real save, clear pending (real data will arrive via props)
+      setPending([]);
+    }).catch(()=>{
+      // Keep pending if save failed
+    });
+    setNewRow({name:"",platform:"Instagram",location:"Vancouver",followers:"",cost:"",status:"À contacter",visit:"",content:""});
+    setAddingNew(false);
+  }
+
+  // ── Cell renderer ──
+  function Cell({inf, field, children, width, center}){
+    const isActive = editId===inf.id && editField===field;
+    return(
+      <div
+        onClick={()=>{ if(field==="visit"){ setShowCal(showCal===inf.id?null:inf.id); setEditId(inf.id); setEditField("visit"); } else startEdit(inf,field); }}
+        style={{
+          width, minWidth:width,
+          display:"flex", alignItems:"center",
+          justifyContent:center?"center":"flex-start",
+          cursor:"text",
+          padding:"0 6px",
+          borderRight:`1px solid ${T.border}`,
+          height:"100%",
+          position:"relative",
+        }}>
+        {isActive && field!=="visit" ? (
+          field==="platform" ? (
+            <select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(inf)} onKeyDown={e=>handleKey(e,inf)}
+              style={{background:T.s2,border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit",padding:"2px 0"}}>
+              {PLATFORMS.map(p=><option key={p}>{p}</option>)}
+            </select>
+          ) : field==="location" ? (
+            <select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(inf)} onKeyDown={e=>handleKey(e,inf)}
+              style={{background:T.s2,border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit",padding:"2px 0"}}>
+              {LOCATIONS_INFL.map(l=><option key={l}>{l}</option>)}
+            </select>
+          ) : field==="status" ? (
+            <select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(inf)} onKeyDown={e=>handleKey(e,inf)}
+              style={{background:T.s2,border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit",padding:"2px 0"}}>
+              {STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          ) : (
+            <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)}
+              onBlur={()=>commitEdit(inf)} onKeyDown={e=>handleKey(e,inf)}
+              type={field==="cost"?"number":"text"}
+              style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit",padding:"2px 0"}}
+            />
+          )
+        ) : children}
+      </div>
+    );
+  }
+
+  const COL_W = {name:180, platform:110, location:100, followers:80, cost:80, status:110, visit:100, content:120, del:40};
+  const totalW = Object.values(COL_W).reduce((a,b)=>a+b,0);
+
+  // Parse visit string to ISO date for calendar
+  function visitToISO(visit){
+    if(!visit) return "";
+    const m = parseVisitMonth(visit);
+    if(!m) return "";
+    // try to extract day from visit string "May 3" → day=3
+    const match = visit.match(/\d+/);
+    const day = match ? String(match[0]).padStart(2,"0") : "01";
+    return `${m}-${day}`;
+  }
+
+  return(
+    <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",background:T.s2,borderBottom:`1px solid ${T.border}`,padding:"0 0 0 0"}}>
+        {[["name","Influenceur",COL_W.name],["platform","Plateforme",COL_W.platform],["location","Location",COL_W.location],["followers","Followers",COL_W.followers],["cost","Coût",COL_W.cost],["status","Statut",COL_W.status],["visit","Visite",COL_W.visit],["content","Contenu",COL_W.content],["del","",COL_W.del]].map(([k,label,w])=>(
+          <div key={k} style={{width:w,minWidth:w,padding:"9px 8px",fontSize:9,fontWeight:700,color:T.muted,letterSpacing:0.8,borderRight:`1px solid ${T.border}`,flexShrink:0}}>{label.toUpperCase()}</div>
+        ))}
+      </div>
+
+      {/* Empty state */}
+      {(()=>{
+        // Merge real influencers with pending optimistic rows (avoid duplicates)
+        const pendingIds = new Set(influencers.map(i=>i.name));
+        const pendingFiltered = pending.filter(p=>!pendingIds.has(p.name));
+        const allRows = [...influencers, ...pendingFiltered];
+        return null; // handled below
+      })()}
+      {influencers.length===0&&pending.length===0&&!addingNew&&(
+        <div style={{padding:"36px",textAlign:"center",color:T.dim,fontSize:13}}>
+          <div style={{fontSize:28,marginBottom:8}}>📅</div>
+          Aucun influenceur prévu en {mthLabel(selMonth)}
+        </div>
+      )}
+
+      {/* Rows - real + pending optimistic */}
+      {[...influencers, ...pending.filter(p=>!influencers.some(i=>i.name===p.name))].map((inf)=>(
+        <div key={inf.id} style={{position:"relative"}}>
+          <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,height:44,alignItems:"center",transition:"background 0.1s"}}
+            onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+
+            {/* Name */}
+            <Cell inf={inf} field="name" width={COL_W.name}>
+              <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingLeft:2}}>{inf.name||<span style={{color:T.dim}}>—</span>}</div>
+            </Cell>
+
+            {/* Platform */}
+            <Cell inf={inf} field="platform" width={COL_W.platform} center>
+              <Badge label={inf.platform||"—"} color={PLAT_COLOR[inf.platform]||"#888"} small/>
+            </Cell>
+
+            {/* Location */}
+            <Cell inf={inf} field="location" width={COL_W.location} center>
+              <span style={{fontSize:11,color:T.muted}}>{inf.location||"—"}</span>
+            </Cell>
+
+            {/* Followers */}
+            <Cell inf={inf} field="followers" width={COL_W.followers} center>
+              <span style={{fontSize:12,fontWeight:600}}>{inf.followers||<span style={{color:T.dim}}>—</span>}</span>
+            </Cell>
+
+            {/* Cost */}
+            <Cell inf={inf} field="cost" width={COL_W.cost} center>
+              <span style={{fontSize:12,fontWeight:700,color:inf.cost?ws.color:T.dim}}>{inf.cost?(+inf.cost).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}):"—"}</span>
+            </Cell>
+
+            {/* Status */}
+            <Cell inf={inf} field="status" width={COL_W.status} center>
+              <Badge label={inf.status||"—"} color={INFL_STATUS[inf.status]||"#6b6b6b"} small/>
+            </Cell>
+
+            {/* Visit — calendar popup */}
+            <Cell inf={inf} field="visit" width={COL_W.visit} center>
+              <span style={{fontSize:11,color:inf.visit?T.text:T.dim,display:"flex",alignItems:"center",gap:4}}>
+                {inf.visit||"📅 Ajouter"}
+              </span>
+            </Cell>
+
+            {/* Content */}
+            <Cell inf={inf} field="content" width={COL_W.content}>
+              <span style={{fontSize:11,color:T.dim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inf.content||"—"}</span>
+            </Cell>
+
+            {/* Delete */}
+            <div style={{width:COL_W.del,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <button onClick={e=>{e.stopPropagation();if(window.confirm("Supprimer "+inf.name+" ?"))deleteInfluencer(inf.id);}}
+                style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13,padding:4,borderRadius:4,transition:"all 0.1s"}}
+                onMouseEnter={e=>{e.currentTarget.style.color="#FF3B30";e.currentTarget.style.background="#FF3B3015";}}
+                onMouseLeave={e=>{e.currentTarget.style.color=T.dim;e.currentTarget.style.background="transparent";}}>
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Calendar dropdown for visit field */}
+          {showCal===inf.id&&(
+            <div onClick={e=>e.stopPropagation()} style={{
+              position:"absolute",left:COL_W.name+COL_W.platform+COL_W.location+COL_W.followers+COL_W.cost+COL_W.status,
+              top:"100%",zIndex:200,
+              width:260,
+              boxShadow:"0 12px 32px rgba(0,0,0,0.3)",
+              borderRadius:12,overflow:"hidden",
+              border:`1px solid ${T.border}`,
+            }}>
+              <DatePicker value={visitToISO(inf.visit)} onChange={v=>{if(v)commitVisit(inf,v);else{updateInfluencer(inf.id,{...inf,visit:""});setShowCal(null);}}} color={ws.color} T={T}/>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* ── ADD NEW ROW ── */}
+      {addingNew&&(
+        <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,height:44,alignItems:"center",background:ws.color+"08"}}>
+          <div style={{width:COL_W.name,minWidth:COL_W.name,padding:"0 8px",borderRight:`1px solid ${T.border}`}}>
+            <input autoFocus value={newRow.name} onChange={e=>setNewRow(r=>({...r,name:e.target.value}))}
+              onKeyDown={e=>{if(e.key==="Enter")saveNewRow();if(e.key==="Escape")setAddingNew(false);}}
+              placeholder="@handle ou nom..." style={{background:"transparent",border:"none",fontSize:12,fontWeight:600,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL_W.platform,minWidth:COL_W.platform,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.platform} onChange={e=>setNewRow(r=>({...r,platform:e.target.value}))}
+              style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {PLATFORMS.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL_W.location,minWidth:COL_W.location,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.location} onChange={e=>setNewRow(r=>({...r,location:e.target.value}))}
+              style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {LOCATIONS_INFL.map(l=><option key={l}>{l}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL_W.followers,minWidth:COL_W.followers,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <input value={newRow.followers} onChange={e=>setNewRow(r=>({...r,followers:e.target.value}))}
+              placeholder="45K" style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL_W.cost,minWidth:COL_W.cost,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <input type="number" value={newRow.cost} onChange={e=>setNewRow(r=>({...r,cost:e.target.value}))}
+              placeholder="500" style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL_W.status,minWidth:COL_W.status,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.status} onChange={e=>setNewRow(r=>({...r,status:e.target.value}))}
+              style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL_W.visit,minWidth:COL_W.visit,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <input value={newRow.visit} onChange={e=>setNewRow(r=>({...r,visit:e.target.value}))}
+              placeholder="May 3" style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL_W.content,minWidth:COL_W.content,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <input value={newRow.content} onChange={e=>setNewRow(r=>({...r,content:e.target.value}))}
+              placeholder="Reel + Story" style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{display:"flex",gap:4,padding:"0 6px"}}>
+            <button onClick={saveNewRow} style={{background:ws.color,border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,padding:"4px 10px",cursor:"pointer"}}>✓</button>
+            <button onClick={()=>setAddingNew(false)} style={{background:"transparent",border:"none",color:T.dim,fontSize:13,cursor:"pointer"}}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Add row button */}
+      <button onClick={()=>{setAddingNew(true);setShowCal(null);setEditId(null);}}
+        style={{width:"100%",padding:"10px 16px",background:"transparent",border:"none",color:T.muted,fontSize:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:6,transition:"background 0.1s"}}
+        onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <span style={{fontSize:16,opacity:0.5}}>+</span>
+        Ajouter un influenceur
+      </button>
+    </div>
+  );
+}
+
+
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────
 function CalModule({ws,calEvents,T,t,setModal}){
@@ -3420,6 +3834,11 @@ const URGENCY = {
   "Moyenne":  { color:"#0A84FF", bg:"#0A84FF22", icon:"📋" },
   "Basse":    { color:"#6b6b6b", bg:"#6b6b6b22", icon:"💡" },
 };
+// Payment status for expenses
+const PAY_STATUS = {
+  "À payer": { color:"#FF9F0A", bg:"#FF9F0A18", icon:"⏳", label:"À payer" },
+  "Payé":    { color:"#00C896", bg:"#00C89618", icon:"✅", label:"Payé"    },
+};
 const EXP_CATS = ["Équipement","Ingrédients","Marketing","RH","Loyer/Opérations","Tech","Autre"];
 
 function getMonths(){
@@ -3434,7 +3853,7 @@ function getMonths(){
   return months;
 }
 
-function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencers}){
+function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencers,updateExpense}){
   const [locFilt,  setLocFilt]  = useState("Global");
   const [selMonth, setSelMonth] = useState(new Date().toISOString().slice(0,7));
   const months = getMonths();
@@ -3445,7 +3864,10 @@ function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencer
     return matchLoc && matchMonth;
   });
 
-  const grandTotal = filtered.reduce((s,e)=>s+(+e.amount||0),0);
+  // ALL filtered expenses count toward budget (À payer + Payé)
+  const grandTotal    = filtered.reduce((s,e)=>s+(+e.amount||0),0);
+  const totalPaid     = filtered.filter(e=>e.payment_status==="Payé").reduce((s,e)=>s+(+e.amount||0),0);
+  const totalUnpaid   = filtered.filter(e=>e.payment_status!=="Payé").reduce((s,e)=>s+(+e.amount||0),0);
   const totalByUrgency = (u) => filtered.filter(e=>e.urgency===u).reduce((s,e)=>s+(+e.amount||0),0);
 
   // Media budget & influencer spend this month
@@ -3567,7 +3989,27 @@ function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencer
                 <span style={{fontSize:10,fontWeight:600,color:uc.color}}>{exp.urgency}</span>
               </div>
               <span style={{fontSize:11,color:T.muted}}>{exp.due_date?new Date(exp.due_date+"T12:00:00").toLocaleDateString("fr-CA",{month:"short",day:"numeric",year:"numeric"}):"—"}</span>
-              <div style={{display:"flex",gap:5}}>
+              <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                {/* Payment toggle */}
+                {(()=>{
+                  const ps = PAY_STATUS[exp.payment_status]||PAY_STATUS["À payer"];
+                  return(
+                    <button onClick={e=>{
+                      e.stopPropagation();
+                      const next = exp.payment_status==="Payé"?"À payer":"Payé";
+                      // If marking as paid, also add to expenses automatically
+                      updateExpense(exp.id,{...exp,payment_status:next});
+                    }} style={{
+                      background:ps.bg,border:`1px solid ${ps.color}44`,
+                      borderRadius:7,padding:"4px 10px",
+                      fontSize:10,fontWeight:700,color:ps.color,
+                      cursor:"pointer",transition:"all 0.15s",
+                      display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",
+                    }}>
+                      <span>{ps.icon}</span>{ps.label}
+                    </button>
+                  );
+                })()}
                 <button onClick={()=>setModal({type:"edit_expenses",payload:exp})} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:5,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer"}}>✏</button>
                 {(exp.urgency==="Critique"||exp.urgency==="Haute")&&(
                   <button onClick={()=>sendUrgentAlert(exp)} style={{background:"#FF3B3022",border:"1px solid #FF3B3044",borderRadius:5,padding:"4px 8px",fontSize:11,color:"#FF3B30",cursor:"pointer"}}>🚨</button>
@@ -4305,48 +4747,531 @@ function TitoNotes({ws,notes,setNotes,T}){
 }
 
 function TitoGoals({ws,goals,setGoals,T}){
-  const [form,setForm]=useState({title:"",deadline:"",progress:0});
-  const [adding,setAdding]=useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({title:"",category:"Vie",icon:"🎯",target:"",unit:"",deadline:"",progress:0,note:""});
+  const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const CATS = {
+    "Vie":      { color:"#BF5AF2", bg:"#BF5AF215", icon:"✨" },
+    "Business": { color:"#FF6B00", bg:"#FF6B0015", icon:"🚀" },
+    "Finance":  { color:"#00C896", bg:"#00C89615", icon:"💰" },
+    "Santé":    { color:"#FF3B30", bg:"#FF3B3015", icon:"💪" },
+  };
+
+  const ICON_PICKS = ["🏠","💰","🚗","✈️","💪","📚","🎯","🏆","👨‍👩‍👧","🌍","💼","🎵","🏋️","🍕","📱","💻","🎓","🏖️","⚡","🔥"];
+
+  const activeGoals = goals.filter(g=>!g.done);
+  const doneGoals   = goals.filter(g=>g.done);
+  const globalScore = goals.length ? Math.round(goals.reduce((s,g)=>s+(g.progress||0),0)/goals.length) : 0;
+
+  function saveGoal(){
+    if(!form.title.trim()) return;
+    if(editId){
+      setGoals(goals.map(g=>g.id===editId?{...g,...form}:g));
+      setEditId(null);
+    } else {
+      setGoals([...goals,{...form,id:Date.now(),done:false}]);
+    }
+    setForm({title:"",category:"Vie",icon:"🎯",target:"",unit:"",deadline:"",progress:0,note:""});
+    setAdding(false);
+  }
+
+  function startEdit(g){
+    setForm({title:g.title,category:g.category||"Vie",icon:g.icon||"🎯",target:g.target||"",unit:g.unit||"",deadline:g.deadline||"",progress:g.progress||0,note:g.note||""});
+    setEditId(g.id);
+    setAdding(true);
+  }
+
+  function updateProgress(id, val){
+    setGoals(goals.map(g=>g.id===id?{...g,progress:val,done:val>=100}:g));
+  }
+
+  function toggleDone(id){
+    setGoals(goals.map(g=>g.id===id?{...g,done:!g.done,progress:g.done?g.progress:100}:g));
+  }
+
   return(
-    <div style={{maxWidth:700,margin:"0 auto",paddingTop:20}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:1}}>🎯 OBJECTIFS PERSONNELS</div>
-        <button onClick={()=>setAdding(true)} style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>+ Objectif</button>
+    <div style={{maxWidth:820,margin:"0 auto",paddingTop:16}}>
+
+      {/* ── GLOBAL SCORE ── */}
+      <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:24,padding:"20px 24px",background:T.surface,border:`1px solid ${T.border}`,borderRadius:16}}>
+        <div style={{position:"relative",width:80,height:80,flexShrink:0}}>
+          <svg width={80} height={80} viewBox="0 0 80 80">
+            <circle cx={40} cy={40} r={32} fill="none" stroke={T.s3} strokeWidth={8}/>
+            <circle cx={40} cy={40} r={32} fill="none" stroke={ws.color} strokeWidth={8}
+              strokeDasharray={`${globalScore/100*201} 201`}
+              strokeLinecap="round"
+              style={{transform:"rotate(-90deg)",transformOrigin:"40px 40px",transition:"stroke-dasharray 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+            <text x={40} y={40} textAnchor="middle" dominantBaseline="middle" fontSize={18} fontWeight={800} fill={ws.color}>{globalScore}%</text>
+          </svg>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:18,fontWeight:800,letterSpacing:-0.3,marginBottom:4}}>Mes Ambitions</div>
+          <div style={{fontSize:13,color:T.muted,marginBottom:10}}>
+            {activeGoals.length} objectif{activeGoals.length>1?"s":""} en cours · {doneGoals.length} accompli{doneGoals.length>1?"s":""}
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {Object.entries(CATS).map(([cat,c])=>{
+              const count = goals.filter(g=>g.category===cat&&!g.done).length;
+              if(count===0) return null;
+              return(
+                <div key={cat} style={{background:c.bg,border:`1px solid ${c.color}33`,borderRadius:20,padding:"3px 12px",display:"flex",alignItems:"center",gap:5}}>
+                  <span style={{fontSize:10}}>{c.icon}</span>
+                  <span style={{fontSize:11,fontWeight:600,color:c.color}}>{cat}</span>
+                  <span style={{fontSize:11,color:c.color,opacity:0.7}}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <button onClick={()=>{setAdding(true);setEditId(null);setForm({title:"",category:"Vie",icon:"🎯",target:"",unit:"",deadline:"",progress:0,note:""}); }} style={{
+          background:ws.color,color:"#fff",border:"none",
+          borderRadius:12,padding:"10px 18px",
+          fontSize:13,fontWeight:700,cursor:"pointer",
+          boxShadow:`0 4px 16px ${ws.color}44`,
+          display:"flex",alignItems:"center",gap:6,
+          transition:"all 0.15s",flexShrink:0,
+        }}>
+          <span style={{fontSize:16}}>+</span> Nouvelle ambition
+        </button>
       </div>
+
+      {/* ── ADD / EDIT FORM ── */}
       {adding&&(
-        <div style={{background:T.surface,border:`1px solid ${ws.color}`,borderRadius:10,padding:"16px",marginBottom:16}}>
-          <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Objectif..." style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:7,padding:"8px 12px",fontSize:13,marginBottom:10}}/>
-          <input value={form.deadline} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} placeholder="Deadline (ex: Q2 2026)" style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:7,padding:"8px 12px",fontSize:13,marginBottom:10}}/>
+        <div style={{background:T.surface,border:`2px solid ${ws.color}44`,borderRadius:16,padding:"20px 22px",marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,color:ws.color,marginBottom:16,letterSpacing:0.2}}>
+            {editId?"✏️ Modifier l'ambition":"✨ Nouvelle ambition"}
+          </div>
+
+          {/* Icon picker */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:8,fontWeight:600}}>ICÔNE</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {ICON_PICKS.map(ic=>(
+                <button key={ic} onClick={()=>f("icon",ic)} style={{
+                  width:36,height:36,borderRadius:8,border:`2px solid ${form.icon===ic?ws.color:T.border}`,
+                  background:form.icon===ic?ws.color+"22":"transparent",
+                  fontSize:18,cursor:"pointer",transition:"all 0.1s",
+                }}>{ic}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Title */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>AMBITION</div>
+            <input value={form.title} onChange={e=>f("title",e.target.value)}
+              placeholder="ex: Avoir 50 000$ sur mon compte, Acheter un appart..."
+              style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"10px 14px",fontSize:14,fontWeight:600}}/>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+            {/* Category */}
+            <div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>CATÉGORIE</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {Object.entries(CATS).map(([cat,c])=>(
+                  <button key={cat} onClick={()=>f("category",cat)} style={{
+                    padding:"7px 10px",borderRadius:8,border:`1.5px solid ${form.category===cat?c.color:T.border}`,
+                    background:form.category===cat?c.bg:"transparent",
+                    color:form.category===cat?c.color:T.muted,
+                    fontSize:12,fontWeight:form.category===cat?700:400,
+                    cursor:"pointer",transition:"all 0.1s",
+                    display:"flex",alignItems:"center",gap:6,
+                  }}>
+                    <span>{c.icon}</span>{cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target */}
+            <div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>CIBLE (optionnel)</div>
+              <input value={form.target} onChange={e=>f("target",e.target.value)}
+                placeholder="ex: 50000"
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"10px 14px",fontSize:13,marginBottom:8}}/>
+              <input value={form.unit} onChange={e=>f("unit",e.target.value)}
+                placeholder="ex: $, km, livres..."
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"10px 14px",fontSize:13,marginBottom:8}}/>
+              <input value={form.deadline} onChange={e=>f("deadline",e.target.value)}
+                placeholder="ex: Dec 2026, Q3 2027..."
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"10px 14px",fontSize:13}}/>
+            </div>
+
+            {/* Progress + Note */}
+            <div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>PROGRESSION ACTUELLE</div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <input type="range" min={0} max={100} value={form.progress}
+                  onChange={e=>f("progress",+e.target.value)}
+                  style={{flex:1,accentColor:ws.color}}/>
+                <span style={{fontSize:16,fontWeight:800,color:ws.color,minWidth:44}}>{form.progress}%</span>
+              </div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>NOTE</div>
+              <textarea value={form.note} onChange={e=>f("note",e.target.value)}
+                placeholder="Contexte, étapes, motivation..."
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:10,padding:"10px 14px",fontSize:12,resize:"none",height:80}}/>
+            </div>
+          </div>
+
           <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>{if(form.title.trim()){setGoals([...goals,{...form,id:Date.now(),done:false}]);setForm({title:"",deadline:"",progress:0});setAdding(false);}}} style={{background:ws.color,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Ajouter</button>
-            <button onClick={()=>setAdding(false)} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"8px 14px",fontSize:12,color:T.muted,cursor:"pointer"}}>Annuler</button>
+            <button onClick={saveGoal} style={{background:ws.color,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:`0 2px 12px ${ws.color}44`}}>
+              {editId?"Sauvegarder":"Ajouter l'ambition ✨"}
+            </button>
+            <button onClick={()=>{setAdding(false);setEditId(null);}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 16px",fontSize:13,color:T.muted,cursor:"pointer"}}>Annuler</button>
           </div>
         </div>
       )}
-      {goals.length===0&&!adding&&<div style={{textAlign:"center",padding:"60px 20px",color:T.dim}}><div style={{fontSize:32,marginBottom:10}}>🎯</div><div style={{fontSize:14}}>Définis tes objectifs personnels</div></div>}
-      {goals.map((g,i)=>(
-        <div key={g.id} style={{background:g.done?T.s2:T.surface,border:`1px solid ${g.done?T.border:ws.color+"44"}`,borderRadius:10,padding:"16px",marginBottom:10}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-            <div onClick={()=>setGoals(goals.map((x,xi)=>xi===i?{...x,done:!x.done}:x))} style={{width:22,height:22,borderRadius:6,border:`2px solid ${g.done?"#00C896":ws.color}`,background:g.done?"#00C896":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              {g.done&&<span style={{color:"#fff",fontSize:12}}>✓</span>}
+
+      {/* ── GOALS GRID ── */}
+      {goals.length===0&&!adding&&(
+        <div style={{textAlign:"center",padding:"80px 20px",color:T.dim}}>
+          <div style={{fontSize:48,marginBottom:12}}>🎯</div>
+          <div style={{fontSize:16,fontWeight:600,marginBottom:6}}>Quelles sont tes ambitions ?</div>
+          <div style={{fontSize:13,color:T.dim,marginBottom:20}}>Appartement, épargne, voyage, santé — note tout ici.</div>
+          <button onClick={()=>setAdding(true)} style={{background:ws.color,color:"#fff",border:"none",borderRadius:12,padding:"12px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}}>+ Première ambition</button>
+        </div>
+      )}
+
+      {/* Active goals by category */}
+      {Object.entries(CATS).map(([cat,c])=>{
+        const catGoals = activeGoals.filter(g=>g.category===cat);
+        if(catGoals.length===0) return null;
+        return(
+          <div key={cat} style={{marginBottom:24}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <span style={{fontSize:16}}>{c.icon}</span>
+              <span style={{fontSize:12,fontWeight:700,color:c.color,letterSpacing:0.5}}>{cat.toUpperCase()}</span>
+              <span style={{fontSize:11,color:T.dim}}>· {catGoals.length}</span>
             </div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:600,textDecoration:g.done?"line-through":"none",color:g.done?T.muted:T.text}}>{g.title}</div>
-              {g.deadline&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>📅 {g.deadline}</div>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+              {catGoals.map(g=>{
+                const prog = g.progress||0;
+                const isMilestone = prog>=25&&prog<50?"🥈":prog>=50&&prog<75?"🥇":prog>=75&&prog<100?"🏆":prog>=100?"✅":"";
+                return(
+                  <div key={g.id} style={{
+                    background:T.surface,
+                    border:`1px solid ${T.border}`,
+                    borderRadius:14,padding:"18px 18px 14px",
+                    borderLeft:`4px solid ${c.color}`,
+                    transition:"all 0.15s",
+                    position:"relative",
+                  }}>
+                    {/* Header */}
+                    <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
+                      <div style={{
+                        width:44,height:44,borderRadius:12,
+                        background:c.bg,border:`1px solid ${c.color}33`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:22,flexShrink:0,
+                      }}>{g.icon||"🎯"}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:700,lineHeight:1.3,marginBottom:3}}>{g.title}</div>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                          {g.target&&<span style={{fontSize:11,color:c.color,fontWeight:700,background:c.bg,borderRadius:20,padding:"2px 8px"}}>{g.target}{g.unit?" "+g.unit:""}</span>}
+                          {g.deadline&&<span style={{fontSize:10,color:T.muted}}>📅 {g.deadline}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:4,flexShrink:0}}>
+                        {isMilestone&&<span style={{fontSize:16}}>{isMilestone}</span>}
+                        <button onClick={()=>startEdit(g)} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13,padding:3}}>✏️</button>
+                        <button onClick={()=>setGoals(goals.filter(x=>x.id!==g.id))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13,padding:3}}>✕</button>
+                      </div>
+                    </div>
+
+                    {/* Note */}
+                    {g.note&&<div style={{fontSize:11,color:T.muted,marginBottom:10,lineHeight:1.5,borderLeft:`2px solid ${c.color}44`,paddingLeft:8}}>{g.note}</div>}
+
+                    {/* Progress */}
+                    <div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                        <span style={{fontSize:10,color:T.dim,letterSpacing:0.5}}>PROGRESSION</span>
+                        <span style={{fontSize:14,fontWeight:800,color:prog>=100?"#00C896":c.color}}>{prog}%</span>
+                      </div>
+                      <div style={{height:8,background:T.s3,borderRadius:8,overflow:"hidden",marginBottom:8}}>
+                        <div style={{
+                          height:"100%",
+                          width:prog+"%",
+                          background:prog>=100?"#00C896":`linear-gradient(90deg,${c.color}99,${c.color})`,
+                          borderRadius:8,
+                          transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)",
+                          boxShadow:prog>0?`0 0 8px ${c.color}55`:"none",
+                        }}/>
+                      </div>
+                      <input type="range" min={0} max={100} value={prog}
+                        onChange={e=>updateProgress(g.id,+e.target.value)}
+                        style={{width:"100%",accentColor:c.color,cursor:"pointer"}}/>
+                    </div>
+
+                    {/* Done button */}
+                    <button onClick={()=>toggleDone(g.id)} style={{
+                      width:"100%",marginTop:8,
+                      background:prog>=100?"#00C89622":"transparent",
+                      border:`1px solid ${prog>=100?"#00C89644":T.border}`,
+                      borderRadius:8,padding:"6px",
+                      fontSize:11,fontWeight:prog>=100?700:400,
+                      color:prog>=100?"#00C896":T.dim,
+                      cursor:"pointer",transition:"all 0.15s",
+                    }}>
+                      {prog>=100?"✅ Marquer comme accompli !":"Marquer accompli"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-            <button onClick={()=>setGoals(goals.filter((_,xi)=>xi!==i))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:14}}>✕</button>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <input type="range" min={0} max={100} value={g.progress||0}
-              onChange={e=>setGoals(goals.map((x,xi)=>xi===i?{...x,progress:+e.target.value}:x))}
-              style={{flex:1,accentColor:ws.color}}/>
-            <span style={{fontSize:12,fontWeight:700,color:ws.color,minWidth:36}}>{g.progress||0}%</span>
+        );
+      })}
+
+      {/* ── DONE ── */}
+      {doneGoals.length>0&&(
+        <div style={{marginTop:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:1,marginBottom:12}}>✅ ACCOMPLIS ({doneGoals.length})</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
+            {doneGoals.map(g=>{
+              const c = CATS[g.category||"Vie"];
+              return(
+                <div key={g.id} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,opacity:0.7}}>
+                  <span style={{fontSize:22}}>{g.icon||"🎯"}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:600,textDecoration:"line-through",color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.title}</div>
+                    {g.deadline&&<div style={{fontSize:10,color:T.dim}}>📅 {g.deadline}</div>}
+                  </div>
+                  <span style={{fontSize:16}}>🏆</span>
+                  <button onClick={()=>setGoals(goals.filter(x=>x.id!==g.id))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:12}}>✕</button>
+                </div>
+              );
+            })}
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
+
+
+// ─── TITO JOURNAL ─────────────────────────────────────────────────────────
+function TitoJournal({ws,journal,setJournal,T}){
+  const today = new Date().toISOString().slice(0,10); // "2026-04-09"
+  const todayEntry = journal.find(e=>e.date===today);
+
+  const [mood,    setMood]    = useState(todayEntry?.mood    || "");
+  const [done,    setDone]    = useState(todayEntry?.done    || "");
+  const [tmrw,    setTmrw]    = useState(todayEntry?.tmrw    || "");
+  const [saved,   setSaved]   = useState(false);
+  const [viewAll, setViewAll] = useState(false);
+
+  const MOODS = [
+    {icon:"🔥",label:"En feu"},
+    {icon:"💪",label:"Motivé"},
+    {icon:"😐",label:"Neutre"},
+    {icon:"😴",label:"Fatigué"},
+    {icon:"😤",label:"Frustré"},
+  ];
+
+  function saveEntry(){
+    const entry = {
+      date: today,
+      mood, done, tmrw,
+      savedAt: new Date().toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"}),
+    };
+    const updated = journal.filter(e=>e.date!==today);
+    setJournal([entry,...updated]);
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  }
+
+  function dateLabel(dateStr){
+    const d = new Date(dateStr+"T12:00:00");
+    const diff = Math.round((new Date().setHours(0,0,0,0) - d)/86400000);
+    if(diff===0) return "Aujourd'hui";
+    if(diff===1) return "Hier";
+    if(diff<7) return `Il y a ${diff} jours`;
+    return d.toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"});
+  }
+
+  const past = journal.filter(e=>e.date!==today).slice(0, viewAll?999:6);
+
+  return(
+    <div style={{maxWidth:720,margin:"0 auto",paddingTop:16}}>
+
+      {/* ── HEADER ── */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:800,letterSpacing:-0.3}}>📓 Journal</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:2}}>
+            {new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+          </div>
+        </div>
+        {todayEntry&&<div style={{fontSize:11,color:"#00C896",background:"#00C89618",border:"1px solid #00C89633",borderRadius:20,padding:"4px 12px",fontWeight:600}}>✓ Entrée du jour sauvegardée</div>}
+      </div>
+
+      {/* ── YESTERDAY'S INTENTIONS (if exists) ── */}
+      {(()=>{
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+        const yKey = yesterday.toISOString().slice(0,10);
+        const yEntry = journal.find(e=>e.date===yKey);
+        if(!yEntry?.tmrw) return null;
+        return(
+          <div style={{
+            background:"rgba(255,107,0,0.06)",
+            border:`1px solid ${ws.color}33`,
+            borderRadius:12,padding:"14px 16px",marginBottom:20,
+            borderLeft:`4px solid ${ws.color}`,
+          }}>
+            <div style={{fontSize:10,fontWeight:700,color:ws.color,letterSpacing:0.8,marginBottom:6}}>
+              ☀️ CE QUE TU VOULAIS FAIRE AUJOURD'HUI (hier)
+            </div>
+            <div style={{fontSize:13,color:T.text,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{yEntry.tmrw}</div>
+          </div>
+        );
+      })()}
+
+      {/* ── TODAY'S ENTRY ── */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 22px",marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:14}}>AUJOURD'HUI</div>
+
+        {/* Mood */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:8,fontWeight:600}}>COMMENT TU TE SENS ?</div>
+          <div style={{display:"flex",gap:8}}>
+            {MOODS.map(m=>(
+              <button key={m.icon} onClick={()=>setMood(m.icon)} style={{
+                flex:1,padding:"10px 6px",borderRadius:10,
+                border:`2px solid ${mood===m.icon?ws.color:T.border}`,
+                background:mood===m.icon?ws.color+"18":"transparent",
+                cursor:"pointer",transition:"all 0.15s",
+                display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+              }}>
+                <span style={{fontSize:22}}>{m.icon}</span>
+                <span style={{fontSize:9,color:mood===m.icon?ws.color:T.dim,fontWeight:mood===m.icon?700:400}}>{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Done */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>
+            CE QUE J'AI FAIT / OÙ J'EN SUIS
+          </div>
+          <textarea
+            value={done}
+            onChange={e=>setDone(e.target.value)}
+            placeholder={"J'ai avancé sur...\nJ'ai réglé...\nJe me suis rendu compte que..."}
+            style={{
+              width:"100%",background:T.s2,
+              border:`1px solid ${T.border}`,
+              color:T.text,borderRadius:10,
+              padding:"12px 14px",fontSize:13,
+              resize:"none",height:90,lineHeight:1.6,
+              fontFamily:"inherit",
+              outline:"none",
+              transition:"border-color 0.15s",
+            }}
+            onFocus={e=>e.target.style.borderColor=ws.color}
+            onBlur={e=>e.target.style.borderColor=T.border}
+          />
+        </div>
+
+        {/* Tomorrow */}
+        <div style={{marginBottom:18}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600}}>
+            DEMAIN JE VEUX (max 3 choses)
+          </div>
+          <textarea
+            value={tmrw}
+            onChange={e=>setTmrw(e.target.value)}
+            placeholder={"1. Appeler le fournisseur\n2. Avancer sur X\n3. ..."}
+            style={{
+              width:"100%",background:T.s2,
+              border:`1px solid ${T.border}`,
+              color:T.text,borderRadius:10,
+              padding:"12px 14px",fontSize:13,
+              resize:"none",height:80,lineHeight:1.6,
+              fontFamily:"inherit",
+              outline:"none",
+              transition:"border-color 0.15s",
+            }}
+            onFocus={e=>e.target.style.borderColor=ws.color}
+            onBlur={e=>e.target.style.borderColor=T.border}
+          />
+        </div>
+
+        <button onClick={saveEntry} style={{
+          background:saved?"#00C896":ws.color,
+          color:"#fff",border:"none",
+          borderRadius:10,padding:"11px 24px",
+          fontSize:13,fontWeight:700,cursor:"pointer",
+          boxShadow:saved?"0 2px 12px #00C89644":`0 2px 12px ${ws.color}44`,
+          transition:"all 0.3s",
+          display:"flex",alignItems:"center",gap:6,
+        }}>
+          {saved ? "✓ Sauvegardé !" : "💾 Sauvegarder la journée"}
+        </button>
+      </div>
+
+      {/* ── HISTORY ── */}
+      {journal.filter(e=>e.date!==today).length>0&&(
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:12}}>
+            📚 HISTORIQUE
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {past.map(entry=>(
+              <div key={entry.date} style={{
+                background:T.surface,border:`1px solid ${T.border}`,
+                borderRadius:12,padding:"14px 16px",
+                borderLeft:`3px solid ${ws.color}44`,
+              }}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                  {entry.mood&&<span style={{fontSize:20}}>{entry.mood}</span>}
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700}}>{dateLabel(entry.date)}</div>
+                    <div style={{fontSize:10,color:T.dim}}>{entry.date} · sauvegardé à {entry.savedAt}</div>
+                  </div>
+                  <button onClick={()=>setJournal(journal.filter(e=>e.date!==entry.date))}
+                    style={{marginLeft:"auto",background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13}}>✕</button>
+                </div>
+                {entry.done&&(
+                  <div style={{marginBottom:8}}>
+                    <div style={{fontSize:9,color:T.dim,letterSpacing:0.8,fontWeight:600,marginBottom:3}}>CE QUE J'AI FAIT</div>
+                    <div style={{fontSize:12,color:T.muted,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{entry.done}</div>
+                  </div>
+                )}
+                {entry.tmrw&&(
+                  <div style={{background:ws.color+"0a",borderRadius:8,padding:"8px 10px"}}>
+                    <div style={{fontSize:9,color:ws.color,letterSpacing:0.8,fontWeight:700,marginBottom:3}}>AVAIT PRÉVU</div>
+                    <div style={{fontSize:12,color:T.text,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{entry.tmrw}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {journal.filter(e=>e.date!==today).length>6&&(
+            <button onClick={()=>setViewAll(v=>!v)} style={{
+              width:"100%",marginTop:10,
+              background:"transparent",border:`1px solid ${T.border}`,
+              borderRadius:10,padding:"8px",
+              fontSize:12,color:T.muted,cursor:"pointer",
+            }}>
+              {viewAll?"Voir moins ↑":`Voir tout l'historique (${journal.filter(e=>e.date!==today).length} entrées) ↓`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {journal.length===0&&(
+        <div style={{textAlign:"center",padding:"40px 20px",color:T.dim}}>
+          <div style={{fontSize:13,marginTop:8}}>Commence par noter ta première journée 👆</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function TitoInbox({ws,inbox,setInbox,T}){
   const [text,setText]=useState("");
@@ -4507,7 +5432,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(isEdit)await updateCalEvent(form.id,ev); else await addCalEvent(ev);
     } else if(isExp){
       if(!form.title||!form.amount)return;
-      const ev={urgency:"Moyenne",category:"Autre",location:"Global",notes:"",...form};
+      const ev={urgency:"Moyenne",category:"Autre",location:"Global",notes:"",payment_status:"À payer",...form};
       if(isEdit)await updateExpense(form.id,ev); else await addExpense(ev);
     } else if(isProd){
       if(!form.title)return;
@@ -4711,6 +5636,22 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
           </div>
           <MF label="Date prévue" T={T}>
             <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
+          </MF>
+          {/* Payment status */}
+          <MF label="Statut de paiement" T={T}>
+            <div style={{display:"flex",gap:8}}>
+              {Object.entries(PAY_STATUS).map(([key,ps])=>(
+                <button key={key} type="button" onClick={()=>f("payment_status",key)} style={{
+                  flex:1,padding:"10px",borderRadius:9,border:`1.5px solid ${(form.payment_status||"À payer")===key?ps.color:T.border}`,
+                  background:(form.payment_status||"À payer")===key?ps.bg:"transparent",
+                  color:(form.payment_status||"À payer")===key?ps.color:T.muted,
+                  fontSize:13,fontWeight:700,cursor:"pointer",transition:"all 0.15s",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                }}>
+                  <span style={{fontSize:16}}>{ps.icon}</span>{ps.label}
+                </button>
+              ))}
+            </div>
           </MF>
           <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
           {/* Urgency preview */}
