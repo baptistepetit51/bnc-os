@@ -839,8 +839,25 @@ function App(){
     } catch(e) {
       const fw=arr=>(arr||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
       setTasks(fw(lsGet("tasks")));setProjs(fw(lsGet("projects")));setMtgs(fw(lsGet("meetings")));
-      setInfl(fw(lsGet("influencers")));setCal(fw(lsGet("cal_events")));setMembers(lsGet("profiles"));
+      setInfl(fw(lsGet("influencers")));setCal(fw(lsGet("cal_events")));setMembers(lsGet("profiles")||[]);
     }
+    // Fallback: if Supabase returned empty but localStorage has data (CORS/local mode)
+    setTasks(prev=>{
+      const ls=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
+      return (prev.length===0&&ls.length>0)?ls:prev;
+    });
+    setProjs(prev=>{
+      const ls=(lsGet("projects")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
+      return (prev.length===0&&ls.length>0)?ls:prev;
+    });
+    setMtgs(prev=>{
+      const ls=(lsGet("meetings")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
+      return (prev.length===0&&ls.length>0)?ls:prev;
+    });
+    setInfl(prev=>{
+      const ls=(lsGet("influencers")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
+      return (prev.length===0&&ls.length>0)?ls:prev;
+    });
     setDbReady(true);
   }
 
@@ -952,9 +969,13 @@ function App(){
 
   // CRUD helpers
   async function addTask(form){
-    try{ await supa.from("tasks").insert({...form,workspace:wsId,created_by:user.name}); }
-    catch(e){ lsIns("tasks",{...form,workspace:wsId,created_by:user.name}); }
-    await loadData();
+    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+    // Optimistic update — show immediately
+    setTasks(prev=>[newItem,...prev]);
+    try{ await supa.from("tasks").insert(newItem); }
+    catch(e){ lsIns("tasks",newItem); }
+    // Reload to get server id/timestamps
+    setTimeout(()=>loadData(), 300);
   }
   async function updateTask(id,form){
     try{
@@ -971,18 +992,21 @@ function App(){
     catch(e){ lsDel("tasks",id); }
     await loadData();
   }
-  async function addProject(form){ lsIns("projects",{...form,workspace:wsId,created_by:user.name}); await loadData(); }
+  async function addProject(form){
+    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+    setProjs(prev=>[newItem,...prev]);
+    try{ await supa.from("projects").insert(newItem); }
+    catch(e){ lsIns("projects",newItem); }
+    setTimeout(()=>loadData(),300);
+  }
   async function updateProject(id,form){ lsUpd("projects",id,{...form}); await loadData(); }
   async function deleteProject(id){ try{await supa.from("projects").delete().eq("id",id);}catch(e){lsDel("projects",id);} await loadData(); }
   async function addMeeting(form){
-    try{
-      const {error}=await supa.from("meetings").insert({...form,workspace:wsId,created_by:user.name});
-      if(error){console.error("Supabase meeting error:",JSON.stringify(error));lsIns("meetings",{...form,workspace:wsId,created_by:user.name});}
-    }catch(e){
-      console.error("addMeeting exception:",e);
-      lsIns("meetings",{...form,workspace:wsId,created_by:user.name});
-    }
-    await loadData();
+    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+    setMtgs(prev=>[newItem,...prev]);
+    try{ await supa.from("meetings").insert(newItem); }
+    catch(e){ lsIns("meetings",newItem); }
+    setTimeout(()=>loadData(),300);
   }
   async function updateMeeting(id,form){
     try{ await supa.from("meetings").update(form).eq("id",id); }
@@ -994,7 +1018,13 @@ function App(){
     catch(e){ lsDel("meetings",id); }
     await loadData();
   }
-  async function addInfluencer(form){ lsIns("influencers",{...form,workspace:wsId,created_by:user.name}); await loadData(); }
+  async function addInfluencer(form){
+    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+    setInfl(prev=>[newItem,...prev]);
+    try{ await supa.from("influencers").insert(newItem); }
+    catch(e){ lsIns("influencers",newItem); }
+    setTimeout(()=>loadData(), 300);
+  }
   async function updateInfluencer(id,form){ lsUpd("influencers",id,form); await loadData(); }
   async function deleteInfluencer(id){ lsDel("influencers",id); await loadData(); }
   async function addCalEvent(form){ lsIns("cal_events",{...form,workspace:wsId,created_by:user.name,color:calColor(form.category)}); await loadData(); }
