@@ -558,6 +558,52 @@ function DatePicker({value, onChange, color, T}){
   );
 }
 
+// Compact DatePicker — shows a button, opens calendar on click
+function DatePickerInline({value, onChange, color, T, placeholder}){
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(()=>{
+    function handler(e){ if(ref.current&&!ref.current.contains(e.target)) setOpen(false); }
+    if(open) document.addEventListener("mousedown", handler);
+    return ()=>document.removeEventListener("mousedown", handler);
+  },[open]);
+
+  const label = value
+    ? new Date(value+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"})
+    : placeholder||"📅 Date";
+
+  return(
+    <div ref={ref} style={{position:"relative",display:"inline-block"}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{
+        background: value ? color+"18" : "transparent",
+        border: `1px solid ${value ? color+"66" : T.border}`,
+        borderRadius:20, padding:"3px 10px",
+        fontSize:10, fontWeight: value ? 700 : 400,
+        color: value ? color : T.muted,
+        cursor:"pointer", transition:"all 0.15s",
+        display:"flex", alignItems:"center", gap:4,
+      }}>
+        <span style={{fontSize:11}}>📅</span>
+        {label}
+        {value&&<span onClick={e=>{e.stopPropagation();onChange("");}} style={{marginLeft:2,opacity:0.6,fontSize:11}}>✕</span>}
+      </button>
+      {open&&(
+        <div style={{
+          position:"absolute", top:"calc(100% + 6px)", left:0,
+          zIndex:500, boxShadow:"0 12px 32px rgba(0,0,0,0.3)",
+          borderRadius:12, overflow:"hidden",
+          border:`1px solid ${T.border}`,
+          minWidth:240,
+        }}>
+          <DatePicker value={value} onChange={v=>{ onChange(v); if(v) setOpen(false); }} color={color} T={T}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Donut({data,size=110}){
   const total=data.reduce((s,d)=>s+d.value,0)||1;
   let off=0; const r=40,circ=2*Math.PI*r;
@@ -1020,26 +1066,42 @@ function App(){
       if(!task.due_date)return;
       const due=new Date(task.due_date+"T00:00:00");
       const diff=Math.round((due-today)/86400000);
+      const reminders=task.reminders||["1","3"]; // default: 1j et 3j avant
 
+      // Toujours notifier si en retard
       if(diff<0){
         newNotifs.push({type:"overdue",urgency:"Critique",icon:"🔴",
-          title:`En retard: ${task.title}`,
+          title:`⏰ En retard: ${task.title}`,
           body:`${Math.abs(diff)} jour${Math.abs(diff)>1?"s":""} de retard · ${task.location} · ${task.owner}`,
           taskId:task.id});
-      } else if(diff===0){
-        newNotifs.push({type:"today",urgency:"Haute",icon:"🟠",
-          title:"Aujourd\u2019hui: "+task.title,
-          body:"À compléter aujourd\u2019hui · "+task.location+" · "+task.owner,
+        return;
+      }
+
+      // Jour J — toujours notifier
+      if(diff===0){
+        newNotifs.push({type:"today",urgency:"Critique",icon:"🔴",
+          title:`🔴 Aujourd’hui: ${task.title}`,
+          body:`Deadline aujourd’hui · ${task.location} · ${task.owner}`,
           taskId:task.id});
-      } else if(diff<=2){
+        return;
+      }
+
+      // Rappels configurés — vérifier si diff correspond à un rappel actif
+      const diffStr=String(diff);
+      if(reminders.includes(diffStr)){
+        const urgency=diff<=2?"Haute":diff<=7?"Moyenne":"Basse";
+        const icon=diff<=2?"🟠":diff<=7?"🟡":"🟢";
+        newNotifs.push({type:"reminder",urgency,icon,
+          title:`${icon} Dans ${diff}j: ${task.title}`,
+          body:`Rappel · Deadline ${new Date(task.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"})} · ${task.location}`,
+          taskId:task.id});
+      }
+
+      // Toujours alerter si ≤2j même sans rappel explicite
+      if(diff<=2&&!reminders.includes(diffStr)){
         newNotifs.push({type:"soon",urgency:"Haute",icon:"🟠",
-          title:`Dans ${diff}j: ${task.title}`,
-          body:`Échéance proche · ${task.owner}`,
-          taskId:task.id});
-      } else if(diff<=7){
-        newNotifs.push({type:"week",urgency:"Moyenne",icon:"🟡",
-          title:`Cette semaine: ${task.title}`,
-          body:`Dans ${diff} jours · ${task.owner}`,
+          title:`🟠 Dans ${diff}j: ${task.title}`,
+          body:`Deadline très proche · ${task.owner}`,
           taskId:task.id});
       }
     });
@@ -1645,6 +1707,7 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
       location,
       due_date:due||undefined,
       due:due?new Date(due+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—",
+      reminders:["1","3"],
       tags:[],notes:"",
     });
     setTitle("");setDue("");setPriority("Medium");setLocation("Global");setOpen(false);
@@ -1679,8 +1742,7 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
         <select value={location} onChange={e=>setLocation(e.target.value)} style={{background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:20,padding:"2px 10px",fontSize:10,fontFamily:"DM Sans,sans-serif",cursor:"pointer",outline:"none"}}>
           {LOCATIONS.map(l=><option key={l}>{l}</option>)}
         </select>
-        <input type="date" value={due} onChange={e=>setDue(e.target.value)}
-          style={{background:"transparent",border:`1px solid ${T.border}`,color:T.muted,borderRadius:20,padding:"2px 8px",fontSize:10,fontFamily:"DM Sans,sans-serif",cursor:"pointer",colorScheme:"dark"}}/>
+        <DatePickerInline value={due} onChange={v=>setDue(v||"")} color={ws.color} T={T} placeholder="📅 Deadline"/>
       </div>
       {/* Action buttons */}
       <div style={{display:"flex",gap:6}}>
@@ -5385,7 +5447,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       } else if(form.due && form.due !== "—") {
         dueFormatted = form.due;
       }
-      const ev={status:"To Do",priority:"Medium",owner:user.name,due:"—",tags:[],location:"Global",...form,due:dueFormatted};
+      const ev={status:"To Do",priority:"Medium",owner:user.name,due:"—",tags:[],location:"Global",reminders:["1","3"],...form,due:dueFormatted};
       if(isEdit) await updateTask(form.id,ev);
       else {
         await addTask(ev);
@@ -5493,9 +5555,87 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{LOCATIONS.map(l=><option key={l}>{l}</option>)}</select></MF>
             <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
           </div>
-          <MF label={t.dueDate} T={T}>
-            <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
-          </MF>
+          {/* ── DATES & RAPPELS ── */}
+          <div style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:12}}>📅 DATES & RAPPELS</div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              {/* Start date */}
+              <div>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                  <span style={{width:8,height:8,borderRadius:"50%",background:"#0A84FF",display:"inline-block"}}/>
+                  DATE DE DÉBUT
+                </div>
+                <DatePicker value={form.start_date||""} onChange={v=>f("start_date",v)} color="#0A84FF" T={T}/>
+              </div>
+              {/* Deadline */}
+              <div>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                  <span style={{width:8,height:8,borderRadius:"50%",background:ws.color,display:"inline-block"}}/>
+                  DEADLINE
+                </div>
+                <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
+              </div>
+            </div>
+
+            {/* Duration indicator */}
+            {form.start_date&&form.due_date&&(()=>{
+              const s=new Date(form.start_date+"T00:00:00");
+              const e=new Date(form.due_date+"T00:00:00");
+              const diff=Math.round((e-s)/86400000);
+              const today=new Date(); today.setHours(0,0,0,0);
+              const elapsed=Math.round((today-s)/86400000);
+              const pct=diff>0?Math.min(100,Math.max(0,Math.round(elapsed/diff*100))):0;
+              if(diff<0) return <div style={{fontSize:11,color:"#FF3B30",background:"#FF3B3015",borderRadius:7,padding:"6px 10px",marginBottom:12}}>⚠️ La deadline est avant la date de début</div>;
+              return(
+                <div style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginBottom:4}}>
+                    <span>Durée : {diff} jour{diff>1?"s":""}</span>
+                    <span style={{color:pct>80?"#FF3B30":pct>50?"#FF9F0A":"#00C896",fontWeight:700}}>{pct}% écoulé</span>
+                  </div>
+                  <div style={{height:4,background:T.s3,borderRadius:4,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:pct+"%",background:pct>80?"#FF3B30":pct>50?"#FF9F0A":"#00C896",borderRadius:4,transition:"width 0.3s"}}/>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Reminders */}
+            <div>
+              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:8,fontWeight:600}}>🔔 RAPPELS AVANT DEADLINE</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[
+                  {label:"Jour J",  val:"0"},
+                  {label:"1 jour",  val:"1"},
+                  {label:"2 jours", val:"2"},
+                  {label:"3 jours", val:"3"},
+                  {label:"1 sem",   val:"7"},
+                  {label:"2 sem",   val:"14"},
+                ].map(r=>{
+                  const active=(form.reminders||["1","3"]).includes(r.val);
+                  return(
+                    <button key={r.val} type="button" onClick={()=>{
+                      const cur=form.reminders||["1","3"];
+                      f("reminders", active?cur.filter(x=>x!==r.val):[...cur,r.val]);
+                    }} style={{
+                      padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:active?700:400,
+                      background:active?ws.color+"22":"transparent",
+                      border:`1.5px solid ${active?ws.color:T.border}`,
+                      color:active?ws.color:T.muted,
+                      cursor:"pointer",transition:"all 0.15s",
+                    }}>{r.label}</button>
+                  );
+                })}
+              </div>
+              <div style={{fontSize:10,color:T.dim,marginTop:6}}>
+                {(form.reminders||["1","3"]).length>0
+                  ? `Notifications : ${(form.reminders||["1","3"]).map(v=>v==="0"?"le jour J":`${v}j avant`).join(", ")}`
+                  : "Aucun rappel configuré"}
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar sync */}
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:ws.color+"12",border:`1px solid ${ws.color}33`,borderRadius:7,marginBottom:14}}>
             <input type="checkbox" id="addtocal" checked={form.add_to_cal||false} onChange={e=>f("add_to_cal",e.target.checked)}
               style={{width:16,height:16,accentColor:ws.color,cursor:"pointer"}}/>
