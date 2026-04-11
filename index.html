@@ -841,23 +841,11 @@ function App(){
       setTasks(fw(lsGet("tasks")));setProjs(fw(lsGet("projects")));setMtgs(fw(lsGet("meetings")));
       setInfl(fw(lsGet("influencers")));setCal(fw(lsGet("cal_events")));setMembers(lsGet("profiles")||[]);
     }
-    // Fallback: if Supabase returned empty but localStorage has data (CORS/local mode)
-    setTasks(prev=>{
-      const ls=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
-      return (prev.length===0&&ls.length>0)?ls:prev;
-    });
-    setProjs(prev=>{
-      const ls=(lsGet("projects")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
-      return (prev.length===0&&ls.length>0)?ls:prev;
-    });
-    setMtgs(prev=>{
-      const ls=(lsGet("meetings")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
-      return (prev.length===0&&ls.length>0)?ls:prev;
-    });
-    setInfl(prev=>{
-      const ls=(lsGet("influencers")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
-      return (prev.length===0&&ls.length>0)?ls:prev;
-    });
+    // Fallback: if Supabase returned empty but localStorage has data
+    setTasks(prev=>{ if(prev.length>0) return prev; const ls=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id); return ls.length>0?ls:prev; });
+    setProjs(prev=>{ if(prev.length>0) return prev; const ls=(lsGet("projects")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id); return ls.length>0?ls:prev; });
+    setMtgs(prev=>{ if(prev.length>0) return prev; const ls=(lsGet("meetings")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id); return ls.length>0?ls:prev; });
+    setInfl(prev=>{ if(prev.length>0) return prev; const ls=(lsGet("influencers")||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id); return ls.length>0?ls:prev; });
     setDbReady(true);
   }
 
@@ -969,13 +957,15 @@ function App(){
 
   // CRUD helpers
   async function addTask(form){
-    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
-    // Optimistic update — show immediately
-    setTasks(prev=>[newItem,...prev]);
-    try{ await supa.from("tasks").insert(newItem); }
-    catch(e){ lsIns("tasks",newItem); }
-    // Reload to get server id/timestamps
-    setTimeout(()=>loadData(), 300);
+    const tempId="tmp_"+Date.now();
+    const supaItem={...form,workspace:wsId,created_by:user.name};
+    const localItem={...supaItem,id:tempId};
+    setTasks(prev=>[localItem,...prev]);
+    try{
+      const {data,error}=await supa.from("tasks").insert(supaItem).select().single();
+      if(!error&&data) setTasks(prev=>prev.map(t=>t.id===tempId?data:t));
+      else lsIns("tasks",localItem);
+    }catch(e){ lsIns("tasks",localItem); }
   }
   async function updateTask(id,form){
     try{
@@ -993,20 +983,28 @@ function App(){
     await loadData();
   }
   async function addProject(form){
-    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
-    setProjs(prev=>[newItem,...prev]);
-    try{ await supa.from("projects").insert(newItem); }
-    catch(e){ lsIns("projects",newItem); }
-    setTimeout(()=>loadData(),300);
+    const tempId="tmp_"+Date.now();
+    const supaItem={...form,workspace:wsId,created_by:user.name};
+    const localItem={...supaItem,id:tempId};
+    setProjs(prev=>[localItem,...prev]);
+    try{
+      const {data,error}=await supa.from("projects").insert(supaItem).select().single();
+      if(!error&&data) setProjs(prev=>prev.map(p=>p.id===tempId?data:p));
+      else lsIns("projects",localItem);
+    }catch(e){ lsIns("projects",localItem); }
   }
   async function updateProject(id,form){ lsUpd("projects",id,{...form}); await loadData(); }
   async function deleteProject(id){ try{await supa.from("projects").delete().eq("id",id);}catch(e){lsDel("projects",id);} await loadData(); }
   async function addMeeting(form){
-    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
-    setMtgs(prev=>[newItem,...prev]);
-    try{ await supa.from("meetings").insert(newItem); }
-    catch(e){ lsIns("meetings",newItem); }
-    setTimeout(()=>loadData(),300);
+    const tempId="tmp_"+Date.now();
+    const supaItem={...form,workspace:wsId,created_by:user.name};
+    const localItem={...supaItem,id:tempId};
+    setMtgs(prev=>[localItem,...prev]);
+    try{
+      const {data,error}=await supa.from("meetings").insert(supaItem).select().single();
+      if(!error&&data) setMtgs(prev=>prev.map(m=>m.id===tempId?data:m));
+      else lsIns("meetings",localItem);
+    }catch(e){ lsIns("meetings",localItem); }
   }
   async function updateMeeting(id,form){
     try{ await supa.from("meetings").update(form).eq("id",id); }
@@ -1019,11 +1017,15 @@ function App(){
     await loadData();
   }
   async function addInfluencer(form){
-    const newItem={...form,workspace:wsId,created_by:user.name,id:Date.now()};
-    setInfl(prev=>[newItem,...prev]);
-    try{ await supa.from("influencers").insert(newItem); }
-    catch(e){ lsIns("influencers",newItem); }
-    setTimeout(()=>loadData(), 300);
+    const tempId="tmp_"+Date.now();
+    const supaItem={...form,workspace:wsId,created_by:user.name};
+    const localItem={...supaItem,id:tempId};
+    setInfl(prev=>[localItem,...prev]);
+    try{
+      const {data,error}=await supa.from("influencers").insert(supaItem).select().single();
+      if(!error&&data) setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
+      else lsIns("influencers",localItem);
+    }catch(e){ lsIns("influencers",localItem); }
   }
   async function updateInfluencer(id,form){ lsUpd("influencers",id,form); await loadData(); }
   async function deleteInfluencer(id){ lsDel("influencers",id); await loadData(); }
