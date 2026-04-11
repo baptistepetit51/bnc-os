@@ -139,26 +139,31 @@ async function gcalCreateEvent(meeting){
   const endHour=String(parseInt(timeStr.split(":")[0])+1).padStart(2,"0");
   const endDT=dateStr+"T"+endHour+":"+timeStr.split(":")[1]+":00";
 
+  const wantsMeet = meeting.generate_meet || meeting.meet_link;
   const event={
     summary:"[BNC] "+meeting.title,
     description:(meeting.notes||"")+(meeting.meet_link?"\n\nGoogle Meet: "+meeting.meet_link:""),
     start:{dateTime:startDT,timeZone:"America/Toronto"},
     end:{dateTime:endDT,timeZone:"America/Toronto"},
     attendees:(meeting.attendees||[]).map(a=>({email:a==="Tito"?"baptiste.petit@brickncheese.com":a==="Samy"?"samy.eljabri@brickncheese.com":a})),
-    conferenceData:meeting.meet_link?{
+    conferenceData: wantsMeet ? {
       createRequest:{requestId:Math.random().toString(36),conferenceSolutionKey:{type:"hangoutsMeet"}}
-    }:undefined,
+    } : undefined,
   };
 
   try{
-    const res=await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events",{
+    // Need conferenceDataVersion=1 to get Meet link back
+    const url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + (wantsMeet ? "?conferenceDataVersion=1" : "");
+    const res=await fetch(url,{
       method:"POST",
       headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
       body:JSON.stringify(event)
     });
     if(res.status===401){gcalClearToken();return null;}
     const data=await res.json();
-    return data.htmlLink||null;
+    // Extract Meet link from response
+    const meetLink = data.conferenceData?.entryPoints?.find(e=>e.entryPointType==="video")?.uri || null;
+    return {htmlLink: data.htmlLink||null, meetLink};
   }catch(e){return null;}
 }
 
@@ -1002,7 +1007,13 @@ function App(){
       else lsIns("projects",localItem);
     }catch(e){ lsIns("projects",localItem); }
   }
-  async function updateProject(id,form){ lsUpd("projects",id,{...form}); await loadData(); }
+  async function updateProject(id,form){
+    setProjs(prev=>prev.map(p=>String(p.id)===String(id)?{...p,...form}:p));
+    try{
+      const {error}=await supa.from("projects").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
+      if(error) lsUpd("projects",id,form);
+    }catch(e){ lsUpd("projects",id,form); }
+  }
   async function deleteProject(id){ try{await supa.from("projects").delete().eq("id",id);}catch(e){lsDel("projects",id);} await loadData(); }
   async function addMeeting(form){
     const tempId="tmp_"+Date.now();
@@ -1016,9 +1027,9 @@ function App(){
     }catch(e){ lsIns("meetings",localItem); }
   }
   async function updateMeeting(id,form){
+    setMtgs(prev=>prev.map(m=>String(m.id)===String(id)?{...m,...form}:m));
     try{ await supa.from("meetings").update(form).eq("id",id); }
     catch(e){ lsUpd("meetings",id,form); }
-    await loadData();
   }
   async function deleteMeeting(id){
     try{ await supa.from("meetings").delete().eq("id",id); }
@@ -1036,7 +1047,16 @@ function App(){
       else lsIns("influencers",localItem);
     }catch(e){ lsIns("influencers",localItem); }
   }
-  async function updateInfluencer(id,form){ lsUpd("influencers",id,form); await loadData(); }
+  async function updateInfluencer(id,form){
+    // Optimistic: update state immediately
+    setInfl(prev=>prev.map(i=>String(i.id)===String(id)?{...i,...form}:i));
+    try{
+      const {error}=await supa.from("influencers").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
+      if(error){ console.error("updateInfluencer error:",error); lsUpd("influencers",id,form); }
+    }catch(e){
+      lsUpd("influencers",id,form);
+    }
+  }
   async function deleteInfluencer(id){ lsDel("influencers",id); await loadData(); }
   async function addCalEvent(form){ lsIns("cal_events",{...form,workspace:wsId,created_by:user.name,color:calColor(form.category)}); await loadData(); }
   async function updateCalEvent(id,form){ lsUpd("cal_events",id,{...form,color:calColor(form.category)}); await loadData(); }
@@ -1077,7 +1097,13 @@ function App(){
     }
     loadExpenses();
   }
-  async function updateExpense(id,form){ lsUpd("expenses",id,form); loadExpenses(); }
+  async function updateExpense(id,form){
+    setExpenses(prev=>prev.map(e=>String(e.id)===String(id)?{...e,...form}:e));
+    try{
+      const {error}=await supa.from("expenses").update({...form}).eq("id",id);
+      if(error) lsUpd("expenses",id,form);
+    }catch(e){ lsUpd("expenses",id,form); }
+  }
   async function deleteExpense(id){ lsDel("expenses",id); loadExpenses(); }
 
   // ── Notification system complet ──
@@ -3279,8 +3305,9 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
   // Statuts qui retirent du budget: dès Confirmé jusqu'à Payé
   const BUDGET_STATUSES = ["Confirmé","À payer","Publié","Payé"];
   const UNPAID_STATUSES = ["Confirmé","À payer"]; // confirmed but not yet paid
-  const monthConfirmed = monthInfluencers.filter(i=>i.cost&&BUDGET_STATUSES.includes(i.status));
-  const monthUnpaid    = monthInfluencers.filter(i=>i.cost&&UNPAID_STATUSES.includes(i.status));
+  // Use visibleInfluencers (includes no-date ones) for budget
+  const monthConfirmed = visibleInfluencers.filter(i=>i.cost&&BUDGET_STATUSES.includes(i.status));
+  const monthUnpaid    = visibleInfluencers.filter(i=>i.cost&&UNPAID_STATUSES.includes(i.status));
   const monthSpent     = monthConfirmed.reduce((s,i)=>s+(+i.cost||0),0);
   const monthToPay     = monthUnpaid.reduce((s,i)=>s+(+i.cost||0),0);
   const remaining      = monthlyBudget - monthSpent;
@@ -3885,7 +3912,7 @@ function CalModule({ws,calEvents,T,t,setModal}){
 
       {calView==="week"&&<WeekView events={events} ws={ws} T={T} t={t} setModal={setModal} LOC_COLOR={LOC_COLOR} weekStart={weekStart} setWeekStart={setWeekStart}/>}
 
-            {calView==="month"&&<div>
+      {calView==="month"&&<div>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
           <button onClick={()=>setMonth(m=>m===1?12:m-1)} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>◀</button>
           <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:ws.color,flex:1,textAlign:"center"}}>{t.months[month-1].toUpperCase()} {NY}</span>
@@ -5839,6 +5866,96 @@ function Access({ws,members,setModal,T,t}){
   );
 }
 
+// ─── MEET LINK SECTION ────────────────────────────────────────────────────
+function MeetLinkSection({form, f, T}){
+  const [meetLoading, setMeetLoading] = React.useState(false);
+  const [meetError,   setMeetError]   = React.useState(null);
+
+  async function generateMeetNow(){
+    if(!form.meeting_date){
+      setMeetError("Ajoute une date au meeting d'abord");
+      setTimeout(()=>setMeetError(null), 3000);
+      return;
+    }
+    setMeetLoading(true); setMeetError(null);
+    try{
+      const result = await gcalCreateEvent({
+        ...form,
+        title: form.title||"Meeting BNC",
+        generate_meet: true,
+      });
+      if(result?.meetLink){
+        f("meet_link", result.meetLink);
+      } else {
+        setMeetError("Impossible de créer le lien — vérifie que Calendar est connecté");
+        setTimeout(()=>setMeetError(null), 4000);
+      }
+    }catch(e){
+      setMeetError("Erreur: "+e.message);
+      setTimeout(()=>setMeetError(null), 4000);
+    }
+    setMeetLoading(false);
+  }
+
+  if(form.meet_link) return(
+    <div>
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+        <div style={{width:8,height:8,borderRadius:"50%",background:"#00C896",flexShrink:0}}/>
+        <a href={form.meet_link} target="_blank" rel="noreferrer"
+          style={{fontSize:12,color:"#1a73e8",textDecoration:"none",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600}}>
+          {form.meet_link}
+        </a>
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={()=>navigator.clipboard?.writeText(form.meet_link)}
+          style={{flex:1,background:"#1a73e822",border:"1px solid #1a73e844",borderRadius:6,padding:"6px",fontSize:11,color:"#1a73e8",cursor:"pointer",fontWeight:600}}>
+          📋 Copier le lien
+        </button>
+        <button onClick={()=>f("meet_link","")}
+          style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"6px 10px",fontSize:11,color:T.muted,cursor:"pointer"}}>
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+
+  if(gcalIsConnected()) return(
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <button onClick={generateMeetNow} disabled={meetLoading} style={{
+        background:meetLoading?"#1a73e844":"#1a73e8",
+        color:"#fff",border:"none",borderRadius:8,
+        padding:"10px 16px",fontSize:12,fontWeight:700,
+        cursor:meetLoading?"wait":"pointer",width:"100%",
+        display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+        transition:"all 0.15s",opacity:meetLoading?0.7:1,
+        boxShadow:"0 2px 12px #1a73e844",
+      }}>
+        {meetLoading
+          ? <><span>⏳</span> Création en cours...</>
+          : <><span>📹</span> Générer un vrai lien Google Meet</>
+        }
+      </button>
+      {meetError&&<div style={{fontSize:11,color:"#FF3B30",background:"#FF3B3010",borderRadius:6,padding:"6px 10px",textAlign:"center"}}>{meetError}</div>}
+      {!form.meeting_date&&<div style={{fontSize:10,color:T.dim,textAlign:"center"}}>⚠️ Définis une date d'abord</div>}
+      <div style={{fontSize:10,color:T.dim,textAlign:"center"}}>Crée un event Google Calendar avec un vrai lien Meet</div>
+    </div>
+  );
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{fontSize:11,color:T.muted,textAlign:"center",padding:"10px",background:T.s2,borderRadius:7}}>
+        📅 Connecte Google Calendar (sidebar) pour générer un vrai lien Meet
+      </div>
+      <button onClick={()=>window.open("https://meet.new","_blank")} style={{
+        background:"transparent",border:"1px solid #1a73e844",
+        borderRadius:7,padding:"8px",fontSize:11,
+        color:"#1a73e8",cursor:"pointer",width:"100%",
+        display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+      }}>🔗 Ouvrir meet.new et coller le lien</button>
+    </div>
+  );
+}
+
 // ─── MODAL ────────────────────────────────────────────────────────────────
 function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,addProject,updateProject,deleteProject,addMeeting,updateMeeting,deleteMeeting,addInfluencer,updateInfluencer,deleteInfluencer,addCalEvent,updateCalEvent,deleteCalEvent,addExpense,updateExpense,deleteExpense,addProduct,updateProduct,deleteProduct,addClient,updateClient,deleteClient,addTaskNote,taskNotes,mediaBudget,addMediaBudget,updateMediaBudget,addMember,T,t,wsId}){
   const [form,setForm]=useState(modal.payload||modal.prefill||{});
@@ -5907,8 +6024,20 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(isEdit)await updateMeeting(form.id,ev); else await addMeeting(ev);
       // Auto-sync to Google Calendar if connected
       if(gcalIsConnected()&&form.meeting_date){
-        gcalCreateEvent({...form,date:dateFormatted}).then(link=>{
-          if(link)console.log("Google Calendar synced:",link);
+        gcalCreateEvent({...form,date:dateFormatted,generate_meet:form.generate_meet||!!form.meet_link}).then(result=>{
+          if(result?.meetLink&&!ev.meet_link){
+            if(isEdit){
+              updateMeeting(form.id, {...ev, meet_link: result.meetLink});
+            } else {
+              setTimeout(()=>{
+                setMtgs(prev=>{
+                  const last = prev.find(m=>m.title===ev.title&&!m.meet_link);
+                  if(last) updateMeeting(last.id, {...last, meet_link: result.meetLink});
+                  return prev;
+                });
+              }, 800);
+            }
+          }
         });
       }
     } else if(isMed){
@@ -6127,17 +6256,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
               <span style={{fontSize:16}}>📹</span>
               <span style={{fontSize:12,fontWeight:700,color:"#1a73e8"}}>Google Meet</span>
             </div>
-            {form.meet_link?(
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <a href={form.meet_link} target="_blank" rel="noreferrer" style={{fontSize:12,color:"#1a73e8",textDecoration:"none",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.meet_link}</a>
-                <button onClick={()=>navigator.clipboard?.writeText(form.meet_link)} style={{background:"#1a73e822",border:"1px solid #1a73e844",borderRadius:5,padding:"3px 8px",fontSize:10,color:"#1a73e8",cursor:"pointer"}}>Copier</button>
-                <button onClick={()=>f("meet_link","")} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:11}}>✕</button>
-              </div>
-            ):(
-              <button onClick={()=>{const r=()=>Math.random().toString(36).slice(2,5);f("meet_link","https://meet.google.com/"+r()+"-"+r()+"-"+r());}} style={{background:"#1a73e8",color:"#fff",border:"none",borderRadius:7,padding:"8px 16px",fontSize:12,fontWeight:600,cursor:"pointer",width:"100%"}}>
-                + Générer un lien Google Meet
-              </button>
-            )}
+            {<MeetLinkSection form={form} f={f} T={T}/>}
           </div>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
 
