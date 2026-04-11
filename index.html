@@ -875,7 +875,7 @@ function App(){
 
   function switchWs(id){
     if(!accessibleWS.find(w=>w.id===id))return;
-    setWsId(id);setModule(id==="tito"?"daily_brief":"dashboard");setLocFilt("Global");
+    setWsId(id);setModule((id==="tito"||id==="samy")?"daily_brief":"dashboard");setLocFilt("Global");
   }
 
   const filtered_tasks    = tasks.filter(x=>locFilt==="Global"||x.location==="Global"||x.location===locFilt);
@@ -2712,7 +2712,7 @@ function parseMeetingDate(m){
   return null;
 }
 
-function MeetingCalendar({allMeetings,ws,T,onSelect}){
+function MeetingCalendar({allMeetings,ws,T,onSelect,setModal}){
   const now=new Date();
   const [cy,setCy]=useState(now.getFullYear());
   const [cm,setCm]=useState(now.getMonth());
@@ -2777,16 +2777,28 @@ function MeetingCalendar({allMeetings,ws,T,onSelect}){
               onMouseLeave={()=>setHovered(null)}
               style={{
                 minHeight:80,
-                background:isToday?ws.color+"15":isHovered&&hasMtg?T.s3:T.s2,
-                border:`1.5px solid ${isToday?ws.color:isHovered&&hasMtg?ws.color+"44":T.border}`,
+                background:isToday?ws.color+"15":isHovered?T.s3:T.s2,
+                border:`1.5px solid ${isToday?ws.color:isHovered?ws.color+"44":T.border}`,
                 borderRadius:10,padding:"6px 6px 4px",
                 transition:"all 0.12s",
-                cursor:hasMtg?"pointer":"default",
+                cursor:"pointer",
+                position:"relative",
               }}>
-              {/* Day number */}
+              {/* Day number + add button */}
               <div style={{
-                display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4,
+                display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4,
               }}>
+                <button
+                  onClick={()=>setModal&&setModal({type:"add_meetings",prefill:{
+                    meeting_date:`${cy}-${String(cm+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`
+                  }})}
+                  style={{
+                    background:"transparent",border:"none",
+                    color:isHovered?ws.color:T.dim,
+                    fontSize:14,cursor:"pointer",lineHeight:1,
+                    padding:"0 2px",opacity:isHovered?1:0,
+                    transition:"opacity 0.15s",
+                  }}>+</button>
                 <div style={{
                   width:24,height:24,borderRadius:"50%",
                   background:isToday?ws.color:"transparent",
@@ -2986,6 +2998,7 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
             allMeetings={allMeetings}
             ws={ws} T={T}
             onSelect={(id)=>{setSelected(id);setView("list");}}
+            setModal={setModal}
           />
         </Card>
       </div>
@@ -3185,7 +3198,9 @@ function MeetingWeek({allMeetings,ws,T,onSelect,setModal}){
 
               {/* Add button */}
               <button
-                onClick={()=>setModal({type:"add_meetings"})}
+                onClick={()=>setModal({type:"add_meetings",prefill:{
+                  meeting_date:d.toISOString().slice(0,10)
+                }})}
                 style={{
                   width:"100%",marginTop:6,
                   background:"transparent",
