@@ -239,7 +239,7 @@ function lsDel(key,id){ lsSet(key,lsGet(key).filter(x=>String(x.id)!==String(id)
   if(lsGet("profiles").length>0) return;
   lsSet("profiles",[
     {id:1,name:"Tito",email:"baptiste.petit@brickncheese.com",password_hash:"4caq16xQ.",role:"admin",workspace_access:["bnc","tk","de","tito"],locations:["Global"],avatar:"T"},
-    {id:2,name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc"],locations:["Global"],avatar:"S"},
+    {id:2,name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc","samy"],locations:["Global"],avatar:"S"},
   ]);
   lsSet("tasks",[
     {id:1,workspace:"bnc",title:"Vérifier stock emballages",location:"Vancouver",status:"To Do",priority:"High",owner:"Alex",created_by:"Tito",due:"Apr 5",tags:["Ops"]},
@@ -325,9 +325,9 @@ function lsDel(key,id){ lsSet(key,lsGet(key).filter(x=>String(x.id)!==String(id)
     {id:2,workspace:"bnc",month:"2026-05",location:"Global",budget:2500,created_by:"Tito"},
     {id:3,workspace:"bnc",month:"2026-06",location:"Global",budget:2000,created_by:"Tito"},
   ]);
-  lsSet("tito_focus",[]);
+  lsSet(wsId+"_focus",[]);
   lsSet("tito_notes",[]);
-  lsSet("tito_goals",[]);
+  lsSet(wsId+"_goals",[]);
 })();
 
 
@@ -354,13 +354,14 @@ const WORKSPACES = [
   { id:"bnc",  name:"Brick\'N\'Cheese", abbr:"BNC", color:"#FF6B00", logoType:"bnc" },
   { id:"tk",   name:"Tito\'s Kitchen",   abbr:"TK",  color:"#00C896", logoType:"tk"  },
   { id:"de",   name:"Delivery Edge",      abbr:"DE",  color:"#0A84FF", logoType:"de"  },
-  { id:"tito", name:"Espace Perso",       abbr:"TP",  color:"#BF5AF2", logoType:"tito"},
+  { id:"tito", name:"Espace Perso — Tito", abbr:"TP",  color:"#BF5AF2", logoType:"tito"},
+  { id:"samy", name:"Espace Perso — Samy", abbr:"SP",  color:"#00C896", logoType:"samy"},
 ];
 const LOCATIONS   = ["Global","Vancouver","Toronto","Seattle","Miami"];
 const TASK_STATUS = { "To Do":{dot:"#6b6b6b"}, "In Progress":{dot:"#FF9F0A"}, "Done":{dot:"#00C896"}, "Blocked":{dot:"#FF3B30"} };
 const TASK_PRI    = { "High":"#FF3B30","Medium":"#FF9F0A","Low":"#6b6b6b" };
 const PROJ_STATUS = { "Planning":"#6b6b6b","Active":"#FF6B00","On Track":"#00C896","At Risk":"#FF3B30","Completed":"#0A84FF" };
-const INFL_STATUS = { "À contacter":"#6b6b6b","Contacté":"#FF9F0A","Confirmé":"#00C896","Publié":"#0A84FF","Annulé":"#FF3B30" };
+const INFL_STATUS = { "À contacter":"#6b6b6b","Contacté":"#0A84FF","Confirmé":"#FF9F0A","À payer":"#FF6B00","Publié":"#00C896","Payé":"#00C896","Annulé":"#FF3B30" };
 const ROLES       = ["admin","manager","staff","partner"];
 const ROLE_COLOR  = { admin:"#FF6B00",manager:"#0A84FF",staff:"#00C896",partner:"#BF5AF2" };
 const CAL_CATS    = ["New Product","Limited Drop","Promo","Collab","Menu Update","Influencer Visit"];
@@ -406,8 +407,15 @@ function WSLogo({ws, size=32, light=false}){
   if(ws.logoType==="tk")  return <img src={LOGO_TK}  style={{width:size,height:size,objectFit:"contain",borderRadius:6,background:"#000"}}/>;
   if(ws.logoType==="de")  return <img src={LOGO_DE}  style={{width:size,height:size,objectFit:"contain",borderRadius:6,background:"#111"}}/>;
   // Tito perso
-  return(
+  if(ws.logoType==="tito") return(
     <div style={{width:size,height:size,borderRadius:size/3,background:"linear-gradient(135deg,#BF5AF2,#6B2FA0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.45,fontWeight:800,color:"#fff",boxShadow:`0 2px 8px #BF5AF244`}}>T</div>
+  );
+  // Samy perso
+  if(ws.logoType==="samy") return(
+    <div style={{width:size,height:size,borderRadius:size/3,background:"linear-gradient(135deg,#00C896,#007A5E)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.45,fontWeight:800,color:"#fff",boxShadow:`0 2px 8px #00C89644`}}>S</div>
+  );
+  return(
+    <div style={{width:size,height:size,borderRadius:size/3,background:"linear-gradient(135deg,#BF5AF2,#6B2FA0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.45,fontWeight:800,color:"#fff",boxShadow:`0 2px 8px #BF5AF244`}}>?</div>
   );
 }
 
@@ -850,6 +858,7 @@ function App(){
   }
 
   useEffect(()=>{loadData();},[user,wsId,seeded]);
+  useEffect(()=>{if(user&&seeded)loadExpenses();},[wsId]);
 
   // Realtime: reload after each action (local mode)
 
@@ -926,7 +935,7 @@ function App(){
     return()=>window.removeEventListener("gcal_connected",handler);
   },[]);
 
-  const isTitoWs = wsId==="tito";
+  const isTitoWs = wsId==="tito" || wsId==="samy";
   const NAV= isTitoWs ? [
     {id:"daily_brief",  label:"Ma Journée",    icon:"☀"},
     {id:"tito_home",    label:"Focus",         icon:"⚡"},
@@ -1041,11 +1050,11 @@ function App(){
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
-    setTitoFocus(lsGet("tito_focus")||[]);
-    setTitoNotes(localStorage.getItem("tito_notes")||"");
-    setTitoGoals(lsGet("tito_goals")||[]);
-    setTitoInbox(lsGet("tito_inbox")||[]);
-    setTitoJournal(lsGet("tito_journal")||[]);
+    setTitoFocus(lsGet(wsId+"_focus")||[]);
+    setTitoNotes(localStorage.getItem(wsId+"_notes")||"");
+    setTitoGoals(lsGet(wsId+"_goals")||[]);
+    setTitoInbox(lsGet(wsId+"_inbox")||[]);
+    setTitoJournal(lsGet(wsId+"_journal")||[]);
   }
   function addProduct(form){ lsIns("products",{...form,workspace:wsId,created_by:user.name,phase:"Idée",updates:[]}); loadExpenses(); }
   function addClient(form){ lsIns("clients",{...form,workspace:wsId,created_by:user.name,status:"Prospect",notes:"",interactions:[]}); loadExpenses(); }
@@ -1549,12 +1558,12 @@ function App(){
           {module==="access"   &&<Access ws={ws} members={members} setModal={setModal} T={T} t={t}/>}
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
-          {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId}/>}
-          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet("tito_focus",v);setTitoFocus(v);}} T={T}/>}
-          {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem("tito_notes",v);setTitoNotes(v);}} T={T}/>}
-          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet("tito_goals",v);setTitoGoals(v);}} T={T}/>}
-          {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet("tito_inbox",v);setTitoInbox(v);}} T={T}/>}
-          {module==="tito_journal" &&<TitoJournal ws={ws} journal={titoJournal} setJournal={v=>{lsSet("tito_journal",v);setTitoJournal(v);}} T={T}/>}
+          {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId}/>}
+          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);}} T={T}/>}
+          {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
+          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);}} T={T}/>}
+          {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);}} T={T}/>}
+          {module==="tito_journal" &&<TitoJournal ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);}} T={T}/>}
         </div>
       </div>
 
@@ -3108,15 +3117,21 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
     const m = parseVisitMonth(i.visit);
     return m === selMonth;
   });
-  // Influencers with no visit date → show in current month tab only
   const noDateInfls = selMonth===currentMonth ? allInfluencers.filter(i=>!parseVisitMonth(i.visit)) : [];
   const visibleInfluencers = [...monthInfluencers, ...noDateInfls];
 
   // ── Budget for selected month ──
   const budgetEntry = mediaBudget.find(b=>b.month===selMonth&&b.location==="Global");
   const monthlyBudget = budgetEntry?+budgetEntry.budget:0;
-  const monthSpent = monthInfluencers.filter(i=>i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0);
-  const remaining = monthlyBudget - monthSpent;
+
+  // Statuts qui retirent du budget: Confirmé, Publié, À payer infl, Payé infl
+  const BUDGET_STATUSES = ["Confirmé","Publié","Payé"];
+  const UNPAID_STATUSES = ["Confirmé","À payer"]; // confirmed but not yet paid
+  const monthConfirmed = monthInfluencers.filter(i=>i.cost&&BUDGET_STATUSES.includes(i.status));
+  const monthUnpaid    = monthInfluencers.filter(i=>i.cost&&UNPAID_STATUSES.includes(i.status));
+  const monthSpent     = monthConfirmed.reduce((s,i)=>s+(+i.cost||0),0);
+  const monthToPay     = monthUnpaid.reduce((s,i)=>s+(+i.cost||0),0);
+  const remaining      = monthlyBudget - monthSpent;
 
   // ── Global stats (all months) ──
   const spendByLoc = ["Vancouver","Toronto","Seattle","Miami"].map(loc=>({
@@ -3173,14 +3188,14 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
           <button onClick={()=>setModal({type:"set_budget",prefillMonth:selMonth})} style={{marginTop:8,background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>Modifier</button>
         </Card>
         <Card T={T}>
-          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>DÉPENSÉ</div>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>ENGAGÉ (Confirmé+)</div>
           <div style={{fontSize:24,fontWeight:800,color:"#FF9F0A"}}>{monthSpent.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthInfluencers.filter(i=>i.cost&&i.status!=="Annulé").length} influenceur{monthInfluencers.length>1?"s":""}</div>
+          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthConfirmed.length} influenceur{monthConfirmed.length>1?"s":""}</div>
         </Card>
-        <Card T={T} style={{borderLeft:`3px solid ${remaining>=0?"#00C896":"#FF3B30"}`}}>
-          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>RESTANT</div>
-          <div style={{fontSize:24,fontWeight:800,color:remaining>=0?"#00C896":"#FF3B30"}}>{remaining.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthlyBudget>0?Math.round((monthSpent/monthlyBudget)*100):0}% utilisé</div>
+        <Card T={T} style={{borderLeft:`3px solid ${monthToPay>0?"#FF6B00":"#00C896"}`}}>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:8}}>À PAYER</div>
+          <div style={{fontSize:24,fontWeight:800,color:monthToPay>0?"#FF6B00":"#00C896"}}>{monthToPay.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{monthUnpaid.length} en attente · {remaining.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})} restant</div>
         </Card>
         <Card T={T}>
           <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:10}}>PAR LOCATION (tous mois)</div>
@@ -3533,12 +3548,88 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
 
 
 
+// ─── WEEK VIEW ────────────────────────────────────────────────────────────
+function WeekView({events,ws,T,t,setModal,LOC_COLOR,weekStart,setWeekStart}){
+  const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);return d;});
+  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+  const DAY_FR=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+  const prevWeek=()=>{const d=new Date(weekStart);d.setDate(d.getDate()-7);setWeekStart(d);};
+  const nextWeek=()=>{const d=new Date(weekStart);d.setDate(d.getDate()+7);setWeekStart(d);};
+  const goToday=()=>{const d=new Date();d.setHours(0,0,0,0);const dow=d.getDay();const mon=new Date(d);mon.setDate(d.getDate()-(dow===0?6:dow-1));setWeekStart(mon);};
+
+  function dayEvs(d){
+    const dm=d.getMonth()+1; const dd=d.getDate();
+    return events.filter(ev=>{
+      const s=ev.month*100+(ev.day||1);
+      const en=ev.end_month?(ev.end_month*100+(ev.end_day||1)):s;
+      return en>=(dm*100+dd)&&s<=(dm*100+dd);
+    });
+  }
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+        <button onClick={prevWeek} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>◀</button>
+        <span style={{fontFamily:"monospace",fontSize:15,fontWeight:800,color:ws.color,flex:1,textAlign:"center"}}>
+          {days[0].toLocaleDateString("fr-CA",{day:"numeric",month:"short"})} — {days[6].toLocaleDateString("fr-CA",{day:"numeric",month:"short",year:"numeric"})}
+        </span>
+        <button onClick={goToday} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",color:T.muted,fontSize:11,cursor:"pointer"}}>Aujourd'hui</button>
+        <button onClick={nextWeek} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>▶</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6}}>
+        {days.map((d,di)=>{
+          const isToday=d.getTime()===todayDate.getTime();
+          const isPast=d<todayDate;
+          const dm=d.getMonth()+1; const dd=d.getDate();
+          const evs=dayEvs(d);
+          return(
+            <div key={di} style={{background:isToday?ws.color+"18":T.surface,border:`1px solid ${isToday?ws.color:T.border}`,borderRadius:10,padding:"10px 6px",minHeight:140,opacity:isPast?0.65:1}}>
+              <div style={{textAlign:"center",marginBottom:8}}>
+                <div style={{fontSize:9,color:T.muted,fontWeight:600,letterSpacing:0.5}}>{DAY_FR[di]}</div>
+                <div style={{
+                  fontSize:18,fontWeight:800,
+                  color:isToday?"#fff":T.text,
+                  background:isToday?ws.color:"transparent",
+                  width:32,height:32,borderRadius:"50%",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  margin:"4px auto 0",
+                }}>{dd}</div>
+              </div>
+              {evs.map(ev=>(
+                <div key={ev.id} onClick={()=>setModal({type:"edit_calendar",payload:ev})}
+                  style={{
+                    background:calColor(ev.category),color:calText(ev.category),
+                    fontSize:9,fontWeight:700,padding:"3px 6px",borderRadius:5,
+                    marginBottom:3,cursor:"pointer",
+                    overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+                  }}>
+                  {ev.title}
+                </div>
+              ))}
+              {evs.length===0&&<div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:8}}>—</div>}
+              <button onClick={()=>setModal({type:"add_calendar",prefill:{month:dm,day:dd}})}
+                style={{width:"100%",marginTop:6,background:"transparent",border:`1px dashed ${T.border}`,borderRadius:6,padding:"3px",fontSize:10,color:T.dim,cursor:"pointer"}}>+</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── CALENDAR ─────────────────────────────────────────────────────────────
 function CalModule({ws,calEvents,T,t,setModal}){
   const [calView,setCV]=useState("timeline");
   const [month,setMonth]=useState(NM);
   const [selCats,setSC]=useState([...CAL_CATS]);
   const [selLoc,setSL]=useState("Global");
+  const [selDay,setSelDay]=useState(null); // popup day
+  const [weekStart,setWeekStart]=useState(()=>{
+    const d=new Date(); d.setHours(0,0,0,0);
+    const dow=d.getDay(); const mon=new Date(d);
+    mon.setDate(d.getDate()-(dow===0?6:dow-1));
+    return mon;
+  });
   const LOC_COLOR={"Global":"#6b6b6b","Vancouver":"#0A84FF","Toronto":"#BF5AF2","Seattle":"#00C896","Miami":"#FF6B00"};
   const LOC_FLAG={"Global":"🌐","Vancouver":"🇨🇦","Toronto":"🇨🇦","Seattle":"🇺🇸","Miami":"🇺🇸"};
 
@@ -3556,9 +3647,9 @@ function CalModule({ws,calEvents,T,t,setModal}){
     <div>
       {/* Controls */}
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-        {["timeline","month"].map(v=>(
+        {[["timeline","📋 Timeline"],["week","📆 Semaine"],["month","📅 Mois"]].map(([v,label])=>(
           <button key={v} onClick={()=>setCV(v)} style={{background:calView===v?ws.color:T.s2,color:calView===v?"#fff":T.muted,border:`1px solid ${calView===v?ws.color:T.border}`,borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:calView===v?600:400,cursor:"pointer"}}>
-            {v==="timeline"?"📋 Timeline":"📅 Grille"}
+            {label}
           </button>
         ))}
         <div style={{width:1,height:20,background:T.border,margin:"0 4px"}}/>
@@ -3627,7 +3718,9 @@ function CalModule({ws,calEvents,T,t,setModal}){
         );
       })}
 
-      {calView==="month"&&<div>
+      {calView==="week"&&<WeekView events={events} ws={ws} T={T} t={t} setModal={setModal} LOC_COLOR={LOC_COLOR} weekStart={weekStart} setWeekStart={setWeekStart}/>}
+
+            {calView==="month"&&<div>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
           <button onClick={()=>setMonth(m=>m===1?12:m-1)} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>◀</button>
           <span style={{fontFamily:"monospace",fontSize:20,fontWeight:800,color:ws.color,flex:1,textAlign:"center"}}>{t.months[month-1].toUpperCase()} {NY}</span>
@@ -3641,10 +3734,12 @@ function CalModule({ws,calEvents,T,t,setModal}){
             if(!day)return<div key={"b"+idx} style={{background:T.bg,minHeight:80,borderRadius:6}}/>;
             const isT=month===NM&&day===ND;
             const dE=events.filter(ev=>evCovers(ev,month,day));
+                        const visible=dE.slice(0,2); const overflow=dE.slice(2);
+            const dayKey=month+"-"+day;
             return(
-              <div key={"d"+day} style={{background:isT?ws.color+"18":T.surface,border:`1px solid ${isT?ws.color:T.border}`,borderRadius:6,minHeight:80,padding:"4px 2px",overflow:"hidden",transition:"all 0.1s"}}>
+              <div key={"d"+day} style={{background:isT?ws.color+"18":T.surface,border:`1px solid ${isT?ws.color:T.border}`,borderRadius:8,minHeight:90,padding:"4px 2px",transition:"all 0.1s",position:"relative"}}>
                 <div style={{fontSize:10,color:isT?ws.color:T.dim,fontWeight:isT?800:400,padding:"0 5px",marginBottom:3}}>{day}</div>
-                {dE.map(ev=>{
+                {visible.map(ev=>{
                   const pos=bPos(ev,month,day);
                   const cc=calColor(ev.category);
                   const lc=LOC_COLOR[ev.location]||"transparent";
@@ -3660,9 +3755,32 @@ function CalModule({ws,calEvents,T,t,setModal}){
                         borderRadius:`${(pos==="start"||pos==="solo")?3:0}px ${(pos==="end"||pos==="solo")?3:0}px ${(pos==="end"||pos==="solo")?3:0}px ${(pos==="start"||pos==="solo")?3:0}px`,
                         borderLeft:(pos==="start"||pos==="solo")?`3px solid ${lc}`:"none",
                       }}
-                    >{(pos==="start"||pos==="solo")?ev.title:"\u00A0"}</div>
+                    >{(pos==="start"||pos==="solo")?ev.title:" "}</div>
                   );
                 })}
+                {overflow.length>0&&(
+                  <button onClick={e=>{e.stopPropagation();setSelDay(selDay===dayKey?null:dayKey);}}
+                    style={{width:"calc(100% - 8px)",margin:"1px 4px",background:T.s3,border:`1px solid ${T.border}`,borderRadius:4,fontSize:8,fontWeight:700,color:ws.color,cursor:"pointer",padding:"2px 0",textAlign:"center"}}>
+                    +{overflow.length} autre{overflow.length>1?"s":""}
+                  </button>
+                )}
+                {selDay===dayKey&&(
+                  <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"100%",left:0,zIndex:300,width:220,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.3)",padding:"8px",marginTop:4}}>
+                    <div style={{fontSize:10,fontWeight:700,color:T.muted,marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+                      <span>Tous les events — {t.months[month-1]} {day}</span>
+                      <button onClick={()=>setSelDay(null)} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:12}}>✕</button>
+                    </div>
+                    {dE.map(ev=>(
+                      <div key={ev.id} onClick={()=>{setModal({type:"edit_calendar",payload:ev});setSelDay(null);}}
+                        style={{padding:"6px 8px",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:500,marginBottom:3,display:"flex",alignItems:"center",gap:6}}
+                        onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <span style={{width:8,height:8,borderRadius:"50%",background:calColor(ev.category),flexShrink:0,display:"inline-block"}}/>
+                        {ev.title}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -4051,68 +4169,180 @@ function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencer
         ))}
       </div>
 
-      {/* Expenses list */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:9,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 110px 80px",padding:"10px 16px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
-          {["Dépense","Catégorie","Location","Montant","Urgence","Échéance",""].map((h,i)=>(
-            <div key={i} style={{fontSize:9,fontWeight:700,color:T.muted,letterSpacing:0.5}}>{h.toUpperCase()}</div>
-          ))}
-        </div>
-        {filtered.length===0&&(
-          <div style={{padding:"40px",textAlign:"center",color:T.dim}}>
-            <div style={{fontSize:28,marginBottom:8}}>💸</div>
-            <div style={{fontSize:13}}>Aucune dépense pour {months.find(m=>m.key===selMonth)?.label}</div>
-          </div>
-        )}
-        {filtered.sort((a,b)=>{const order=["Critique","Haute","Moyenne","Basse"];return order.indexOf(a.urgency)-order.indexOf(b.urgency);}).map((exp,i)=>{
-          const uc=URGENCY[exp.urgency]||URGENCY["Moyenne"];
-          return(
-            <div key={exp.id}
-              style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 110px 80px",padding:"12px 16px",alignItems:"center",borderBottom:i<filtered.length-1?`1px solid ${T.border}`:"none",borderLeft:`3px solid ${uc.color}`,cursor:"pointer",transition:"background 0.1s"}}
-              onMouseEnter={e=>e.currentTarget.style.background=T.s2}
-              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div>
-                <div style={{fontSize:13,fontWeight:600}}>{exp.title}</div>
-                {exp.notes&&<div style={{fontSize:10,color:T.muted,marginTop:2}}>{exp.notes}</div>}
-              </div>
-              <Badge label={exp.category||"Autre"} color={ws.color} small/>
-              <span style={{fontSize:11,color:T.muted}}>{exp.location}</span>
-              <span style={{fontSize:14,fontWeight:800,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
-              <div style={{display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:13}}>{uc.icon}</span>
-                <span style={{fontSize:10,fontWeight:600,color:uc.color}}>{exp.urgency}</span>
-              </div>
-              <span style={{fontSize:11,color:T.muted}}>{exp.due_date?new Date(exp.due_date+"T12:00:00").toLocaleDateString("fr-CA",{month:"short",day:"numeric",year:"numeric"}):"—"}</span>
-              <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                {/* Payment toggle */}
-                {(()=>{
-                  const ps = PAY_STATUS[exp.payment_status]||PAY_STATUS["À payer"];
-                  return(
-                    <button onClick={e=>{
-                      e.stopPropagation();
-                      const next = exp.payment_status==="Payé"?"À payer":"Payé";
-                      // If marking as paid, also add to expenses automatically
-                      updateExpense(exp.id,{...exp,payment_status:next});
-                    }} style={{
-                      background:ps.bg,border:`1px solid ${ps.color}44`,
-                      borderRadius:7,padding:"4px 10px",
-                      fontSize:10,fontWeight:700,color:ps.color,
-                      cursor:"pointer",transition:"all 0.15s",
-                      display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",
-                    }}>
-                      <span>{ps.icon}</span>{ps.label}
-                    </button>
-                  );
-                })()}
-                <button onClick={()=>setModal({type:"edit_expenses",payload:exp})} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:5,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer"}}>✏</button>
-                {(exp.urgency==="Critique"||exp.urgency==="Haute")&&(
-                  <button onClick={()=>sendUrgentAlert(exp)} style={{background:"#FF3B3022",border:"1px solid #FF3B3044",borderRadius:5,padding:"4px 8px",fontSize:11,color:"#FF3B30",cursor:"pointer"}}>🚨</button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {/* ── INLINE EXPENSES TABLE ── */}
+      <InlineExpensesTable
+        expenses={filtered}
+        ws={ws} T={T}
+        updateExpense={updateExpense}
+        addExpense={()=>setModal({type:"add_expenses"})}
+        deleteExpense={()=>{}}
+        sendUrgentAlert={sendUrgentAlert}
+        setModal={setModal}
+        selMonth={selMonth}
+        months={months}
+      />
+
+    </div>
+  );
+}
+
+
+// ─── INLINE EXPENSES TABLE ────────────────────────────────────────────────
+function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpense,sendUrgentAlert,setModal,selMonth,months}){
+  const [editId,  setEditId]   = useState(null);
+  const [editField,setEditField]= useState(null);
+  const [editVal, setEditVal]  = useState("");
+  const [addingNew,setAddingNew]= useState(false);
+  const [newRow, setNewRow]    = useState({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
+
+  const CATS_EXP = EXP_CATS;
+  const URGENCIES = Object.keys(URGENCY);
+  const PAY_KEYS  = Object.keys(PAY_STATUS);
+
+  function startEdit(exp,field){setEditId(exp.id);setEditField(field);setEditVal(exp[field]||"");}
+  function commitEdit(exp){
+    if(!editField)return;
+    updateExpense(exp.id,{...exp,[editField]:editVal});
+    setEditId(null);setEditField(null);setEditVal("");
+  }
+  function handleKey(e,exp){
+    if(e.key==="Enter"){e.preventDefault();commitEdit(exp);}
+    if(e.key==="Escape"){setEditId(null);setEditField(null);}
+  }
+  function saveNewRow(){
+    if(!newRow.title.trim()||!newRow.amount)return;
+    setModal({type:"add_expenses",prefill:{...newRow,due_date:""}});
+    setNewRow({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
+    setAddingNew(false);
+  }
+
+  function Cell({exp,field,width,children,center}){
+    const isActive=editId===exp.id&&editField===field;
+    return(
+      <div onClick={()=>startEdit(exp,field)} style={{
+        width,minWidth:width,display:"flex",alignItems:"center",
+        justifyContent:center?"center":"flex-start",
+        cursor:"text",padding:"0 8px",borderRight:`1px solid ${T.border}`,height:"100%",
+      }}>
+        {isActive?(
+          field==="category"?<select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(exp)} onKeyDown={e=>handleKey(e,exp)} style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit"}}>{CATS_EXP.map(c=><option key={c}>{c}</option>)}</select>:
+          field==="location"?<select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(exp)} onKeyDown={e=>handleKey(e,exp)} style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit"}}>{LOCATIONS.map(l=><option key={l}>{l}</option>)}</select>:
+          field==="urgency"?<select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(exp)} onKeyDown={e=>handleKey(e,exp)} style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit"}}>{URGENCIES.map(u=><option key={u}>{u}</option>)}</select>:
+          field==="payment_status"?<select autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(exp)} onKeyDown={e=>handleKey(e,exp)} style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit"}}>{PAY_KEYS.map(p=><option key={p}>{p}</option>)}</select>:
+          <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(exp)} onKeyDown={e=>handleKey(e,exp)} type={field==="amount"?"number":"text"} style={{background:"transparent",border:"none",color:T.text,fontSize:12,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+        ):children}
       </div>
+    );
+  }
+
+  const COL={title:200,category:100,location:90,amount:90,urgency:90,status:90,deadline:90,del:50};
+
+  const sorted=expenses.sort((a,b)=>{const o=["Critique","Haute","Moyenne","Basse"];return o.indexOf(a.urgency)-o.indexOf(b.urgency);});
+
+  return(
+    <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
+        {[["title","Dépense",COL.title],["category","Catégorie",COL.category],["location","Location",COL.location],["amount","Montant",COL.amount],["urgency","Urgence",COL.urgency],["payment_status","Paiement",COL.status],["due_date","Échéance",COL.deadline],["del","",COL.del]].map(([k,label,w])=>(
+          <div key={k} style={{width:w,minWidth:w,padding:"9px 8px",fontSize:9,fontWeight:700,color:T.muted,letterSpacing:0.8,borderRight:`1px solid ${T.border}`,flexShrink:0}}>{label.toUpperCase()}</div>
+        ))}
+      </div>
+
+      {/* Empty */}
+      {sorted.length===0&&!addingNew&&(
+        <div style={{padding:"36px",textAlign:"center",color:T.dim}}>
+          <div style={{fontSize:28,marginBottom:8}}>💸</div>
+          <div style={{fontSize:13}}>Aucune dépense pour {months.find(m=>m.key===selMonth)?.label}</div>
+        </div>
+      )}
+
+      {/* Rows */}
+      {sorted.map(exp=>{
+        const uc=URGENCY[exp.urgency]||URGENCY["Moyenne"];
+        const ps=PAY_STATUS[exp.payment_status]||PAY_STATUS["À payer"];
+        return(
+          <div key={exp.id} style={{display:"flex",borderBottom:`1px solid ${T.border}`,height:44,alignItems:"center",borderLeft:`3px solid ${uc.color}`,transition:"background 0.1s"}}
+            onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <Cell exp={exp} field="title" width={COL.title}>
+              <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{exp.title||<span style={{color:T.dim}}>—</span>}</div>
+            </Cell>
+            <Cell exp={exp} field="category" width={COL.category} center>
+              <Badge label={exp.category||"Autre"} color={ws.color} small/>
+            </Cell>
+            <Cell exp={exp} field="location" width={COL.location} center>
+              <span style={{fontSize:11,color:T.muted}}>{exp.location}</span>
+            </Cell>
+            <Cell exp={exp} field="amount" width={COL.amount} center>
+              <span style={{fontSize:13,fontWeight:800,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+            </Cell>
+            <Cell exp={exp} field="urgency" width={COL.urgency} center>
+              <span style={{fontSize:10,fontWeight:600,color:uc.color}}>{uc.icon} {exp.urgency}</span>
+            </Cell>
+            <Cell exp={exp} field="payment_status" width={COL.status} center>
+              <span style={{fontSize:10,fontWeight:700,color:ps.color,background:ps.bg,borderRadius:20,padding:"2px 8px"}}>{ps.icon} {ps.label}</span>
+            </Cell>
+            <Cell exp={exp} field="due_date" width={COL.deadline} center>
+              <span style={{fontSize:11,color:T.muted}}>{exp.due_date?new Date(exp.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"}):"—"}</span>
+            </Cell>
+            <div style={{width:COL.del,display:"flex",alignItems:"center",justifyContent:"center",gap:3,flexShrink:0}}>
+              <button onClick={()=>setModal({type:"edit_expenses",payload:exp})} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13,padding:3}}
+                onMouseEnter={e=>e.currentTarget.style.color=T.text}
+                onMouseLeave={e=>e.currentTarget.style.color=T.dim}>✏️</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* New row */}
+      {addingNew&&(
+        <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,height:44,alignItems:"center",background:ws.color+"08"}}>
+          <div style={{width:COL.title,padding:"0 8px",borderRight:`1px solid ${T.border}`}}>
+            <input autoFocus value={newRow.title} onChange={e=>setNewRow(r=>({...r,title:e.target.value}))}
+              onKeyDown={e=>{if(e.key==="Enter")saveNewRow();if(e.key==="Escape")setAddingNew(false);}}
+              placeholder="Nom de la dépense..." style={{background:"transparent",border:"none",fontSize:12,fontWeight:600,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL.category,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.category} onChange={e=>setNewRow(r=>({...r,category:e.target.value}))} style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {CATS_EXP.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL.location,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.location} onChange={e=>setNewRow(r=>({...r,location:e.target.value}))} style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {LOCATIONS.map(l=><option key={l}>{l}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL.amount,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <input type="number" value={newRow.amount} onChange={e=>setNewRow(r=>({...r,amount:e.target.value}))}
+              placeholder="0" style={{background:"transparent",border:"none",fontSize:13,fontWeight:800,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          </div>
+          <div style={{width:COL.urgency,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.urgency} onChange={e=>setNewRow(r=>({...r,urgency:e.target.value}))} style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {URGENCIES.map(u=><option key={u}>{u}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL.status,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <select value={newRow.payment_status} onChange={e=>setNewRow(r=>({...r,payment_status:e.target.value}))} style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}>
+              {PAY_KEYS.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div style={{width:COL.deadline,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
+            <span style={{fontSize:10,color:T.dim}}>via modal</span>
+          </div>
+          <div style={{width:COL.del,display:"flex",gap:4,padding:"0 4px",flexShrink:0}}>
+            <button onClick={saveNewRow} style={{background:ws.color,border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:700,padding:"4px 8px",cursor:"pointer"}}>✓</button>
+            <button onClick={()=>setAddingNew(false)} style={{background:"transparent",border:"none",color:T.dim,fontSize:13,cursor:"pointer"}}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Add button */}
+      <button onClick={()=>setAddingNew(true)}
+        style={{width:"100%",padding:"10px 16px",background:"transparent",border:"none",color:T.muted,fontSize:12,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:6,transition:"background 0.1s"}}
+        onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <span style={{fontSize:16,opacity:0.5}}>+</span> Ajouter une dépense
+      </button>
     </div>
   );
 }
@@ -4386,22 +4616,22 @@ const WS_META = {
   tito: {name:"Perso",          color:"#BF5AF2", icon:"💜"},
 };
 
-function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWsId,addTask}){
+function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWsId,addTask,wsId}){
   const today=new Date();today.setHours(0,0,0,0);
   const todayStr=today.toISOString().slice(0,10);
   const tomorrowStr=new Date(today.getTime()+86400000).toISOString().slice(0,10);
   const dateDisplay=today.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
 
   // Personal todos (stored locally)
-  const [todos,setTodos]=React.useState(()=>{try{return JSON.parse(localStorage.getItem("tito_todos")||"[]");}catch{return[];}});
+  const [todos,setTodos]=React.useState(()=>{try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_todos")||"[]");}catch{return[];}});
   const [newTodo,setNewTodo]=React.useState("");
   const [newTodoTime,setNewTodoTime]=React.useState("");
   const [newTodoCat,setNewTodoCat]=React.useState("perso");
-  const [mood,setMood]=React.useState(()=>localStorage.getItem("tito_mood")||"");
-  const [focus,setFocus]=React.useState(()=>localStorage.getItem("tito_focus")||"");
+  const [mood,setMood]=React.useState(()=>localStorage.getItem((wsId||"tito")+"_mood")||"");
+  const [focus,setFocus]=React.useState(()=>localStorage.getItem((wsId||"tito")+"_focus")||"");
   const [showAddTodo,setShowAddTodo]=React.useState(false);
 
-  function saveTodos(updated){setTodos(updated);localStorage.setItem("tito_todos",JSON.stringify(updated));}
+  function saveTodos(updated){setTodos(updated);localStorage.setItem((wsId||"tito")+"_todos",JSON.stringify(updated));}
   function addTodo(){
     if(!newTodo.trim())return;
     const item={id:Date.now(),title:newTodo.trim(),time:newTodoTime,cat:newTodoCat,done:false,date:todayStr};
@@ -4442,12 +4672,12 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,#BF5AF2,#9B59B6)`,borderRadius:16,padding:"24px 28px",color:"#fff"}}>
         <div style={{fontSize:12,opacity:0.8,marginBottom:4,letterSpacing:1}}>{dateDisplay.toUpperCase()}</div>
-        <div style={{fontSize:26,fontWeight:900,marginBottom:12}}>{greeting}, {user?.name||"Tito"} 👋</div>
+        <div style={{fontSize:26,fontWeight:900,marginBottom:12}}>{greeting}, {user?.name} 👋</div>
         {/* Mood */}
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
           <span style={{fontSize:11,opacity:0.8}}>Humeur :</span>
           {moods.map(m=>(
-            <button key={m} onClick={()=>{setMood(m);localStorage.setItem("tito_mood",m);}}
+            <button key={m} onClick={()=>{setMood(m);localStorage.setItem((wsId||"tito")+"_mood",m);}}
               style={{background:mood===m?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.1)",border:`1.5px solid ${mood===m?"#fff":"transparent"}`,borderRadius:8,padding:"4px 8px",fontSize:16,cursor:"pointer"}}>
               {m}
             </button>
@@ -4456,7 +4686,7 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
         {/* Focus du jour */}
         <div>
           <div style={{fontSize:10,opacity:0.7,marginBottom:4,letterSpacing:1}}>MON FOCUS DU JOUR</div>
-          <input value={focus} onChange={e=>{setFocus(e.target.value);localStorage.setItem("tito_focus",e.target.value);}}
+          <input value={focus} onChange={e=>{setFocus(e.target.value);localStorage.setItem((wsId||"tito")+"_focus",e.target.value);}}
             placeholder="Sur quoi tu te concentres aujourd'hui ?"
             style={{width:"100%",background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",borderRadius:8,padding:"8px 12px",fontSize:13,color:"#fff",outline:"none",fontFamily:"DM Sans,sans-serif"}}/>
         </div>
@@ -6096,7 +6326,7 @@ function AIAssistant({ws,user,addTask,addMeeting,addExpense,addCalEvent,deleteTa
   );
 }
 
-ReactDOM.render(<App/>,document.getElementById('root'));
+// ReactDOM.render removed - using createRoot above
 </script>
 </body>
 </html>
