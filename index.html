@@ -2957,7 +2957,7 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
 
   const ViewToggle=()=>(
     <div style={{display:"flex",background:T.s2,borderRadius:8,padding:2,gap:2,width:"fit-content"}}>
-      {[["list","☰ Liste"],["calendar","📅 Calendrier"]].map(([v,label])=>(
+      {[["list","☰ Liste"],["week","📆 Semaine"],["calendar","📅 Mois"]].map(([v,label])=>(
         <button key={v} onClick={()=>setView(v)} style={{
           background:view===v?T.surface:"transparent",
           border:view===v?`1px solid ${T.border}`:"1px solid transparent",
@@ -2967,6 +2967,15 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
       ))}
     </div>
   );
+
+  if(view==="week"){
+    return(
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        <ViewToggle/>
+        <MeetingWeek allMeetings={allMeetings} ws={ws} T={T} onSelect={(id)=>{setSelected(id);setView("list");}} setModal={setModal}/>
+      </div>
+    );
+  }
 
   if(view==="calendar"){
     return(
@@ -3068,6 +3077,134 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
 }
 
 
+// ─── MEETING WEEK VIEW ────────────────────────────────────────────────────
+function MeetingWeek({allMeetings,ws,T,onSelect,setModal}){
+  const [weekStart,setWeekStart] = useState(()=>{
+    const d=new Date(); d.setHours(0,0,0,0);
+    const dow=d.getDay();
+    const mon=new Date(d);
+    mon.setDate(d.getDate()-(dow===0?6:dow-1));
+    return mon;
+  });
+  const DAY_FR=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
+
+  const days=Array.from({length:7},(_,i)=>{
+    const d=new Date(weekStart);
+    d.setDate(weekStart.getDate()+i);
+    return d;
+  });
+
+  function prevWeek(){const d=new Date(weekStart);d.setDate(d.getDate()-7);setWeekStart(d);}
+  function nextWeek(){const d=new Date(weekStart);d.setDate(d.getDate()+7);setWeekStart(d);}
+  function goToday(){
+    const d=new Date(); d.setHours(0,0,0,0);
+    const dow=d.getDay(); const mon=new Date(d);
+    mon.setDate(d.getDate()-(dow===0?6:dow-1));
+    setWeekStart(mon);
+  }
+
+  function dayMtgs(d){
+    return allMeetings.filter(m=>{
+      const pd=parseMeetingDate(m);
+      if(!pd) return false;
+      const dd=new Date(pd); dd.setHours(0,0,0,0);
+      return dd.getTime()===d.getTime();
+    }).sort((a,b)=>(a.time||"00:00").localeCompare(b.time||"00:00"));
+  }
+
+  const totalWeek = days.reduce((sum,d)=>sum+dayMtgs(d).length,0);
+
+  return(
+    <div>
+      {/* Nav */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+        <button onClick={prevWeek} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>◀</button>
+        <span style={{fontFamily:"monospace",fontSize:15,fontWeight:800,color:ws.color,flex:1,textAlign:"center"}}>
+          {days[0].toLocaleDateString("fr-CA",{day:"numeric",month:"short"})} — {days[6].toLocaleDateString("fr-CA",{day:"numeric",month:"short",year:"numeric"})}
+          <span style={{fontSize:11,fontWeight:400,color:T.muted,marginLeft:10}}>{totalWeek} meeting{totalWeek>1?"s":""}</span>
+        </span>
+        <button onClick={goToday} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",color:T.muted,fontSize:11,cursor:"pointer"}}>Aujourd'hui</button>
+        <button onClick={nextWeek} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 13px",color:T.muted,fontSize:13,cursor:"pointer"}}>▶</button>
+      </div>
+
+      {/* Week grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8}}>
+        {days.map((d,di)=>{
+          const isToday=d.getTime()===todayDate.getTime();
+          const isPast=d<todayDate;
+          const mtgs=dayMtgs(d);
+          const c=isToday?ws.color:T.border;
+          return(
+            <div key={di} style={{
+              background:isToday?ws.color+"0d":T.surface,
+              border:`1px solid ${isToday?ws.color:T.border}`,
+              borderRadius:12,padding:"10px 8px",
+              minHeight:160,
+              opacity:isPast&&!isToday?0.6:1,
+              display:"flex",flexDirection:"column",
+            }}>
+              {/* Day header */}
+              <div style={{textAlign:"center",marginBottom:10}}>
+                <div style={{fontSize:9,color:T.muted,fontWeight:600,letterSpacing:0.5,marginBottom:2}}>{DAY_FR[di]}</div>
+                <div style={{
+                  width:30,height:30,borderRadius:"50%",
+                  background:isToday?ws.color:"transparent",
+                  color:isToday?"#fff":T.text,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:16,fontWeight:800,
+                  margin:"0 auto",
+                }}>{d.getDate()}</div>
+              </div>
+
+              {/* Meetings */}
+              <div style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+                {mtgs.length===0&&(
+                  <div style={{fontSize:9,color:T.dim,textAlign:"center",marginTop:8,opacity:0.5}}>—</div>
+                )}
+                {mtgs.map(m=>{
+                  const mc=m.from_gcal?"#1a73e8":m.status==="Récurrent"?ws.color:m.status==="Done"?"#00C896":"#FF9F0A";
+                  return(
+                    <div key={m.id||m.gcal_id}
+                      onClick={()=>onSelect(m.id||m.gcal_id)}
+                      style={{
+                        background:mc+"18",border:`1px solid ${mc}44`,
+                        borderLeft:`3px solid ${mc}`,
+                        borderRadius:6,padding:"5px 7px",
+                        cursor:"pointer",transition:"all 0.1s",
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.background=mc+"30"}
+                      onMouseLeave={e=>e.currentTarget.style.background=mc+"18"}>
+                      {m.time&&<div style={{fontSize:8,color:mc,fontWeight:700,marginBottom:1}}>{m.time}</div>}
+                      <div style={{fontSize:10,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                      {m.from_gcal&&<span style={{fontSize:8,color:"#1a73e8",opacity:0.8}}>Google Cal</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add button */}
+              <button
+                onClick={()=>setModal({type:"add_meetings"})}
+                style={{
+                  width:"100%",marginTop:6,
+                  background:"transparent",
+                  border:`1px dashed ${T.border}`,
+                  borderRadius:6,padding:"3px",
+                  fontSize:9,color:T.dim,cursor:"pointer",
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
+                + Meeting
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── MEDIA PRO ────────────────────────────────────────────────────────────
 function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer}){
   const now = new Date();
@@ -3124,8 +3261,8 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
   const budgetEntry = mediaBudget.find(b=>b.month===selMonth&&b.location==="Global");
   const monthlyBudget = budgetEntry?+budgetEntry.budget:0;
 
-  // Statuts qui retirent du budget: Confirmé, Publié, À payer infl, Payé infl
-  const BUDGET_STATUSES = ["Confirmé","Publié","Payé"];
+  // Statuts qui retirent du budget: dès Confirmé jusqu'à Payé
+  const BUDGET_STATUSES = ["Confirmé","À payer","Publié","Payé"];
   const UNPAID_STATUSES = ["Confirmé","À payer"]; // confirmed but not yet paid
   const monthConfirmed = monthInfluencers.filter(i=>i.cost&&BUDGET_STATUSES.includes(i.status));
   const monthUnpaid    = monthInfluencers.filter(i=>i.cost&&UNPAID_STATUSES.includes(i.status));
@@ -3261,11 +3398,20 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
   const [editField, setEditField] = useState(null);
   const [editVal, setEditVal] = useState("");
   const [showCal, setShowCal] = useState(null); // id of row showing calendar
+  const [calPos, setCalPos] = useState({x:0,y:0}); // fixed position for calendar popup
   const [addingNew, setAddingNew] = useState(false);
   const [pending, setPending] = useState([]); // optimistic rows not yet in props
   const [newRow, setNewRow] = useState({name:"",platform:"Instagram",location:"Vancouver",followers:"",cost:"",status:"À contacter",visit:"",content:""});
 
   const PLATFORMS = ["Instagram","TikTok","YouTube","Twitter","LinkedIn"];
+
+  // Close calendar on outside click
+  React.useEffect(()=>{
+    if(!showCal) return;
+    function handler(e){ setShowCal(null); }
+    document.addEventListener("mousedown", handler);
+    return ()=>document.removeEventListener("mousedown", handler);
+  },[showCal]);
 
   // Clear pending when real data arrives from parent
   React.useEffect(()=>{
@@ -3332,7 +3478,7 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
     const isActive = editId===inf.id && editField===field;
     return(
       <div
-        onClick={()=>{ if(field==="visit"){ setShowCal(showCal===inf.id?null:inf.id); setEditId(inf.id); setEditField("visit"); } else startEdit(inf,field); }}
+        onClick={(e)=>{ if(field==="visit"){ const rect=e.currentTarget.getBoundingClientRect(); setCalPos({x:rect.left, y:rect.bottom+4}); setShowCal(showCal===inf.id?null:inf.id); setEditId(inf.id); setEditField("visit"); } else startEdit(inf,field); }}
         style={{
           width, minWidth:width,
           display:"flex", alignItems:"center",
@@ -3386,7 +3532,7 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
   }
 
   return(
-    <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+    <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"visible",position:"relative"}}>
       {/* Header */}
       <div style={{display:"flex",background:T.s2,borderBottom:`1px solid ${T.border}`,padding:"0 0 0 0"}}>
         {[["name","Influenceur",COL_W.name],["platform","Plateforme",COL_W.platform],["location","Location",COL_W.location],["followers","Followers",COL_W.followers],["cost","Coût",COL_W.cost],["status","Statut",COL_W.status],["visit","Visite",COL_W.visit],["content","Contenu",COL_W.content],["del","",COL_W.del]].map(([k,label,w])=>(
@@ -3469,15 +3615,17 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
             </div>
           </div>
 
-          {/* Calendar dropdown for visit field */}
+          {/* Calendar dropdown for visit field - fixed to avoid crop */}
           {showCal===inf.id&&(
             <div onClick={e=>e.stopPropagation()} style={{
-              position:"absolute",left:COL_W.name+COL_W.platform+COL_W.location+COL_W.followers+COL_W.cost+COL_W.status,
-              top:"100%",zIndex:200,
+              position:"fixed",
+              left:calPos.x, top:calPos.y,
+              zIndex:9999,
               width:260,
-              boxShadow:"0 12px 32px rgba(0,0,0,0.3)",
+              boxShadow:"0 12px 32px rgba(0,0,0,0.4)",
               borderRadius:12,overflow:"hidden",
               border:`1px solid ${T.border}`,
+              background:T.surface,
             }}>
               <DatePicker value={visitToISO(inf.visit)} onChange={v=>{if(v)commitVisit(inf,v);else{updateInfluencer(inf.id,{...inf,visit:""});setShowCal(null);}}} color={ws.color} T={T}/>
             </div>
@@ -3519,9 +3667,11 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
               {STATUSES.map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
-          <div style={{width:COL_W.visit,minWidth:COL_W.visit,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
-            <input value={newRow.visit} onChange={e=>setNewRow(r=>({...r,visit:e.target.value}))}
-              placeholder="May 3" style={{background:"transparent",border:"none",fontSize:12,color:T.text,width:"100%",outline:"none",fontFamily:"inherit"}}/>
+          <div style={{width:COL_W.visit,minWidth:COL_W.visit,padding:"0 4px",borderRight:`1px solid ${T.border}`,overflow:"visible"}}>
+            <DatePickerInline value={newRow.visit_iso||""} onChange={v=>{
+              if(v){const d=new Date(v+"T12:00:00");const label=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});setNewRow(r=>({...r,visit:label,visit_iso:v}));}
+              else setNewRow(r=>({...r,visit:"",visit_iso:""}));
+            }} color={ws.color} T={T} placeholder="📅 Date"/>
           </div>
           <div style={{width:COL_W.content,minWidth:COL_W.content,padding:"0 6px",borderRight:`1px solid ${T.border}`}}>
             <input value={newRow.content} onChange={e=>setNewRow(r=>({...r,content:e.target.value}))}
@@ -4242,7 +4392,7 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
   return(
     <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
       {/* Header */}
-      <div style={{display:"flex",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
+      <div style={{display:"flex",background:T.s2,borderBottom:`1px solid ${T.border}`,borderRadius:"12px 12px 0 0",overflow:"hidden"}}>
         {[["title","Dépense",COL.title],["category","Catégorie",COL.category],["location","Location",COL.location],["amount","Montant",COL.amount],["urgency","Urgence",COL.urgency],["payment_status","Paiement",COL.status],["due_date","Échéance",COL.deadline],["del","",COL.del]].map(([k,label,w])=>(
           <div key={k} style={{width:w,minWidth:w,padding:"9px 8px",fontSize:9,fontWeight:700,color:T.muted,letterSpacing:0.8,borderRight:`1px solid ${T.border}`,flexShrink:0}}>{label.toUpperCase()}</div>
         ))}
