@@ -1027,16 +1027,19 @@ function App(){
         supa.from("cal_events").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("profiles").select("*"),
       ]);
-      // Merge Supabase + localStorage (localStorage has optimistic items Supabase might not have yet)
-      const lsTasks=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId);
+      // Merge Supabase + localStorage (only add LS items not in Supabase, skip tmp_ that failed)
       const supaTasks=t_.data||[];
-      const mergedTasks=[...supaTasks];
-      lsTasks.forEach(lt=>{
-        if(!mergedTasks.some(st=>String(st.id)===String(lt.id)||lt.id===lt.id&&lt.title===st.title&&lt.created_by===st.created_by)){
-          mergedTasks.push(lt);
+      const supaIds=new Set(supaTasks.map(t=>String(t.id)));
+      const lsTasks=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId);
+      const extraLS=lsTasks.filter(lt=>{
+        if(supaIds.has(String(lt.id))) return false; // already in supabase
+        if(String(lt.id).startsWith("tmp_")){ // optimistic - add only if recent (<30s)
+          const age=Date.now()-parseInt(lt.id.replace("tmp_",""));
+          return age < 30000;
         }
+        return true;
       });
-      setTasks(mergedTasks);
+      setTasks([...supaTasks,...extraLS]);
       setProjs(p_.data||[]);setMtgs(m_.data||[]);
       setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
@@ -1099,6 +1102,13 @@ function App(){
   const [gcalEvents,setGcalEvents]=useState([]);
 
   // Fetch Google Calendar events when connected (including on page load if already connected)
+  // ── AUTO REFRESH every 30s for shared workspace sync ────────────────────
+  React.useEffect(()=>{
+    if(!user||!seeded) return;
+    const interval = setInterval(()=>{ loadData(); }, 30000);
+    return ()=>clearInterval(interval);
+  },[wsId,user,seeded]);
+
   useEffect(()=>{
     if(gcalIsConnected()){
       setGcalConnected(true);
@@ -1184,19 +1194,21 @@ function App(){
     }catch(e){ /* localStorage already saved */ }
   }
   async function updateTask(id,form){
+    setTasks(prev=>prev.map(t=>String(t.id)===String(id)?{...t,...form}:t));
+    lsUpd("tasks",id,{...form});
     try{
-      const {error}=await supa.from("tasks").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
-      if(error){console.error("updateTask error:",error);lsUpd("tasks",id,{...form});}
-    }catch(e){
-      console.error("updateTask exception:",e);
-      lsUpd("tasks",id,{...form});
-    }
+      await supa.from("tasks").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
+    }catch(e){ /* localStorage already updated */ }
     await loadData();
   }
   async function deleteTask(id){
+    // Remove from state immediately
+    setTasks(prev=>prev.filter(t=>String(t.id)!==String(id)));
+    // Remove from localStorage always
+    lsDel("tasks",id);
+    // Remove from Supabase
     try{ await supa.from("tasks").delete().eq("id",id); }
-    catch(e){ lsDel("tasks",id); }
-    await loadData();
+    catch(e){ /* already removed from localStorage */ }
   }
   async function addProject(form){
     const tempId="tmp_"+Date.now();
@@ -1216,7 +1228,11 @@ function App(){
       if(error) lsUpd("projects",id,form);
     }catch(e){ lsUpd("projects",id,form); }
   }
-  async function deleteProject(id){ try{await supa.from("projects").delete().eq("id",id);}catch(e){lsDel("projects",id);} await loadData(); }
+  async function deleteProject(id){
+    setProjs(prev=>prev.filter(p=>String(p.id)!==String(id)));
+    lsDel("projects",id);
+    try{ await supa.from("projects").delete().eq("id",id); }catch(e){}
+  }
   async function addMeeting(form){
     const tempId="tmp_"+Date.now();
     const supaItem={...form,workspace:wsId,created_by:user.name};
@@ -1234,20 +1250,23 @@ function App(){
     catch(e){ lsUpd("meetings",id,form); }
   }
   async function deleteMeeting(id){
-    try{ await supa.from("meetings").delete().eq("id",id); }
-    catch(e){ lsDel("meetings",id); }
-    await loadData();
+    setMtgs(prev=>prev.filter(m=>String(m.id)!==String(id)));
+    lsDel("meetings",id);
+    try{ await supa.from("meetings").delete().eq("id",id); }catch(e){}
   }
   async function addInfluencer(form){
     const tempId="tmp_"+Date.now();
     const supaItem={...form,workspace:wsId,created_by:user.name};
     const localItem={...supaItem,id:tempId};
+    lsIns("influencers",localItem);
     setInfl(prev=>[localItem,...prev]);
     try{
       const {data,error}=await supa.from("influencers").insert(supaItem).select().single();
-      if(!error&&data) setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
-      else lsIns("influencers",localItem);
-    }catch(e){ lsIns("influencers",localItem); }
+      if(!error&&data){
+        setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
+        lsUpd("influencers",tempId,data);
+      }
+    }catch(e){ /* localStorage already saved */ }
   }
   async function updateInfluencer(id,form){
     // Optimistic: update state immediately
@@ -1259,7 +1278,11 @@ function App(){
       lsUpd("influencers",id,form);
     }
   }
-  async function deleteInfluencer(id){ lsDel("influencers",id); await loadData(); }
+  async function deleteInfluencer(id){
+    setInfl(prev=>prev.filter(i=>String(i.id)!==String(id)));
+    lsDel("influencers",id);
+    try{ await supa.from("influencers").delete().eq("id",id); }catch(e){}
+  }
   async function addCalEvent(form){ lsIns("cal_events",{...form,workspace:wsId,created_by:user.name,color:calColor(form.category)}); await loadData(); }
   async function updateCalEvent(id,form){ lsUpd("cal_events",id,{...form,color:calColor(form.category)}); await loadData(); }
   async function deleteCalEvent(id){ lsDel("cal_events",id); await loadData(); }
@@ -1842,7 +1865,7 @@ function App(){
           {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses} updateExpense={updateExpense}/>}
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
-          {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} T={T} t={t}/>}
+          {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} updateProject={updateProject} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t}/>}
           {module==="media"    &&<Media ws={ws} influencers={influencers} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
@@ -2806,29 +2829,228 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
     </div>
   );
 }
-function Projects({ws,projects,setModal,T,t}){
+function Projects({ws,projects,setModal,updateProject,T,t}){
+  const [sel,setSel] = useState(null);
+  const [newNote,setNewNote] = useState("");
+  const [newStep,setNewStep] = useState("");
+  const [progress,setProgress] = useState(0);
+
+  const proj = sel ? projects.find(p=>p.id===sel) : null;
+
+  // When project changes, sync progress slider
+  React.useEffect(()=>{ if(proj) setProgress(proj.progress||0); },[sel,projects]);
+
+  function addUpdate(text){
+    if(!text.trim()) return;
+    const ts = new Date().toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const updates = [...(proj.updates||[]), {id:Date.now(),text,ts,type:"note"}];
+    updateProject(proj.id,{...proj,updates});
+    setNewNote("");
+  }
+
+  function addStep(text){
+    if(!text.trim()) return;
+    const steps = [...(proj.steps||[]), {id:Date.now(),text,done:false}];
+    updateProject(proj.id,{...proj,steps});
+    setNewStep("");
+  }
+
+  function toggleStep(id){
+    const steps = (proj.steps||[]).map(s=>s.id===id?{...s,done:!s.done}:s);
+    const done = steps.filter(s=>s.done).length;
+    const newProgress = steps.length ? Math.round(done/steps.length*100) : proj.progress||0;
+    updateProject(proj.id,{...proj,steps,progress:newProgress});
+  }
+
+  function deleteUpdate(id){
+    updateProject(proj.id,{...proj,updates:(proj.updates||[]).filter(u=>u.id!==id)});
+  }
+
+  function deleteStep(id){
+    const steps = (proj.steps||[]).filter(s=>s.id!==id);
+    const done = steps.filter(s=>s.done).length;
+    const newProgress = steps.length ? Math.round(done/steps.length*100) : proj.progress||0;
+    updateProject(proj.id,{...proj,steps,progress:newProgress});
+  }
+
+  function updateProgress(val){
+    setProgress(val);
+    updateProject(proj.id,{...proj,progress:val});
+  }
+
+  // ── DETAIL VIEW ──
+  if(proj) return(
+    <div>
+      {/* Back */}
+      <button onClick={()=>setSel(null)} style={{display:"flex",alignItems:"center",gap:6,background:"transparent",border:"none",color:T.muted,fontSize:13,cursor:"pointer",marginBottom:20,padding:0}}>
+        ← Retour aux projets
+      </button>
+
+      {/* Header */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 24px",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+              <Badge label={proj.status} color={PROJ_STATUS[proj.status]||"#777"}/>
+              <Badge label={proj.location} color={T.dim}/>
+              {proj.due&&<span style={{fontSize:11,color:T.muted}}>📅 {proj.due}</span>}
+            </div>
+            <div style={{fontSize:20,fontWeight:800,marginBottom:6}}>{proj.title}</div>
+            {proj.description&&<div style={{fontSize:13,color:T.muted,lineHeight:1.6}}>{proj.description}</div>}
+          </div>
+          <button onClick={()=>setModal({type:"edit_projects",payload:proj})}
+            style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"7px 14px",fontSize:12,color:T.muted,cursor:"pointer",flexShrink:0}}>
+            ✏ Modifier
+          </button>
+        </div>
+
+        {/* Progress */}
+        <div style={{marginTop:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.5}}>AVANCEMENT GLOBAL</span>
+            <span style={{fontSize:14,fontWeight:800,color:PROJ_STATUS[proj.status]||ws.color}}>{progress}%</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <input type="range" min={0} max={100} value={progress}
+              onChange={e=>setProgress(+e.target.value)}
+              onMouseUp={e=>updateProgress(+e.target.value)}
+              onTouchEnd={e=>updateProgress(+e.target.value)}
+              style={{flex:1,accentColor:PROJ_STATUS[proj.status]||ws.color,height:6}}/>
+          </div>
+          <div style={{height:8,background:T.s3,borderRadius:4,overflow:"hidden",marginTop:6}}>
+            <div style={{height:"100%",width:progress+"%",background:PROJ_STATUS[proj.status]||ws.color,borderRadius:4,transition:"width 0.4s"}}/>
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start"}}>
+
+        {/* ── LEFT: Steps / Checklist ── */}
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"18px 20px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:14}}>
+            ☑ ÉTAPES DU PROJET
+            <span style={{marginLeft:8,fontSize:10,color:T.dim,fontWeight:400}}>
+              {(proj.steps||[]).filter(s=>s.done).length}/{(proj.steps||[]).length}
+            </span>
+          </div>
+
+          {(proj.steps||[]).length===0&&(
+            <div style={{fontSize:12,color:T.dim,fontStyle:"italic",marginBottom:12,textAlign:"center",padding:"16px 0"}}>
+              Aucune étape — ajoute les grandes étapes du projet
+            </div>
+          )}
+
+          {(proj.steps||[]).map(s=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${T.border}`}}>
+              <div onClick={()=>toggleStep(s.id)} style={{
+                width:20,height:20,borderRadius:5,flexShrink:0,
+                border:`2px solid ${s.done?"#00C896":ws.color}`,
+                background:s.done?"#00C896":"transparent",
+                cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                transition:"all 0.15s",
+              }}>
+                {s.done&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+              </div>
+              <span style={{flex:1,fontSize:13,color:s.done?T.muted:T.text,textDecoration:s.done?"line-through":"none"}}>{s.text}</span>
+              <button onClick={()=>deleteStep(s.id)} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:12,opacity:0.5}}
+                onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>✕</button>
+            </div>
+          ))}
+
+          <div style={{display:"flex",gap:6,marginTop:12}}>
+            <input value={newStep} onChange={e=>setNewStep(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addStep(newStep)}
+              placeholder="Ajouter une étape..."
+              style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:"8px 11px",fontSize:12}}/>
+            <button onClick={()=>addStep(newStep)}
+              style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>+</button>
+          </div>
+        </div>
+
+        {/* ── RIGHT: Updates / Journal ── */}
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"18px 20px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:14}}>
+            📝 JOURNAL D&apos;AVANCEMENT
+          </div>
+
+          {/* Add note */}
+          <div style={{marginBottom:14}}>
+            <textarea value={newNote} onChange={e=>setNewNote(e.target.value)}
+              placeholder="Ce qui a été fait, ce qui bloque, décisions prises..."
+              style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:"10px 12px",fontSize:12,resize:"none",height:80,lineHeight:1.5,marginBottom:8}}/>
+            <button onClick={()=>addUpdate(newNote)} style={{
+              background:ws.color,color:"#fff",border:"none",borderRadius:8,
+              padding:"8px 18px",fontSize:12,fontWeight:700,cursor:"pointer",width:"100%",
+            }}>
+              + Ajouter une note
+            </button>
+          </div>
+
+          {/* Updates list */}
+          {(proj.updates||[]).length===0&&(
+            <div style={{fontSize:12,color:T.dim,fontStyle:"italic",textAlign:"center",padding:"16px 0"}}>
+              Aucune note — documente l&apos;avancement du projet ici
+            </div>
+          )}
+          <div style={{maxHeight:360,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+            {(proj.updates||[]).slice().reverse().map(u=>(
+              <div key={u.id} style={{background:T.s2,borderRadius:10,padding:"10px 12px",borderLeft:`3px solid ${ws.color}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{fontSize:9,color:T.dim}}>{u.ts}</span>
+                  <button onClick={()=>deleteUpdate(u.id)} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:11,opacity:0.5}}
+                    onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                    onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>✕</button>
+                </div>
+                <div style={{fontSize:12,color:T.text,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{u.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── LIST VIEW ──
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {projects.map(p=>(
-        <Card key={p.id} T={T} onClick={()=>setModal({type:"edit_projects",payload:p})} accent={PROJ_STATUS[p.status]}>
-          <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
-            <div style={{width:44,height:44,borderRadius:10,background:PROJ_STATUS[p.status]+"1a",border:`1.5px solid ${PROJ_STATUS[p.status]}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>◎</div>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
-                <span style={{fontSize:15,fontWeight:700}}>{p.title}</span>
-                <Badge label={p.status} color={PROJ_STATUS[p.status]||"#777"}/>
-                <Badge label={p.location} color={T.dim}/>
+      {projects.length===0&&(
+        <div style={{textAlign:"center",padding:"60px 20px",color:T.dim}}>
+          <div style={{fontSize:32,marginBottom:8}}>◎</div>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Aucun projet</div>
+          <div style={{fontSize:12}}>Crée ton premier projet avec le bouton +</div>
+        </div>
+      )}
+      {projects.map(p=>{
+        const steps = p.steps||[];
+        const doneSteps = steps.filter(s=>s.done).length;
+        const updates = p.updates||[];
+        return(
+          <div key={p.id} onClick={()=>setSel(p.id)}
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderLeft:`4px solid ${PROJ_STATUS[p.status]||ws.color}`,borderRadius:12,padding:"16px 20px",cursor:"pointer",transition:"all 0.15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background=T.s2;e.currentTarget.style.transform="translateY(-1px)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.transform="none";}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:15,fontWeight:700}}>{p.title}</span>
+                  <Badge label={p.status} color={PROJ_STATUS[p.status]||"#777"}/>
+                  <Badge label={p.location} color={T.dim}/>
+                </div>
+                {p.description&&<div style={{fontSize:12,color:T.muted,marginBottom:10,lineHeight:1.5}}>{p.description}</div>}
+                <PBar value={p.progress||0} color={PROJ_STATUS[p.status]||ws.color} T={T}/>
+                <div style={{display:"flex",gap:16,marginTop:8,alignItems:"center"}}>
+                  <span style={{fontSize:11,color:T.muted}}>{p.progress||0}%</span>
+                  {steps.length>0&&<span style={{fontSize:11,color:T.muted}}>☑ {doneSteps}/{steps.length} étapes</span>}
+                  {updates.length>0&&<span style={{fontSize:11,color:T.muted}}>📝 {updates.length} note{updates.length>1?"s":""}</span>}
+                  {p.due&&<span style={{fontSize:11,color:T.muted,marginLeft:"auto"}}>📅 {p.due}</span>}
+                </div>
               </div>
-              <div style={{fontSize:13,color:T.muted,marginBottom:10,lineHeight:1.5}}>{p.description}</div>
-              <PBar value={p.progress} color={PROJ_STATUS[p.status]||ws.color} T={T}/>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-                <span style={{fontSize:11,color:T.muted}}>{p.progress}% · {t.createdBy} {p.created_by}</span>
-                <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:T.muted}}>📅 {p.due}</span><Avatar name={p.owner} size={24} color={ws.color}/></div>
-              </div>
+              <Avatar name={p.owner} size={32} color={ws.color}/>
             </div>
           </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
