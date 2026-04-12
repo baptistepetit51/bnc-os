@@ -563,7 +563,7 @@ const SEED_MEETINGS = [
 ];
 const SEED_USERS = [
   {name:"Tito",email:"baptiste.petit@brickncheese.com",password_hash:"4caq16xQ.",role:"admin",workspace_access:["bnc","tk","de","tito"],locations:["Global"],avatar:"T"},
-  {name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc"],locations:["Global"],avatar:"S"},
+  {name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc","samy"],locations:["Global"],avatar:"S"},
 ];
 
 // ─── LOGO COMPONENT ───────────────────────────────────────────────────────
@@ -931,8 +931,13 @@ function App(){
       if(!s)return null;
       const u=JSON.parse(s);
       // Ensure admin always has tito workspace
-      if(u&&u.role==="admin"&&u.workspace_access&&!u.workspace_access.includes("tito")){
-        u.workspace_access=[...u.workspace_access,"tito"];
+      if(u&&u.workspace_access){
+        if((u.name==="Tito"||u.email==="baptiste.petit@brickncheese.com")&&!u.workspace_access.includes("tito")){
+          u.workspace_access=[...u.workspace_access,"tito"];
+        }
+        if((u.name==="Samy"||u.email==="samy.eljabri@brickncheese.com")&&!u.workspace_access.includes("samy")){
+          u.workspace_access=[...u.workspace_access,"samy"];
+        }
       }
       return u;
     }catch{return null;}
@@ -976,6 +981,14 @@ function App(){
         console.log("DE tasks seeded:",deSeedTasks.length);
       }
     }catch(e){console.log("DE seed error:",e);}
+    // Ensure Samy has samy workspace in Supabase
+    try{
+      const {data:samyProfile}=await supa.from("profiles").select("*").eq("email","samy.eljabri@brickncheese.com").single();
+      if(samyProfile&&!samyProfile.workspace_access?.includes("samy")){
+        await supa.from("profiles").update({workspace_access:[...(samyProfile.workspace_access||[]),"samy"]}).eq("email","samy.eljabri@brickncheese.com");
+        console.log("Samy workspace_access updated to include samy");
+      }
+    }catch(e){console.log("Samy patch error:",e);}
     // Clean up extra profiles in Supabase — keep only Tito and Samy
     try{
       const {data:profiles}=await supa.from("profiles").select("email");
@@ -994,7 +1007,7 @@ function App(){
         await supa.from("profiles").insert({name:"Tito",email:"baptiste.petit@brickncheese.com",password_hash:"4caq16xQ.",role:"admin",workspace_access:["bnc","tk","de","tito"],locations:["Global"],avatar:"T"});
       }
       if(!existingEmails.includes("samy.eljabri@brickncheese.com")){
-        await supa.from("profiles").insert({name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc"],locations:["Global"],avatar:"S"});
+        await supa.from("profiles").insert({name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc","samy"],locations:["Global"],avatar:"S"});
       }
     }catch(e){}
     setSeeded(true);
@@ -1014,7 +1027,17 @@ function App(){
         supa.from("cal_events").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("profiles").select("*"),
       ]);
-      setTasks(t_.data||[]);setProjs(p_.data||[]);setMtgs(m_.data||[]);
+      // Merge Supabase + localStorage (localStorage has optimistic items Supabase might not have yet)
+      const lsTasks=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId);
+      const supaTasks=t_.data||[];
+      const mergedTasks=[...supaTasks];
+      lsTasks.forEach(lt=>{
+        if(!mergedTasks.some(st=>String(st.id)===String(lt.id)||lt.id===lt.id&&lt.title===st.title&&lt.created_by===st.created_by)){
+          mergedTasks.push(lt);
+        }
+      });
+      setTasks(mergedTasks);
+      setProjs(p_.data||[]);setMtgs(m_.data||[]);
       setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
       const fw=arr=>(arr||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
@@ -1144,14 +1167,21 @@ function App(){
   // CRUD helpers
   async function addTask(form){
     const tempId="tmp_"+Date.now();
-    const supaItem={...form,workspace:wsId,created_by:user.name};
+    const taskWs = form._from_gcal ? (form.workspace||wsId) : wsId;
+    const supaItem={...form,workspace:taskWs,created_by:user.name};
+    delete supaItem._from_gcal;
     const localItem={...supaItem,id:tempId};
+    // Save to localStorage IMMEDIATELY as primary storage
+    lsIns("tasks",localItem);
     setTasks(prev=>[localItem,...prev]);
     try{
       const {data,error}=await supa.from("tasks").insert(supaItem).select().single();
-      if(!error&&data) setTasks(prev=>prev.map(t=>t.id===tempId?data:t));
-      else lsIns("tasks",localItem);
-    }catch(e){ lsIns("tasks",localItem); }
+      if(!error&&data){
+        // Replace tempId with real Supabase id in both state and localStorage
+        setTasks(prev=>prev.map(t=>t.id===tempId?data:t));
+        lsUpd("tasks",tempId,data);
+      }
+    }catch(e){ /* localStorage already saved */ }
   }
   async function updateTask(id,form){
     try{
@@ -1371,8 +1401,13 @@ function App(){
   if(!user){
     return <LoginPage onLogin={u=>{
       const patchedUser={...u};
-      if(patchedUser.role==="admin"&&patchedUser.workspace_access&&!patchedUser.workspace_access.includes("tito")){
-        patchedUser.workspace_access=[...patchedUser.workspace_access,"tito"];
+      if(patchedUser.workspace_access){
+        if((patchedUser.name==="Tito"||patchedUser.email==="baptiste.petit@brickncheese.com")&&!patchedUser.workspace_access.includes("tito")){
+          patchedUser.workspace_access=[...patchedUser.workspace_access,"tito"];
+        }
+        if((patchedUser.name==="Samy"||patchedUser.email==="samy.eljabri@brickncheese.com")&&!patchedUser.workspace_access.includes("samy")){
+          patchedUser.workspace_access=[...patchedUser.workspace_access,"samy"];
+        }
       }
       setUser(patchedUser);
       localStorage.setItem("bnc_session_user",JSON.stringify(patchedUser));
