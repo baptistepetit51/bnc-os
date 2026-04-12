@@ -105,7 +105,57 @@
     body.light-mode .nav-item{color:rgba(0,0,0,0.45);}
     body.light-mode .nav-item:hover{background:rgba(0,0,0,0.05);color:rgba(0,0,0,0.8);}
     body.light-mode .nav-item.active{background:rgba(255,107,0,0.1);color:#FF6B00;}
-  </style>
+  
+    /* ── MOBILE RESPONSIVE ── */
+    @media (max-width: 768px) {
+      /* Hide sidebar on mobile - use bottom nav instead */
+      .desktop-sidebar { display: none !important; }
+      .mobile-nav { display: flex !important; }
+      
+      /* Full width content */
+      .main-content { padding: 12px 14px !important; }
+      
+      /* Stack grids */
+      [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+      
+      /* Modals full screen */
+      .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+      .modal-box { 
+        width: 100% !important; 
+        max-width: 100% !important; 
+        border-radius: 20px 20px 0 0 !important;
+        max-height: 92vh !important;
+      }
+      
+      /* Tables scroll horizontally */
+      .inline-table { overflow-x: auto !important; }
+      
+      /* Kanban columns scroll */
+      .kanban-board { 
+        display: flex !important; 
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        gap: 12px !important;
+        padding-bottom: 8px !important;
+      }
+      .kanban-col { min-width: 260px !important; flex-shrink: 0 !important; }
+      
+      /* Topbar compact */
+      .topbar { padding: 0 14px !important; height: 50px !important; }
+      .topbar-breadcrumb { font-size: 13px !important; }
+      
+      /* Cards stack */
+      .dashboard-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+
+    @media (max-width: 480px) {
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -167,6 +217,105 @@ async function gcalCreateEvent(meeting){
   }catch(e){return null;}
 }
 
+// Sync Google Calendar events → BNC tasks
+// Imports events that:
+// 1. Have "[Tâche]" in title (created from BNC)
+// 2. OR are plain all-day events (created from Google Calendar directly)
+function syncGcalTasksToBNC(gcalEvents, wsId, user, addTask, existingTasks){
+  if(!gcalEvents||!gcalEvents.length) return;
+
+  gcalEvents.forEach(ev=>{
+    const title = ev.title||"";
+    const isBNCTask = title.includes("[Tâche]");
+    const isGcalTask = ev.gcal_is_allday && !title.toLowerCase().includes("birthday")
+                    && !title.toLowerCase().includes("holiday")
+                    && !title.toLowerCase().includes("anniversaire");
+
+    if(!isBNCTask && !isGcalTask) return;
+
+    // Clean title — remove [Tâche] prefix and emoji
+    const cleanTitle = title
+      .replace(/^[🔴🟡🟢📌]\s*/,"")
+      .replace(/^\[Tâche\]\s*/,"")
+      .trim();
+
+    if(!cleanTitle) return;
+
+    // Check if already exists in BNC tasks
+    const alreadyExists = existingTasks.some(t=>
+      t.gcal_id === ev.gcal_id ||
+      (t.title === cleanTitle && t.due_date === ev.gcal_date)
+    );
+    if(alreadyExists) return;
+
+    // Determine priority from emoji prefix
+    let priority = "Medium";
+    if(title.startsWith("🔴")) priority = "High";
+    else if(title.startsWith("🟢")) priority = "Low";
+
+    // Create the task in BNC
+    addTask({
+      title: cleanTitle,
+      status: "To Do",
+      priority,
+      location: "Global",
+      due_date: ev.gcal_date || "",
+      due: ev.date || "—",
+      notes: ev.notes||"",
+      owner: user?.name || "Tito",
+      tags: ["gcal"],
+      gcal_id: ev.gcal_id,
+      reminders: ["1","3"],
+      _from_gcal: true,
+    });
+  });
+}
+
+// Create a task as an all-day event in Google Calendar
+async function gcalCreateTaskEvent({title, due_date, location, priority, notes}){
+  const token = gcalGetToken();
+  if(!token) return null;
+  if(!due_date) return null;
+
+  const PRIORITY_EMOJI = {"High":"🔴","Medium":"🟡","Low":"🟢"};
+  const emoji = PRIORITY_EMOJI[priority] || "📌";
+
+  const event = {
+    summary: `${emoji} [Tâche] ${title}`,
+    description: [
+      notes ? `Notes: ${notes}` : null,
+      location && location !== "Global" ? `Location: ${location}` : null,
+      `Priorité: ${priority || "Medium"}`,
+      "— Créé depuis BNC OS",
+    ].filter(Boolean).join("\n"),
+    start: { date: due_date },   // all-day event
+    end:   { date: due_date },
+    colorId: priority === "High" ? "11" : priority === "Low" ? "2" : "5",
+    // Red=11, Sage=2, Banana=5 in Google Calendar colors
+  };
+
+  try{
+    const res = await fetch(
+      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      }
+    );
+    if(res.status === 401){ gcalClearToken(); return null; }
+    const data = await res.json();
+    console.log("✅ Task synced to Google Calendar:", data.htmlLink);
+    return data;
+  } catch(e){
+    console.error("gcalCreateTaskEvent error:", e);
+    return null;
+  }
+}
+
 async function gcalFetchEvents(){
   const token=gcalGetToken();
   if(!token)return [];
@@ -192,9 +341,12 @@ async function gcalFetchEvents(){
       }
       return {
         id:"gcal_"+e.id,
+        gcal_id:e.id,
         title:e.summary||"(Sans titre)",
         date:dateStr,
         time:time,
+        gcal_date:e.start&&e.start.date?e.start.date:(e.start&&e.start.dateTime?e.start.dateTime.slice(0,10):""),
+        gcal_is_allday:!!(e.start&&e.start.date),
         status:"Upcoming",
         owner:"Tito",
         notes:e.description||"",
@@ -758,6 +910,13 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────
 function App(){
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  React.useEffect(()=>{
+    const handler = ()=>setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return ()=>window.removeEventListener('resize', handler);
+  },[]);
+
   const [user,setUser] = useState(()=>{
     try{
       const s=localStorage.getItem("bnc_session_user");
@@ -921,7 +1080,11 @@ function App(){
 
   useEffect(()=>{
     if(gcalConnected){
-      gcalFetchEvents().then(function(evts){setGcalEvents(evts);});
+      gcalFetchEvents().then(function(evts){
+        setGcalEvents(evts);
+        // Auto-import Google Calendar tasks into BNC
+        syncGcalTasksToBNC(evts, wsId, user, addTask, tasks);
+      });
     }
   },[gcalConnected]);
 
@@ -947,8 +1110,9 @@ function App(){
     {id:"tito_notes",   label:"Notes",         icon:"📝"},
     {id:"tito_goals",   label:"Objectifs",     icon:"🎯"},
     {id:"tito_inbox",   label:"Inbox / Idées", icon:"💡"},
-    {id:"tito_journal", label:"Journal",        icon:"📓"},
-    {id:"global_cal",   label:"Calendrier",    icon:"⊞"},
+    {id:"tito_journal",  label:"Journal",       icon:"📓"},
+    {id:"week_planner",  label:"Ma Semaine",    icon:"📋"},
+    {id:"global_cal",    label:"Calendrier",    icon:"⊞"},
   ] : wsId==="de" ? [
     {id:"dashboard",  label:t.dashboard,       icon:"◈"},
     {id:"de_launch",  label:"Launch Tracker",  icon:"🚀"},
@@ -1222,7 +1386,7 @@ function App(){
       <style>{`*{box-sizing:border-box;}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.dim};border-radius:8px}::-webkit-scrollbar-thumb:hover{background:${T.muted}}input,select,textarea{background:${T.inputBg};border:1.5px solid ${T.border};color:${T.text};border-radius:8px;padding:9px 12px;font-family:'Inter',system-ui,sans-serif;font-size:13px;width:100%;transition:border-color 0.15s;}input:focus,select:focus,textarea:focus{outline:none;border-color:${ws.color};box-shadow:0 0 0 3px ${ws.color}18;}button{cursor:pointer;font-family:'Inter',system-ui,sans-serif;}textarea{resize:vertical;min-height:72px;}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 4px rgba(255,59,48,0)}}@keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.fade-in{animation:fadeIn 0.2s ease}`}</style>
 
       {/* ── PREMIUM SIDEBAR ── */}
-      <aside style={{
+      {!isMobile&&<aside style={{
         width:sideCol?64:240,flexShrink:0,
         background:theme==="dark"?"rgba(8,8,10,0.98)":"rgba(255,255,255,0.97)",
         borderRight:`1px solid ${T.border}`,
@@ -1364,23 +1528,49 @@ function App(){
               className={`nav-item${module===n.id?" active":""}`}
               style={{justifyContent:sideCol?"center":"flex-start",marginBottom:1,padding:sideCol?"10px 0":"8px 12px",width:"100%"}}>
               <span style={{fontSize:16,flexShrink:0,width:sideCol?"auto":20,textAlign:"center",lineHeight:1}}>{n.icon}</span>
-              {!sideCol&&<span style={{fontSize:12.5,fontWeight:module===n.id?600:400,whiteSpace:"nowrap"}}>{n.label}</span>}
+              {!sideCol&&<span style={{fontSize:13,fontWeight:module===n.id?600:400,whiteSpace:"nowrap"}}>{n.label}</span>}
             </button>
           ))}
         </nav>
 
         {/* Footer */}
         <div style={{padding:"10px 10px",borderTop:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:6}}>
-          {!sideCol&&<button onClick={()=>gcalConnect().then(()=>setGcalConnected(gcalIsConnected()))} style={{
-            background:gcalConnected?"#00C89610":"rgba(255,255,255,0.04)",
-            border:`1px solid ${gcalConnected?"#00C89640":T.border}`,
-            borderRadius:9,padding:"7px 10px",fontSize:11,fontWeight:600,
-            color:gcalConnected?"#00C896":T.muted,cursor:"pointer",width:"100%",textAlign:"left",
-            display:"flex",alignItems:"center",gap:6,transition:"all 0.15s",
-          }}>
-            <span>{gcalConnected?"✅":"📅"}</span>
-            <span style={{fontSize:11}}>{gcalConnected?"Calendar connecté":"Connecter Calendar"}</span>
-          </button>}
+          {!sideCol&&(
+            gcalConnected ? (
+              <div style={{display:"flex",gap:5}}>
+                <div style={{
+                  flex:1,background:"#00C89610",border:"1px solid #00C89640",
+                  borderRadius:9,padding:"7px 10px",fontSize:11,fontWeight:600,
+                  color:"#00C896",display:"flex",alignItems:"center",gap:6,
+                }}>
+                  <span>✅</span>
+                  <span style={{fontSize:11}}>Calendar connecté</span>
+                </div>
+                <button onClick={()=>{
+                  gcalFetchEvents().then(evts=>{
+                    setGcalEvents(evts);
+                    syncGcalTasksToBNC(evts, wsId, user, addTask, tasks);
+                  });
+                }} title="Sync maintenant" style={{
+                  background:"#00C89610",border:"1px solid #00C89640",
+                  borderRadius:9,padding:"7px 10px",fontSize:14,
+                  color:"#00C896",cursor:"pointer",flexShrink:0,
+                  transition:"all 0.15s",
+                }}>↻</button>
+              </div>
+            ) : (
+              <button onClick={()=>gcalConnect().then(()=>setGcalConnected(gcalIsConnected()))} style={{
+                background:"rgba(255,255,255,0.04)",
+                border:`1px solid ${T.border}`,
+                borderRadius:9,padding:"7px 10px",fontSize:11,fontWeight:600,
+                color:T.muted,cursor:"pointer",width:"100%",textAlign:"left",
+                display:"flex",alignItems:"center",gap:6,transition:"all 0.15s",
+              }}>
+                <span>📅</span>
+                <span style={{fontSize:11}}>Connecter Calendar</span>
+              </button>
+            )
+          )}
           {!sideCol&&<div style={{display:"flex",gap:6}}>
             <button onClick={()=>setTheme(v=>{const n=v==="dark"?"light":"dark";localStorage.setItem('bnc_theme',n);return n;})} style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>{theme==="dark"?"☀️ Light":"🌙 Dark"}</button>
             <button onClick={()=>setLang(v=>v==="fr"?"en":"fr")} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:10,color:T.muted,fontWeight:700,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>{lang==="fr"?"EN":"FR"}</button>
@@ -1394,14 +1584,48 @@ function App(){
             {!sideCol&&<button title={t.logout} onClick={()=>{localStorage.removeItem("bnc_saved_email");localStorage.removeItem("bnc_saved_pass");localStorage.removeItem("bnc_session_user");setUser(null);}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>↩</button>}
           </div>
         </div>
-      </aside>
+      </aside>}
 
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile&&(
+        <div style={{
+          position:"fixed",bottom:0,left:0,right:0,
+          height:60,background:T.surface,
+          borderTop:`1px solid ${T.border}`,
+          display:"flex",alignItems:"center",
+          zIndex:200,
+          backdropFilter:"blur(20px)",
+          paddingBottom:"env(safe-area-inset-bottom)",
+        }}>
+          {NAV.slice(0,5).map(n=>(
+            <button key={n.id} onClick={()=>setModule(n.id)}
+              style={{
+                flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                justifyContent:"center",gap:3,border:"none",
+                background:"transparent",
+                color:module===n.id?ws.color:T.dim,
+                padding:"6px 0",
+              }}>
+              <span style={{fontSize:20,lineHeight:1}}>{n.icon}</span>
+              <span style={{fontSize:9,fontWeight:module===n.id?700:400,letterSpacing:0.2}}>{n.label.slice(0,8)}</span>
+            </button>
+          ))}
+          <button onClick={()=>setSideCol(false)||setModule(NAV[0]?.id)}
+            style={{
+              width:44,height:44,borderRadius:12,
+              background:ws.color,color:"#fff",
+              border:"none",fontSize:18,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              margin:"0 8px",flexShrink:0,
+            }}>⋯</button>
+        </div>
+      )}
 
       {/* ── PREMIUM TOPBAR ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{
-          height:60,borderBottom:`1px solid ${T.border}`,
-          display:"flex",alignItems:"center",padding:"0 24px",gap:12,
+          height:isMobile?50:60,borderBottom:`1px solid ${T.border}`,
+          display:"flex",alignItems:"center",padding:isMobile?"0 14px":"0 24px",gap:isMobile?8:12,
           background:theme==="dark"?"rgba(8,8,10,0.95)":T.surface,
           flexShrink:0,backdropFilter:"blur(20px)",
           position:"sticky",top:0,zIndex:10,
@@ -1414,7 +1638,7 @@ function App(){
           </div>
 
           {/* Location filter (projects + media only — tasks has built-in location view) */}
-          {["projects","media"].includes(module)&&wsId==="bnc"&&(
+          {!isMobile&&["projects","media"].includes(module)&&wsId==="bnc"&&(
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {LOCATIONS.map(l=>(
                 <button key={l} onClick={()=>setLocFilt(l)} style={{
@@ -1430,10 +1654,10 @@ function App(){
           )}
 
           {/* CTA Button */}
-          {!["dashboard","calendar","access","expenses","products","tito_home","tito_notes","tito_goals","tito_inbox","tito_journal","daily_brief","global_cal","clients"].includes(module)&&(
+          {!["dashboard","calendar","access","expenses","products","tito_home","tito_notes","tito_goals","tito_inbox","tito_journal","week_planner","daily_brief","global_cal","clients"].includes(module)&&(
             <button onClick={()=>setModal({type:`add_${module}`})} style={{
               background:ws.color,color:"#fff",border:"none",
-              borderRadius:10,padding:"8px 16px",fontSize:12,fontWeight:600,
+              borderRadius:10,padding:isMobile?"8px 12px":"8px 16px",fontSize:12,fontWeight:600,
               display:"flex",alignItems:"center",gap:6,
               transition:"all 0.15s",letterSpacing:0.02,
               boxShadow:`0 2px 12px ${ws.color}44`,
@@ -1571,7 +1795,7 @@ function App(){
           </div>
         </div>
 
-        <div style={{flex:1,overflowY:"auto",padding:"24px 28px"}}>
+        <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 14px 80px":"24px 28px"}}>
           {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses} updateExpense={updateExpense}/>}
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
@@ -1585,11 +1809,12 @@ function App(){
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
           {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId}/>}
-          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);}} T={T}/>}
+          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);}} T={T} wsId={wsId}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
           {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);}} T={T}/>}
           {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);}} T={T}/>}
-          {module==="tito_journal" &&<TitoJournal ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);}} T={T}/>}
+          {module==="tito_journal"  &&<TitoJournal  ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);}} T={T}/>}
+          {module==="week_planner" &&<WeekPlanner  ws={ws} T={T} wsId={wsId} user={user}/>}
         </div>
       </div>
 
@@ -1646,7 +1871,7 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expense
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:12}}>
         {kpis.map(k=>(
           <Card key={k.label} T={T} onClick={()=>setModule(k.mod)}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><span style={{fontSize:11,color:T.muted,fontWeight:500,letterSpacing:0.5}}>{k.label.toUpperCase()}</span><span style={{fontSize:20,opacity:0.3}}>{k.icon}</span></div>
@@ -2264,7 +2489,7 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
                         >
                           {isDone&&<span style={{color:"#fff",fontSize:11,fontWeight:900,lineHeight:1,animation:"checkPop 0.3s cubic-bezier(0.34,1.56,0.64,1)"}}>✓</span>}
                         </div>
-                        <div style={{fontSize:13,fontWeight:600,lineHeight:1.4,color:isDone?T.muted:T.text,textDecoration:isDone?"line-through":"none",flex:1}}>{task.title}</div>
+                        <div style={{fontSize:13,fontWeight:600,lineHeight:1.4,color:isDone?T.muted:T.text,textDecoration:isDone?"line-through":"none",flex:1}}>{task.title}{task._from_gcal&&<span style={{fontSize:8,background:"#1a73e820",color:"#1a73e8",borderRadius:3,padding:"1px 4px",fontWeight:700,marginLeft:4}}>GCal</span>}</div>
                       </div>
 
                       {!isDone&&<>
@@ -2426,7 +2651,7 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes}){
                         <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:4}}>
                           <div style={{width:8,height:8,borderRadius:"50%",background:TASK_STATUS[task.status]?.dot||"#6b6b6b",flexShrink:0,marginTop:4}}/>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12.5,fontWeight:isDone?400:500,textDecoration:isDone?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</div>
+                            <div style={{fontSize:13,fontWeight:isDone?400:500,textDecoration:isDone?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</div>
                           </div>
                           <Avatar name={task.owner} size={20} color={isDone?"#00C896":ws.color}/>
                         </div>
@@ -3606,7 +3831,7 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
 
             {/* Name */}
             <Cell inf={inf} field="name" width={COL_W.name}>
-              <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingLeft:2}}>{inf.name||<span style={{color:T.dim}}>—</span>}</div>
+              <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingLeft:2}}>{inf.name||<span style={{color:T.dim}}>—</span>}</div>
             </Cell>
 
             {/* Platform */}
@@ -4457,7 +4682,7 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
             onMouseEnter={e=>e.currentTarget.style.background=T.s2}
             onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
             <Cell exp={exp} field="title" width={COL.title}>
-              <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{exp.title||<span style={{color:T.dim}}>—</span>}</div>
+              <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{exp.title||<span style={{color:T.dim}}>—</span>}</div>
             </Cell>
             <Cell exp={exp} field="category" width={COL.category} center>
               <Badge label={exp.category||"Autre"} color={ws.color} small/>
@@ -5145,48 +5370,118 @@ function TaskCard({task,T,setWsId,setModule}){
 }
 
 // ─── TITO PERSO ───────────────────────────────────────────────────────────
-function TitoHome({ws,focus,setFocus,T}){
-  const [newTask,setNewTask]=useState("");
-  const today=new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
-  const done=focus.filter(f=>f.done).length;
+function TitoHome({ws,focus,setFocus,T,wsId}){
+  const [newTask,   setNewTask]   = useState("");
+  const [newWeekly, setNewWeekly] = useState("");
+  // Weekly goals stored separately
+  const [weekly, setWeeklyRaw] = useState(()=>{ try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_weekly")||"[]");}catch{return[];} });
+  function setWeekly(v){ setWeeklyRaw(v); localStorage.setItem((wsId||"tito")+"_weekly", JSON.stringify(v)); }
+
+  const today = new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
+  const done  = focus.filter(f=>f.done).length;
+
+  // Next Monday date label
+  const now = new Date();
+  const dow = now.getDay();
+  const daysToMon = dow===0?1:(8-dow);
+  const nextMon = new Date(now); nextMon.setDate(now.getDate()+daysToMon);
+  const nextSun = new Date(nextMon); nextSun.setDate(nextMon.getDate()+6);
+  const weekLabel = nextMon.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})+" – "+nextSun.toLocaleDateString("fr-CA",{day:"numeric",month:"short"});
+
+  const weekDone = weekly.filter(w=>w.done).length;
+
   return(
-    <div style={{maxWidth:600,margin:"0 auto",paddingTop:20}}>
-      <div style={{marginBottom:28}}>
+    <div style={{maxWidth:900,margin:"0 auto",paddingTop:20}}>
+      {/* Header */}
+      <div style={{marginBottom:20}}>
         <div style={{fontSize:11,color:T.muted,letterSpacing:2,marginBottom:4}}>AUJOURD'HUI</div>
         <div style={{fontSize:22,fontWeight:800,color:T.text,marginBottom:2}}>{today}</div>
-        <div style={{fontSize:13,color:T.muted}}>{done}/{focus.length} priorités complétées</div>
       </div>
-      {/* Progress */}
-      {focus.length>0&&(
-        <div style={{height:6,background:T.s3,borderRadius:3,overflow:"hidden",marginBottom:28}}>
-          <div style={{width:(done/focus.length*100)+"%",height:"100%",background:ws.color,borderRadius:3,transition:"width 0.4s"}}/>
-        </div>
-      )}
-      {/* Focus items */}
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:1,marginBottom:12}}>⚡ PRIORITÉS DU JOUR (max 5)</div>
-        {focus.length===0&&<div style={{fontSize:13,color:T.dim,fontStyle:"italic",marginBottom:12,padding:"16px",background:T.s2,borderRadius:8}}>Qu'est-ce que tu dois absolument faire aujourd'hui ?</div>}
-        {focus.map((f,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:f.done?T.s2:T.surface,border:`1px solid ${f.done?T.border:ws.color+"44"}`,borderRadius:10,marginBottom:8,transition:"all 0.15s"}}>
-            <div onClick={()=>{const upd=focus.map((x,xi)=>xi===i?{...x,done:!x.done}:x);setFocus(upd);}} style={{width:22,height:22,borderRadius:6,border:`2px solid ${f.done?"#00C896":ws.color}`,background:f.done?"#00C896":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
-              {f.done&&<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
+
+      {/* Two columns — stack on mobile */}
+      <div style={{display:"grid",gridTemplateColumns:window.innerWidth<768?"1fr":"1fr 1fr",gap:window.innerWidth<768?14:20,alignItems:"start"}}>
+
+        {/* ── LEFT: Priorités du jour ── */}
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"18px 20px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:ws.color,letterSpacing:1}}>⚡ AUJOURD'HUI</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:2}}>{done}/{focus.length} complétées</div>
             </div>
-            <span style={{flex:1,fontSize:14,fontWeight:500,color:f.done?T.muted:T.text,textDecoration:f.done?"line-through":"none"}}>{f.text}</span>
-            <button onClick={()=>setFocus(focus.filter((_,xi)=>xi!==i))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:14,padding:"0 4px"}}>✕</button>
+            {done>0&&<button onClick={()=>setFocus(focus.filter(f=>!f.done))}
+              style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>
+              Effacer ({done})
+            </button>}
           </div>
-        ))}
-        {focus.length<5&&(
-          <div style={{display:"flex",gap:8}}>
-            <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"&&newTask.trim()){setFocus([...focus,{text:newTask,done:false}]);setNewTask("");}}}
-              placeholder="Ajouter une priorité..."
-              style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:"10px 12px",fontSize:13}}/>
-            <button onClick={()=>{if(newTask.trim()){setFocus([...focus,{text:newTask,done:false}]);setNewTask("");}}} style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"10px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+</button>
+          {/* Progress bar */}
+          {focus.length>0&&(
+            <div style={{height:4,background:T.s3,borderRadius:2,overflow:"hidden",marginBottom:14}}>
+              <div style={{width:(done/focus.length*100)+"%",height:"100%",background:ws.color,borderRadius:2,transition:"width 0.4s"}}/>
+            </div>
+          )}
+          {focus.length===0&&<div style={{fontSize:12,color:T.dim,fontStyle:"italic",padding:"12px",background:T.s2,borderRadius:8,marginBottom:12,textAlign:"center"}}>Qu'est-ce que tu dois faire aujourd'hui ?</div>}
+          {focus.map((f,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:f.done?T.s2:T.surface,border:`1px solid ${f.done?T.border:ws.color+"33"}`,borderRadius:9,marginBottom:6,transition:"all 0.15s"}}>
+              <div onClick={()=>{const upd=focus.map((x,xi)=>xi===i?{...x,done:!x.done}:x);setFocus(upd);}}
+                style={{width:20,height:20,borderRadius:5,border:`2px solid ${f.done?"#00C896":ws.color}`,background:f.done?"#00C896":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+                {f.done&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+              </div>
+              <span style={{flex:1,fontSize:13,fontWeight:500,color:f.done?T.muted:T.text,textDecoration:f.done?"line-through":"none"}}>{f.text}</span>
+              <button onClick={()=>setFocus(focus.filter((_,xi)=>xi!==i))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13}}>✕</button>
+            </div>
+          ))}
+          {focus.length<5&&(
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              <input value={newTask} onChange={e=>setNewTask(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&newTask.trim()){setFocus([...focus,{text:newTask,done:false}]);setNewTask("");}}}
+                placeholder="Priorité du jour..."
+                style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:"8px 11px",fontSize:13}}/>
+              <button onClick={()=>{if(newTask.trim()){setFocus([...focus,{text:newTask,done:false}]);setNewTask("");}}}
+                style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: Objectifs semaine prochaine ── */}
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"18px 20px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#0A84FF",letterSpacing:1}}>🎯 SEMAINE PROCHAINE</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:2}}>{weekLabel}</div>
+            </div>
+            {weekDone>0&&<button onClick={()=>setWeekly(weekly.filter(w=>!w.done))}
+              style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 10px",fontSize:10,color:T.muted,cursor:"pointer"}}>
+              Effacer ({weekDone})
+            </button>}
           </div>
-        )}
+          {weekly.length>0&&(
+            <div style={{height:4,background:T.s3,borderRadius:2,overflow:"hidden",marginBottom:14}}>
+              <div style={{width:(weekDone/weekly.length*100)+"%",height:"100%",background:"#0A84FF",borderRadius:2,transition:"width 0.4s"}}/>
+            </div>
+          )}
+          {weekly.length===0&&<div style={{fontSize:12,color:T.dim,fontStyle:"italic",padding:"12px",background:T.s2,borderRadius:8,marginBottom:12,textAlign:"center"}}>Qu'est-ce que tu veux accomplir la semaine prochaine ?</div>}
+          {weekly.map((w,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:w.done?T.s2:T.surface,border:`1px solid ${w.done?T.border:"#0A84FF33"}`,borderRadius:9,marginBottom:6,transition:"all 0.15s"}}>
+              <div onClick={()=>setWeekly(weekly.map((x,xi)=>xi===i?{...x,done:!x.done}:x))}
+                style={{width:20,height:20,borderRadius:5,border:`2px solid ${w.done?"#00C896":"#0A84FF"}`,background:w.done?"#00C896":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+                {w.done&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+              </div>
+              <span style={{flex:1,fontSize:13,fontWeight:500,color:w.done?T.muted:T.text,textDecoration:w.done?"line-through":"none"}}>{w.text}</span>
+              <button onClick={()=>setWeekly(weekly.filter((_,xi)=>xi!==i))} style={{background:"transparent",border:"none",color:T.dim,cursor:"pointer",fontSize:13}}>✕</button>
+            </div>
+          ))}
+          {weekly.length<7&&(
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              <input value={newWeekly} onChange={e=>setNewWeekly(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&newWeekly.trim()){setWeekly([...weekly,{text:newWeekly,done:false}]);setNewWeekly("");}}}
+                placeholder="Objectif semaine prochaine..."
+                style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:"8px 11px",fontSize:13}}/>
+              <button onClick={()=>{if(newWeekly.trim()){setWeekly([...weekly,{text:newWeekly,done:false}]);setNewWeekly("");}}}
+                style={{background:"#0A84FF",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>+</button>
+            </div>
+          )}
+        </div>
       </div>
-      {/* Clear done */}
-      {done>0&&<button onClick={()=>setFocus(focus.filter(f=>!f.done))} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"6px 14px",fontSize:11,color:T.muted,cursor:"pointer"}}>Effacer les complétées ({done})</button>}
     </div>
   );
 }
@@ -5563,6 +5858,256 @@ function TitoGoals({ws,goals,setGoals,T}){
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ─── WEEK PLANNER ─────────────────────────────────────────────────────────
+function getDueBadge(due_date){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const due=new Date(due_date+"T00:00:00");
+  const diff=Math.round((due-today)/86400000);
+  if(diff<0)  return {color:"#FF3B30",label:"En retard"};
+  if(diff===0)return {color:"#FF3B30",label:"Auj."};
+  if(diff<=2) return {color:"#FF9F0A",label:diff+"j"};
+  if(diff<=7) return {color:"#FFD60A",label:diff+"j"};
+  return {color:"#00C896",label:diff+"j"};
+}
+
+function WeekPlanner({ws, T, wsId, user}){
+  const WORKSPACES_ALL = [
+    {id:"bnc", name:"Brick'N'Cheese", color:"#FF6B00", abbr:"BNC"},
+    {id:"tk",  name:"Tito's Kitchen", color:"#00C896", abbr:"TK"},
+    {id:"de",  name:"Delivery Edge",  color:"#0A84FF", abbr:"DE"},
+  ];
+
+  // Load all tasks from all workspaces
+  const [allTasks, setAllTasks] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [selWs, setSelWs]       = useState("all");
+  const [selStatus, setSelStatus] = useState("active"); // active | all
+  const [search, setSearch]     = useState("");
+
+  // Weekly plan stored in localStorage per user
+  const planKey = (wsId||"tito")+"_weekplan";
+  const [weekPlan, setWeekPlanRaw] = useState(()=>{
+    try{ return JSON.parse(localStorage.getItem(planKey)||"[]"); }catch{ return []; }
+  });
+  function setWeekPlan(v){ setWeekPlanRaw(v); localStorage.setItem(planKey, JSON.stringify(v)); }
+
+  // Load all tasks across workspaces from localStorage
+  React.useEffect(()=>{
+    setLoading(true);
+    try{
+      const raw = JSON.parse(localStorage.getItem("tasks")||"[]");
+      setAllTasks(raw.filter(t=>t.status!=="Done"));
+    }catch(e){ setAllTasks([]); }
+    setLoading(false);
+  },[]);
+
+  // Week label
+  const now = new Date();
+  const dow = now.getDay();
+  const daysToMon = dow===0?1:(8-dow);
+  const nextMon = new Date(now); nextMon.setDate(now.getDate()+daysToMon);
+  const nextSun = new Date(nextMon); nextSun.setDate(nextMon.getDate()+6);
+  const weekLabel = nextMon.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})
+    +" – "+nextSun.toLocaleDateString("fr-CA",{day:"numeric",month:"short"});
+
+  // Filter tasks for picker
+  const pickerTasks = allTasks.filter(t=>{
+    if(selWs!=="all" && t.workspace!==selWs) return false;
+    if(selStatus==="active" && t.status==="Done") return false;
+    if(search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if(weekPlan.some(p=>p.id===t.id)) return false; // already in plan
+    return true;
+  });
+
+  // Group by workspace for display
+  function getWsColor(wsId){ return WORKSPACES_ALL.find(w=>w.id===wsId)?.color||"#6b6b6b"; }
+  function getWsAbbr(wsId){ return WORKSPACES_ALL.find(w=>w.id===wsId)?.abbr||wsId?.toUpperCase()||"?"; }
+
+  function addToWeek(task){
+    setWeekPlan([...weekPlan, {...task, _planned:true}]);
+  }
+  function removeFromWeek(id){
+    setWeekPlan(weekPlan.filter(t=>t.id!==id));
+  }
+  function toggleDoneInPlan(id){
+    setWeekPlan(weekPlan.map(t=>t.id===id?{...t,_done:!t._done}:t));
+  }
+
+  const donePlan = weekPlan.filter(t=>t._done).length;
+  const pct = weekPlan.length ? Math.round(donePlan/weekPlan.length*100) : 0;
+
+  return(
+    <div style={{maxWidth:1000,margin:"0 auto",paddingTop:16}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:800,letterSpacing:-0.3}}>📋 Ma Semaine</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:2}}>Semaine du {weekLabel}</div>
+        </div>
+        {weekPlan.length>0&&(
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:13,fontWeight:700,color:ws.color}}>{donePlan}/{weekPlan.length} tâches</div>
+            <div style={{width:120,height:4,background:T.s3,borderRadius:2,marginTop:4,overflow:"hidden"}}>
+              <div style={{width:pct+"%",height:"100%",background:ws.color,borderRadius:2,transition:"width 0.4s"}}/>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"start"}}>
+
+        {/* ── LEFT: Task picker ── */}
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:12}}>
+            TOUTES MES TÂCHES — CHOISIR POUR LA SEMAINE
+          </div>
+
+          {/* Filters */}
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+            {/* Workspace filter */}
+            {[{id:"all",name:"Tous",color:T.muted},...WORKSPACES_ALL].map(w=>(
+              <button key={w.id} onClick={()=>setSelWs(w.id)} style={{
+                background:selWs===w.id?(w.color||ws.color)+"22":"transparent",
+                color:selWs===w.id?(w.color||ws.color):T.dim,
+                border:`1px solid ${selWs===w.id?(w.color||ws.color)+"66":T.border}`,
+                borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:selWs===w.id?700:400,
+                cursor:"pointer",transition:"all 0.15s",
+              }}>{w.abbr||w.name}</button>
+            ))}
+            <button onClick={()=>setSelStatus(s=>s==="active"?"all":"active")} style={{
+              background:selStatus==="all"?"rgba(255,255,255,0.08)":"transparent",
+              color:T.dim,border:`1px solid ${T.border}`,
+              borderRadius:20,padding:"4px 12px",fontSize:11,cursor:"pointer",
+            }}>{selStatus==="active"?"Actives":"Toutes"}</button>
+          </div>
+
+          {/* Search */}
+          <div style={{position:"relative",marginBottom:12}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:T.dim}}>⌕</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Rechercher une tâche..."
+              style={{paddingLeft:30,background:T.s2,border:`1px solid ${T.border}`,borderRadius:9,padding:"8px 10px 8px 30px",fontSize:12,color:T.text,width:"100%",outline:"none"}}/>
+          </div>
+
+          {/* Task list */}
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden",maxHeight:500,overflowY:"auto"}}>
+            {loading&&<div style={{padding:"24px",textAlign:"center",color:T.dim}}>Chargement...</div>}
+            {!loading&&pickerTasks.length===0&&(
+              <div style={{padding:"24px",textAlign:"center",color:T.dim}}>
+                <div style={{fontSize:24,marginBottom:8}}>✅</div>
+                {weekPlan.length>0?"Toutes les tâches sont dans ton plan !":"Aucune tâche trouvée"}
+              </div>
+            )}
+            {pickerTasks.map((task,i)=>{
+              const c = getWsColor(task.workspace);
+              const abbr = getWsAbbr(task.workspace);
+              const dl = task.due_date ? getDueBadge(task.due_date) : null;
+              return(
+                <div key={task.id}
+                  onClick={()=>addToWeek(task)}
+                  style={{
+                    display:"flex",alignItems:"center",gap:10,
+                    padding:"11px 14px",
+                    borderBottom:i<pickerTasks.length-1?`1px solid ${T.border}`:"none",
+                    cursor:"pointer",transition:"background 0.1s",
+                    borderLeft:`3px solid ${c}`,
+                  }}
+                  onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <span style={{fontSize:9,fontWeight:700,color:c,background:c+"18",borderRadius:4,padding:"2px 5px",flexShrink:0}}>{abbr}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</div>
+                    <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
+                      <span style={{fontSize:9,color:T.dim}}>{task.location||"Global"}</span>
+                      {task.priority&&<span style={{fontSize:9,color:T.dim}}>· {task.priority}</span>}
+                    </div>
+                  </div>
+                  {dl&&<span style={{fontSize:10,fontWeight:700,color:dl.color,flexShrink:0}}>{dl.label}</span>}
+                  <span style={{fontSize:18,color:T.dim,opacity:0.4,flexShrink:0}}>+</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Week plan ── */}
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:700,color:ws.color,letterSpacing:0.8}}>
+              📌 MON PLAN CETTE SEMAINE
+            </div>
+            {weekPlan.length>0&&(
+              <button onClick={()=>setWeekPlan(weekPlan.filter(t=>!t._done))}
+                style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 10px",fontSize:10,color:T.dim,cursor:"pointer"}}>
+                Effacer terminées
+              </button>
+            )}
+          </div>
+
+          {weekPlan.length===0?(
+            <div style={{background:T.surface,border:`2px dashed ${T.border}`,borderRadius:12,padding:"40px 20px",textAlign:"center",color:T.dim}}>
+              <div style={{fontSize:32,marginBottom:8}}>👈</div>
+              <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>Sélectionne des tâches</div>
+              <div style={{fontSize:11}}>Clique sur une tâche à gauche pour l&apos;ajouter à ta semaine</div>
+            </div>
+          ):(
+            <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,overflow:"hidden"}}>
+              {weekPlan.map((task,i)=>{
+                const c = getWsColor(task.workspace);
+                const abbr = getWsAbbr(task.workspace);
+                return(
+                  <div key={task.id} style={{
+                    display:"flex",alignItems:"center",gap:10,
+                    padding:"12px 14px",
+                    borderBottom:i<weekPlan.length-1?`1px solid ${T.border}`:"none",
+                    background:task._done?"transparent":T.surface,
+                    opacity:task._done?0.5:1,
+                    transition:"all 0.15s",
+                    borderLeft:`3px solid ${task._done?"#00C896":c}`,
+                  }}>
+                    {/* Checkbox */}
+                    <div onClick={()=>toggleDoneInPlan(task.id)} style={{
+                      width:22,height:22,borderRadius:6,flexShrink:0,
+                      border:`2px solid ${task._done?"#00C896":c}`,
+                      background:task._done?"#00C896":"transparent",
+                      cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                      transition:"all 0.15s",
+                    }}>
+                      {task._done&&<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
+                    </div>
+                    {/* Task info */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:task._done?400:600,textDecoration:task._done?"line-through":"none",color:task._done?T.muted:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</div>
+                      <div style={{display:"flex",gap:5,marginTop:2,alignItems:"center"}}>
+                        <span style={{fontSize:9,fontWeight:700,color:c,background:c+"18",borderRadius:3,padding:"1px 4px"}}>{abbr}</span>
+                        {task.due_date&&<span style={{fontSize:9,color:T.dim}}>📅 {new Date(task.due_date+"T12:00:00").toLocaleDateString("fr-CA",{day:"numeric",month:"short"})}</span>}
+                      </div>
+                    </div>
+                    {/* Remove */}
+                    <button onClick={()=>removeFromWeek(task.id)} style={{
+                      background:"transparent",border:"none",
+                      color:T.dim,cursor:"pointer",fontSize:14,
+                      padding:4,opacity:0.5,transition:"opacity 0.1s",
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                    onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>✕</button>
+                  </div>
+                );
+              })}
+              {/* Summary */}
+              <div style={{padding:"10px 14px",background:T.s2,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:T.muted}}>{weekPlan.length} tâche{weekPlan.length>1?"s":""}  planifiée{weekPlan.length>1?"s":""}</span>
+                <span style={{fontSize:11,fontWeight:700,color:pct===100?"#00C896":ws.color}}>{pct}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -5995,7 +6540,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(isEdit) await updateTask(form.id,ev);
       else {
         await addTask(ev);
-        // Auto-add to calendar if checked and date selected
+        // Auto-add to BNC calendar if checked
         if(form.add_to_cal && dueMonth && dueDay){
           await addCalEvent({
             title: form.title,
@@ -6007,6 +6552,16 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             end_day: null,
             has_end: false,
             note: `Tâche: ${form.title}`,
+          });
+        }
+        // Auto-sync to Google Calendar if connected and date set
+        if(gcalIsConnected() && form.due_date){
+          gcalCreateTaskEvent({
+            title: form.title,
+            due_date: form.due_date,
+            location: form.location,
+            priority: form.priority || "Medium",
+            notes: form.notes || "",
           });
         }
       }
@@ -6192,12 +6747,24 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
           </div>
 
           {/* Calendar sync */}
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:ws.color+"12",border:`1px solid ${ws.color}33`,borderRadius:7,marginBottom:14}}>
-            <input type="checkbox" id="addtocal" checked={form.add_to_cal||false} onChange={e=>f("add_to_cal",e.target.checked)}
-              style={{width:16,height:16,accentColor:ws.color,cursor:"pointer"}}/>
-            <label htmlFor="addtocal" style={{fontSize:12,color:T.text,cursor:"pointer",userSelect:"none"}}>
-              ⊞ Ajouter au calendrier marketing
-            </label>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:ws.color+"12",border:`1px solid ${ws.color}33`,borderRadius:7}}>
+              <input type="checkbox" id="addtocal" checked={form.add_to_cal||false} onChange={e=>f("add_to_cal",e.target.checked)}
+                style={{width:16,height:16,accentColor:ws.color,cursor:"pointer"}}/>
+              <label htmlFor="addtocal" style={{fontSize:12,color:T.text,cursor:"pointer",userSelect:"none"}}>
+                ⊞ Ajouter au calendrier BNC OS
+              </label>
+            </div>
+            {form.due_date&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",background:gcalIsConnected()?"#1a73e812":"rgba(255,255,255,0.03)",border:`1px solid ${gcalIsConnected()?"#1a73e844":"rgba(255,255,255,0.08)"}`,borderRadius:7}}>
+                <span style={{fontSize:13}}>{gcalIsConnected()?"📅":"⚠️"}</span>
+                <span style={{fontSize:11,color:gcalIsConnected()?"#1a73e8":"rgba(255,255,255,0.4)",fontWeight:600}}>
+                  {gcalIsConnected()
+                    ? "Sera ajouté à Google Calendar automatiquement"
+                    : "Connecte Google Calendar (sidebar) pour sync auto"}
+                </span>
+              </div>
+            )}
           </div>
           <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Note générale sur la tâche..."/></MF>
           {isEdit&&(
