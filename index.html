@@ -1031,12 +1031,10 @@ function App(){
       const supaTasks=t_.data||[];
       const supaIds=new Set(supaTasks.map(t=>String(t.id)));
       const lsTasks=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId);
+      // Include LS tasks not yet in Supabase (keep all tmp_ until confirmed)
       const extraLS=lsTasks.filter(lt=>{
-        if(supaIds.has(String(lt.id))) return false; // already in supabase
-        if(String(lt.id).startsWith("tmp_")){ // optimistic - add only if recent (<30s)
-          const age=Date.now()-parseInt(lt.id.replace("tmp_",""));
-          return age < 30000;
-        }
+        if(supaIds.has(String(lt.id))) return false; // already in Supabase
+        // Keep tmp_ items (optimistic) - they'll be replaced when Supabase confirms
         return true;
       });
       setTasks([...supaTasks,...extraLS]);
@@ -1105,7 +1103,7 @@ function App(){
   // ── AUTO REFRESH every 30s for shared workspace sync ────────────────────
   React.useEffect(()=>{
     if(!user||!seeded) return;
-    const interval = setInterval(()=>{ loadData(); }, 30000);
+    const interval = setInterval(()=>{ loadData(); }, 60000);
     return ()=>clearInterval(interval);
   },[wsId,user,seeded]);
 
@@ -1283,9 +1281,23 @@ function App(){
     lsDel("influencers",id);
     try{ await supa.from("influencers").delete().eq("id",id); }catch(e){}
   }
-  async function addCalEvent(form){ lsIns("cal_events",{...form,workspace:wsId,created_by:user.name,color:calColor(form.category)}); await loadData(); }
-  async function updateCalEvent(id,form){ lsUpd("cal_events",id,{...form,color:calColor(form.category)}); await loadData(); }
-  async function deleteCalEvent(id){ lsDel("cal_events",id); await loadData(); }
+  async function addCalEvent(form){
+    const item={...form,workspace:wsId,created_by:user.name,color:calColor(form.category)};
+    lsIns("cal_events",item);
+    setCal(prev=>[...prev,item]);
+    try{ await supa.from("cal_events").insert(item); }catch(e){}
+  }
+  async function updateCalEvent(id,form){
+    const updated={...form,color:calColor(form.category)};
+    setCal(prev=>prev.map(e=>String(e.id)===String(id)?{...e,...updated}:e));
+    lsUpd("cal_events",id,updated);
+    try{ await supa.from("cal_events").update(updated).eq("id",id); }catch(e){}
+  }
+  async function deleteCalEvent(id){
+    setCal(prev=>prev.filter(e=>String(e.id)!==String(id)));
+    lsDel("cal_events",id);
+    try{ await supa.from("cal_events").delete().eq("id",id); }catch(e){}
+  }
   async function addMember(form){lsIns("profiles",{...form,avatar:form.name?.[0]||"?"});setMembers(lsGet("profiles"));}
 
   // ── Expenses CRUD ──
@@ -1329,7 +1341,11 @@ function App(){
       if(error) lsUpd("expenses",id,form);
     }catch(e){ lsUpd("expenses",id,form); }
   }
-  async function deleteExpense(id){ lsDel("expenses",id); loadExpenses(); }
+  async function deleteExpense(id){
+    setExpenses(prev=>prev.filter(e=>String(e.id)!==String(id)));
+    lsDel("expenses",id);
+    try{ await supa.from("expenses").delete().eq("id",id); }catch(e){}
+  }
 
   // ── Notification system complet ──
   function addNotif(n){
