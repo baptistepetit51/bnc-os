@@ -1064,35 +1064,35 @@ function App(){
   async function savePersonalToSupabase(key, value){
     if(!user) return;
     try{
-      const data = {[key]: JSON.stringify(value)};
-      await supa.from("profiles").update(data).eq("email", user.email);
-    }catch(e){ /* fails silently, localStorage is backup */ }
+      const body = {[key]: JSON.stringify(value)};
+      const r = await fetch(SUPA_URL+"/rest/v1/profiles?email=eq."+encodeURIComponent(user.email), {
+        method: "PATCH",
+        headers: SUPA_HEADERS,
+        body: JSON.stringify(body)
+      });
+      if(!r.ok) console.warn("savePersonalToSupabase error:", await r.text());
+    }catch(e){ console.warn("savePersonalToSupabase error:", e); }
   }
 
   async function loadPersonalFromSupabase(){
     if(!user) return;
-    const personalKeys = ["p_focus","p_weekplan","p_weekly","p_goals","p_journal","p_inbox","p_notes","p_sticky"];
+    const personalKeys = ["p_focus","p_weekplan","p_weekly","p_goals","p_journal","p_inbox","p_notes"];
     try{
-      const {data} = await supa.from("profiles").select(personalKeys.join(",")).eq("email", user.email).single();
+      const r = await fetch(SUPA_URL+"/rest/v1/profiles?email=eq."+encodeURIComponent(user.email)+"&select="+personalKeys.join(","),{headers:SUPA_HEADERS});
+      const arr = await r.json();
+      const data = arr && arr[0];
       if(!data) return;
       const wsKey = user.name==="Samy" ? "samy" : "tito";
-      // Restore to localStorage if Supabase has data and localStorage is empty
-      if(data.p_focus && !localStorage.getItem(wsKey+"_focus"))
-        localStorage.setItem(wsKey+"_focus", data.p_focus);
-      if(data.p_weekplan && !localStorage.getItem(wsKey+"_weekplan"))
-        localStorage.setItem(wsKey+"_weekplan", data.p_weekplan);
-      if(data.p_weekly && !localStorage.getItem(wsKey+"_weekly"))
-        localStorage.setItem(wsKey+"_weekly", data.p_weekly);
-      if(data.p_goals && !localStorage.getItem(wsKey+"_goals"))
-        localStorage.setItem(wsKey+"_goals", data.p_goals);
-      if(data.p_journal && !localStorage.getItem(wsKey+"_journal"))
-        localStorage.setItem(wsKey+"_journal", data.p_journal);
-      if(data.p_inbox && !localStorage.getItem(wsKey+"_inbox"))
-        localStorage.setItem(wsKey+"_inbox", data.p_inbox);
-      if(data.p_notes && !localStorage.getItem("sticky_notes"))
-        localStorage.setItem("sticky_notes", data.p_notes);
-      console.log("✅ Personal data restored from Supabase");
-    }catch(e){ console.log("Personal data load error:", e); }
+      // ALWAYS overwrite localStorage with Supabase — Supabase is source of truth
+      if(data.p_focus){ localStorage.setItem(wsKey+"_focus", data.p_focus); setTitoFocus(JSON.parse(data.p_focus)); }
+      if(data.p_weekplan){ localStorage.setItem(wsKey+"_weekplan", data.p_weekplan); }
+      if(data.p_weekly){ localStorage.setItem(wsKey+"_weekly", data.p_weekly); }
+      if(data.p_goals){ localStorage.setItem(wsKey+"_goals", data.p_goals); setTitoGoals(JSON.parse(data.p_goals)); }
+      if(data.p_journal){ localStorage.setItem(wsKey+"_journal", data.p_journal); setTitoJournal(JSON.parse(data.p_journal)); }
+      if(data.p_inbox){ localStorage.setItem(wsKey+"_inbox", data.p_inbox); setTitoInbox(JSON.parse(data.p_inbox)); }
+      if(data.p_notes){ localStorage.setItem("sticky_notes", data.p_notes); }
+      console.log("✅ Personal data loaded from Supabase");
+    }catch(e){ console.warn("loadPersonalFromSupabase error:", e); }
   }
   React.useEffect(()=>{
     const handler = ()=>setIsMobile(window.innerWidth < 768);
@@ -1248,6 +1248,8 @@ function App(){
   function switchWs(id){
     if(!accessibleWS.find(w=>w.id===id))return;
     setWsId(id);setModule((id==="tito"||id==="samy")?"daily_brief":"dashboard");setLocFilt("Global");
+    // Reload personal data from Supabase when switching to personal workspace
+    if(id==="tito"||id==="samy") setTimeout(()=>loadPersonalFromSupabase(), 300);
   }
 
   const filtered_tasks    = tasks.filter(x=>locFilt==="Global"||x.location==="Global"||x.location===locFilt);
@@ -1528,8 +1530,15 @@ function App(){
     lsIns("task_notes",{workspace:wsId,taskId,text,author:userName,timestamp:ts});
     loadExpenses();
   }
-  function addMediaBudget(form){ lsIns("media_budget",{...form,workspace:wsId,created_by:user.name}); loadExpenses(); }
-  function updateMediaBudget(id,form){ lsUpd("media_budget",id,form); loadExpenses(); }
+  function addMediaBudget(form){
+    const item={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+    lsIns("media_budget",item);
+    setMediaBudget(prev=>[...prev,item]);
+  }
+  function updateMediaBudget(id,form){
+    lsUpd("media_budget",id,form);
+    setMediaBudget(prev=>prev.map(b=>b.id===id?{...b,...form}:b));
+  }
   async function addExpense(form){
     try{ await supaInsert("expenses", {...form,workspace:wsId,created_by:user.name}); }
     catch(e){ lsIns("expenses",{...form,workspace:wsId,created_by:user.name}); }
@@ -2098,7 +2107,7 @@ function App(){
           {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId}/>}
           {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
-          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);}} T={T}/>}
+          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);console.log("Goals saved:", v.length);}} T={T}/>}
           {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);savePersonalToSupabase("p_inbox",v);}} T={T}/>}
           {module==="tito_journal"  &&<TitoJournal  ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);savePersonalToSupabase("p_journal",v);}} T={T}/>}
           {module==="week_planner" &&<WeekPlanner  ws={ws} T={T} wsId={wsId} user={user}/>}
@@ -6424,14 +6433,23 @@ function WeekPlanner({ws, T, wsId, user}){
   });
   function setWeekPlan(v){ setWeekPlanRaw(v); localStorage.setItem(planKey, JSON.stringify(v)); savePersonalToSupabase("p_weekplan",v); }
 
-  // Load all tasks across workspaces from localStorage
+  // Load all tasks across workspaces from Supabase
   React.useEffect(()=>{
     setLoading(true);
-    try{
-      const raw = JSON.parse(localStorage.getItem("tasks")||"[]");
-      setAllTasks(raw.filter(t=>t.status!=="Done"));
-    }catch(e){ setAllTasks([]); }
-    setLoading(false);
+    (async()=>{
+      try{
+        const results = await Promise.all(
+          WORKSPACES_ALL.map(w=>
+            fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+w.id+"&status=neq.Done&order=created_at.desc&limit=200",{headers:SUPA_HEADERS})
+              .then(r=>r.json())
+              .catch(()=>[])
+          )
+        );
+        const raw = results.flat().filter(t=>t&&t.title);
+        setAllTasks(raw);
+      }catch(e){ console.warn("WeekPlanner load error:", e); setAllTasks([]); }
+      setLoading(false);
+    })();
   },[]);
 
   // Week label
