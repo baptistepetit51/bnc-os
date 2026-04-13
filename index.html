@@ -1049,6 +1049,14 @@ function MobileNav({NAV,module,setModule,ws,wsId,switchWs,accessibleWS,T}){
                 </button>
               ))}
             </div>
+            {/* Logout button in mobile menu */}
+            <div style={{padding:"8px 16px",borderTop:`1px solid ${T.border}`,marginTop:8}}>
+              <button onClick={()=>{localStorage.clear();window.location.reload();}}
+                style={{width:"100%",padding:"12px",borderRadius:10,border:"none",
+                  background:"#FF3B3015",color:"#FF3B30",cursor:"pointer",fontSize:14,fontWeight:600}}>
+                🚪 Déconnexion
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1304,15 +1312,34 @@ function App(){
   const [gcalEvents,setGcalEvents]=useState([]);
 
   // Fetch Google Calendar events when connected (including on page load if already connected)
-  // ── AUTO REFRESH every 15s + on window focus ─────────────────────────────
+  // ── SUPABASE REALTIME + FOCUS REFRESH ───────────────────────────────────
   React.useEffect(()=>{
     if(!user||!seeded) return;
-    const interval = setInterval(()=>{ loadData(); }, 15000);
-    // Also reload when tab/app comes back into focus
-    const onFocus = ()=>{ loadData(); };
+
+    // Realtime subscriptions for instant sync across devices
+    const channels = ["tasks","projects","meetings","influencers","cal_events"].map(table=>{
+      return supa
+        .channel("realtime_"+table+"_"+wsId)
+        .on("postgres_changes",{event:"*",schema:"public",table,filter:"workspace=eq."+wsId},
+          ()=>loadData())
+        .subscribe();
+    });
+
+    // Fallback: poll every 30s in case realtime is not enabled
+    const interval = setInterval(()=>loadData(), 30000);
+
+    // Reload when tab comes back into focus
+    const onFocus = ()=>loadData();
+    const onVisible = ()=>{ if(!document.hidden) loadData(); };
     window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) loadData(); });
-    return ()=>{ clearInterval(interval); window.removeEventListener("focus", onFocus); };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return ()=>{
+      channels.forEach(ch=>{ try{ supa.removeChannel(ch); }catch(e){} });
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   },[wsId,user,seeded]);
 
   useEffect(()=>{
@@ -1900,7 +1927,11 @@ function App(){
               <div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name}</div>
               <div style={{fontSize:10,color:T.muted}}>{t.roles[user.role]}</div>
             </div>}
-            {!sideCol&&<button title={t.logout} onClick={()=>{localStorage.removeItem("bnc_saved_email");localStorage.removeItem("bnc_saved_pass");localStorage.removeItem("bnc_session_user");setUser(null);}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>↩</button>}
+            {<button title={t.logout} onClick={()=>{
+              // Clear all local data - Supabase is source of truth
+              localStorage.clear();
+              setUser(null);
+            }} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>↩</button>}
           </div>
         </div>
       </aside>}
