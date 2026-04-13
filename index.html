@@ -477,6 +477,48 @@ const supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
   }
 });
 
+// Direct REST API helper - bypasses supabase-js header issues
+const SUPA_HEADERS = {
+  'apikey': SUPA_KEY,
+  'Authorization': 'Bearer ' + SUPA_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+async function supaInsert(table, data) {
+  const r = await fetch(SUPA_URL + '/rest/v1/' + table, {
+    method: 'POST',
+    headers: SUPA_HEADERS,
+    body: JSON.stringify(data)
+  });
+  const json = await r.json();
+  if (!r.ok) { console.error('supaInsert error:', json); return {data: null, error: json}; }
+  return {data: Array.isArray(json) ? json[0] : json, error: null};
+}
+async function supaUpdate(table, id, data) {
+  const r = await fetch(SUPA_URL + '/rest/v1/' + table + '?id=eq.' + id, {
+    method: 'PATCH',
+    headers: SUPA_HEADERS,
+    body: JSON.stringify(data)
+  });
+  return {error: r.ok ? null : await r.json()};
+}
+async function supaDelete(table, id) {
+  const r = await fetch(SUPA_URL + '/rest/v1/' + table + '?id=eq.' + id, {
+    method: 'DELETE',
+    headers: SUPA_HEADERS
+  });
+  return {error: r.ok ? null : await r.json()};
+}
+async function supaSelect(table, workspace) {
+  const r = await fetch(SUPA_URL + '/rest/v1/' + table + '?workspace=eq.' + workspace + '&order=created_at.desc&limit=200', {
+    method: 'GET',
+    headers: SUPA_HEADERS
+  });
+  const json = await r.json();
+  if (!r.ok) { console.error('supaSelect error:', json); return {data: null, error: json}; }
+  return {data: json, error: null};
+}
+
 // ── LOCAL STORAGE (cache + fallback) ─────────────────────────────────────
 function lsGet(key){ try{const d=localStorage.getItem(key);return d?JSON.parse(d):[];}catch{return[];} }
 function lsSet(key,data){ try{localStorage.setItem(key,JSON.stringify(data));}catch{} }
@@ -1153,8 +1195,8 @@ function App(){
     if(!user||!seeded)return;
     try {
       const [t_,p_,m_,i_,c_,mb_]=await Promise.all([
-        supa.from("tasks").select("*").eq("workspace",wsId).order("created_at",{ascending:false}).limit(200),
-        supa.from("projects").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
+        supaSelect("tasks", wsId),
+        supaSelect("projects", wsId),
         supa.from("meetings").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("influencers").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("cal_events").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
@@ -1342,7 +1384,7 @@ function App(){
     lsIns("tasks",localItem);
     setTasks(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supa.from("tasks").insert(supaItem).select().single();
+      const {data,error}=await supaInsert("tasks", supaItem);
       if(!error&&data){
         // Replace tempId with real Supabase id in both state and localStorage
         setTasks(prev=>prev.map(t=>t.id===tempId?data:t));
@@ -1373,7 +1415,7 @@ function App(){
     const localItem={...supaItem,id:tempId};
     setProjs(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supa.from("projects").insert(supaItem).select().single();
+      const {data,error}=await supaInsert("projects", supaItem);
       if(!error&&data) setProjs(prev=>prev.map(p=>p.id===tempId?data:p));
       else lsIns("projects",localItem);
     }catch(e){ lsIns("projects",localItem); }
@@ -1396,7 +1438,7 @@ function App(){
     const localItem={...supaItem,id:tempId};
     setMtgs(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supa.from("meetings").insert(supaItem).select().single();
+      const {data,error}=await supaInsert("meetings", supaItem);
       if(!error&&data) setMtgs(prev=>prev.map(m=>m.id===tempId?data:m));
       else lsIns("meetings",localItem);
     }catch(e){ lsIns("meetings",localItem); }
@@ -1418,7 +1460,7 @@ function App(){
     lsIns("influencers",localItem);
     setInfl(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supa.from("influencers").insert(supaItem).select().single();
+      const {data,error}=await supaInsert("influencers", supaItem);
       if(!error&&data){
         setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
         lsUpd("influencers",tempId,data);
@@ -1444,7 +1486,7 @@ function App(){
     const item={...form,workspace:wsId,created_by:user.name,color:calColor(form.category)};
     lsIns("cal_events",item);
     setCal(prev=>[...prev,item]);
-    try{ await supa.from("cal_events").insert(item); }catch(e){}
+    try{ await supaInsert("cal_events", item); }catch(e){}
   }
   async function updateCalEvent(id,form){
     const updated={...form,color:calColor(form.category)};
@@ -1486,7 +1528,7 @@ function App(){
   function addMediaBudget(form){ lsIns("media_budget",{...form,workspace:wsId,created_by:user.name}); loadExpenses(); }
   function updateMediaBudget(id,form){ lsUpd("media_budget",id,form); loadExpenses(); }
   async function addExpense(form){
-    try{ await supa.from("expenses").insert({...form,workspace:wsId,created_by:user.name}); }
+    try{ await supaInsert("expenses", {...form,workspace:wsId,created_by:user.name}); }
     catch(e){ lsIns("expenses",{...form,workspace:wsId,created_by:user.name}); }
     if(form.urgency==="Critique"||form.urgency==="Haute"){
       addNotif({type:"expense",urgency:form.urgency,icon:"💸",title:"Dépense "+form.urgency+": "+form.title,body:form.amount+"$ · "+form.location});
