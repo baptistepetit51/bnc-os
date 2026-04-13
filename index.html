@@ -480,98 +480,12 @@ function lsDel(key,id){ lsSet(key,lsGet(key).filter(x=>String(x.id)!==String(id)
 
 // Seed initial data if empty
 (function seedLocal(){
+  // Only seed profiles for local login fallback - never overwrite tasks/projects
   if(lsGet("profiles").length>0) return;
   lsSet("profiles",[
     {id:1,name:"Tito",email:"baptiste.petit@brickncheese.com",password_hash:"4caq16xQ.",role:"admin",workspace_access:["bnc","tk","de","tito"],locations:["Global"],avatar:"T"},
     {id:2,name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc","samy"],locations:["Global"],avatar:"S"},
   ]);
-  lsSet("tasks",[
-    {id:1,workspace:"bnc",title:"Vérifier stock emballages",location:"Vancouver",status:"To Do",priority:"High",owner:"Alex",created_by:"Tito",due:"Apr 5",tags:["Ops"]},
-    {id:2,workspace:"bnc",title:"Mise à jour menu Uber Eats",location:"Global",status:"In Progress",priority:"High",owner:"Tito",created_by:"Tito",due:"Apr 3",tags:["Marketing"]},
-    {id:3,workspace:"bnc",title:"Onboarding nouveau staff",location:"Miami",status:"To Do",priority:"Medium",owner:"Maria",created_by:"Tito",due:"Apr 8",tags:["RH"]},
-    {id:4,workspace:"bnc",title:"Négociation CloudKitchens",location:"Miami",status:"In Progress",priority:"High",owner:"Tito",created_by:"Tito",due:"Apr 10",tags:["Business"]},
-    {id:10,workspace:"tk",title:"R&D recette signature",location:"Global",status:"In Progress",priority:"High",owner:"Tito",created_by:"Tito",due:"Apr 20",tags:["Produit"]},
-    // ── DELIVERY EDGE — Phase 1: Legal & Financial ──
-    {id:100,workspace:"de",title:"Vérifier disponibilité nom sur Sunbiz.org",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Search 'DeliveryEdge LLC' sur sunbiz.org — gratuit"},
-    {id:101,workspace:"de",title:"Déposer Articles of Organization",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"En ligne sur sunbiz.org — ~10 min. Coût: $125"},
-    {id:102,workspace:"de",title:"Engager un Registered Agent",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Requis en Floride. floridaregisteredagent.net — $50-150/an"},
-    {id:103,workspace:"de",title:"Obtenir EIN (numéro fiscal IRS)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"irs.gov — gratuit et instantané en ligne"},
-    {id:104,workspace:"de",title:"Déposer rapport BOI avec FinCEN",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Obligatoire depuis 2024. À faire dans les 30 jours post-LLC. fincen.gov"},
-    {id:105,workspace:"de",title:"Consulter un CPA pour structure fiscale",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Legal"],notes:"Important comme non-résident aux USA. Budget: $500-1500"},
-    {id:110,workspace:"de",title:"Ouvrir compte Mercury Bank",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"100% en ligne, gratuit. Meilleur pour non-résidents. mercury.com"},
-    {id:111,workspace:"de",title:"Créer compte Stripe",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"Lier à Mercury Bank. Vérifier identité avec passeport. stripe.com"},
-    {id:112,workspace:"de",title:"Créer 6 Stripe Payment Links",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"Tier 1/2/3 — chacun avec 50% dépôt + 50% solde. stripe.com"},
-    {id:113,workspace:"de",title:"Tester paiement $1 end-to-end",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Finance"],notes:"S'envoyer à soi-même pour confirmer le flow complet avant premier client"},
-    // ── DELIVERY EDGE — Phase 2: Digital Identity ──
-    {id:120,workspace:"de",title:"Acheter domaine deliveryedge.com",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"namecheap.com — $15-20/an. Si pris: deliveryedge.co ou getdeliveryedge.com"},
-    {id:121,workspace:"de",title:"Créer Google Workspace + email pro",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"hello@deliveryedge.com — $6/mois. workspace.google.com"},
-    {id:122,workspace:"de",title:"Publier landing page sur Framer",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Uploader le fichier HTML. Connecter le domaine. Tester sur mobile. framer.com"},
-    {id:123,workspace:"de",title:"Créer compte Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Event: 'Free Strategy Call — 30 min'. Lier au calendrier. Plan gratuit. calendly.com"},
-    {id:124,workspace:"de",title:"Connecter bouton questionnaire à Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Remplacer le lien Calendly dans le fichier HTML du questionnaire"},
-    {id:125,workspace:"de",title:"Tester flow complet: landing → questionnaire → Calendly",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Simuler un faux client. Corriger les liens cassés."},
-    {id:126,workspace:"de",title:"Configurer Zapier: Calendly → email d'onboarding auto",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Web"],notes:"Quand quelqu'un booke un call, il reçoit l'email de prépa automatiquement. zapier.com"},
-    // ── DELIVERY EDGE — Phase 3: Instagram & Contenu ──
-    {id:130,workspace:"de",title:"Créer compte Instagram @deliveryedge",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Passer immédiatement en compte professionnel après création."},
-    {id:131,workspace:"de",title:"Uploader photo de profil (logo DE)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Utiliser la version icône PNG sur fond noir de DeliveryEdge"},
-    {id:132,workspace:"de",title:"Écrire bio Instagram",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Menu & Platform Optimization for Uber Eats and DoorDash. 6+ years operating ghost kitchens. deliveryedge.com'"},
-    {id:133,workspace:"de",title:"Ajouter lien en bio (deliveryedge.com)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Lier directement au site. Pas de Linktree nécessaire au début."},
-    {id:134,workspace:"de",title:"Créer Canva brand kit",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Couleurs: #FF6B00 + noir. Police: Syne ou alternative proche. canva.com"},
-    {id:135,workspace:"de",title:"Documenter before/after depuis tes restaurants",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Screenshots + chiffres réels de BNC. C'est ta preuve la plus forte."},
-    {id:136,workspace:"de",title:"Créer post before/after avec données réelles",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Vrais chiffres de tes restaurants. Contenu le plus puissant."},
-    {id:137,workspace:"de",title:"Adapter et publier carousel 01",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'5 raisons pourquoi ton menu Uber Eats ne convertit pas'"},
-    {id:138,workspace:"de",title:"Adapter et publier carousel 02",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Ce qu'une photo optimisée fait vraiment à tes ventes'"},
-    {id:139,workspace:"de",title:"Adapter et publier carousel 03",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"'Les promos qui tuent tes marges (et comment les corriger)'"},
-    {id:140,workspace:"de",title:"Définir planning de posts",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Lundi / Mercredi / Vendredi — 3x par semaine minimum"},
-    {id:141,workspace:"de",title:"Publier les 9 carousels restants sur 3 semaines",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Marketing"],notes:"Utiliser le pack 12 carousels déjà créé"},
-    // ── DELIVERY EDGE — Phase 4: Operations ──
-    {id:150,workspace:"de",title:"Créer compte Fireflies.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Connecter à Google Meet. Transcription automatique des calls clients. fireflies.ai"},
-    {id:151,workspace:"de",title:"Créer compte Ideogram.ai",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Pour photos food AI pour clients Tier 2 et 3. ideogram.ai"},
-    {id:152,workspace:"de",title:"Créer structure Google Drive",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Dossier: DeliveryEdge Clients. Sous-dossier par client: Questionnaire / Transcript / Report / Invoice"},
-    {id:153,workspace:"de",title:"Sauvegarder les 4 prompts Claude",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Copier depuis l'Operational Playbook dans un Google Doc pour accès rapide"},
-    {id:154,workspace:"de",title:"Créer signature email professionnelle",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Ops"],notes:"Nom + Titre + hello@deliveryedge.com + deliveryedge.com + téléphone"},
-    // ── DELIVERY EDGE — Phase 5: Client Acquisition ──
-    {id:160,workspace:"de",title:"Construire liste 20 prospects Uber Eats Miami",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Browser Uber Eats Miami. Noter: nom, Instagram si dispo, type de problème visible."},
-    {id:161,workspace:"de",title:"Trouver Instagram/LinkedIn des prospects",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Chercher le nom du resto sur Instagram. La plupart des ghost kitchens ont un compte."},
-    {id:162,workspace:"de",title:"Identifier le problème principal de chaque prospect",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Regarder menu, photos, classement. Avoir 1 problème spécifique à mentionner dans le message."},
-    {id:163,workspace:"de",title:"Rédiger message DM Instagram (max 3 lignes)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Personnel, spécifique, pas copier-coller. Mentionner 1 chose vue sur leur menu."},
-    {id:164,workspace:"de",title:"Rédiger message LinkedIn (si applicable)",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Même approche mais légèrement plus long. Focus sur ROI."},
-    {id:165,workspace:"de",title:"Rédiger template cold email",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Objet: 'Quick question about your Uber Eats menu'. Court, spécifique, CTA clair."},
-    {id:166,workspace:"de",title:"Envoyer 10 premiers DMs Instagram",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Personnaliser chaque message. Ne pas envoyer le même message en masse."},
-    {id:167,workspace:"de",title:"Envoyer 10 autres messages",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Différents prospects. Continuer sans s'arrêter."},
-    {id:168,workspace:"de",title:"Follow-up non-répondants après 5 jours",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Un seul follow-up. Court. 'Just following up on my message last week.'"},
-    {id:169,workspace:"de",title:"Tracker les réponses dans Google Sheet",location:"Global",status:"To Do",priority:"Medium",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Colonnes: Nom / Plateforme / Message envoyé / Réponse / Call booké / Statut"},
-    {id:170,workspace:"de",title:"Conduire 3 strategy calls",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"Utiliser Fireflies + trame de call du Playbook. Prendre des notes."},
-    {id:171,workspace:"de",title:"🎯 OBJECTIF: Signer 3 premiers clients payants",location:"Global",status:"To Do",priority:"High",owner:"Tito",created_by:"Tito",tags:["Sales"],notes:"3 clients = concept validé. Budget premier revenu estimé: $1,800–$5,400. Augmenter les prix après."},
-  ]);
-  lsSet("projects",[
-    {id:1,workspace:"bnc",title:"Portland Launch",status:"Planning",progress:25,owner:"Tito",created_by:"Tito",due:"May 1",location:"Portland",description:"Ouverture CloudKitchens Portland."},
-    {id:2,workspace:"bnc",title:"Miami Recovery",status:"At Risk",progress:40,owner:"Tito",created_by:"Tito",due:"Apr 18",location:"Miami",description:"Restructuration Miami."},
-    {id:3,workspace:"bnc",title:"Summer Menu 2026",status:"Active",progress:60,owner:"Tito",created_by:"Tito",due:"Jun 1",location:"Global",description:"Refonte menu été."},
-    {id:10,workspace:"tk",title:"Brand Identity TK",status:"Planning",progress:10,owner:"Tito",created_by:"Tito",due:"May 15",location:"Global",description:"Logo et positionnement."},
-    {id:20,workspace:"de",title:"Delivery Edge Launch",status:"Active",progress:35,owner:"Tito",created_by:"Tito",due:"May 30",location:"Global",description:"Go-to-market."},
-  ]);
-  lsSet("meetings",[
-    {id:1,workspace:"bnc",title:"Weekly Ops BNC",owner:"Tito",created_by:"Tito",date:"Every Monday",attendees:["Tito","Alex","Jay","Maria"],status:"Récurrent",notes:"KPI review, blockers, actions."},
-    {id:2,workspace:"bnc",title:"CloudKitchens Call",owner:"Tito",created_by:"Tito",date:"Apr 7",attendees:["Tito","CK Rep"],status:"Upcoming",notes:"Miami exit negotiation."},
-    {id:20,workspace:"de",title:"Discovery Call Client #1",owner:"Tito",created_by:"Tito",date:"Apr 11",attendees:["Tito","Prospect"],status:"Upcoming",notes:"First call Montreal."},
-  ]);
-  lsSet("influencers",[
-    {id:1,workspace:"bnc",name:"@tacosbymike",platform:"TikTok",location:"Vancouver",status:"Confirmé",followers:"48K",visit:"Apr 12",content:"Reel + Story",created_by:"Tito",notes:"Street food specialist"},
-    {id:2,workspace:"bnc",name:"@foodie_toronto",platform:"Instagram",location:"Toronto",status:"Contacté",followers:"120K",visit:"May 3",content:"Reel",created_by:"Tito",notes:"Macro EN influencer"},
-  ]);
-  lsSet("cal_events",[]);
-  lsSet("expenses",[]);
-  lsSet("products",[]);
-  lsSet("clients",[]);
-  lsSet("task_notes",[]);
-  lsSet("media_budget",[
-    {id:1,workspace:"bnc",month:"2026-04",location:"Global",budget:2000,created_by:"Tito"},
-    {id:2,workspace:"bnc",month:"2026-05",location:"Global",budget:2500,created_by:"Tito"},
-    {id:3,workspace:"bnc",month:"2026-06",location:"Global",budget:2000,created_by:"Tito"},
-  ]);
-  lsSet(wsId+"_focus",[]);
-  lsSet("tito_notes",[]);
-  lsSet(wsId+"_goals",[]);
 })();
 
 
