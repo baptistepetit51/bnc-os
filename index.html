@@ -1231,17 +1231,17 @@ function App(){
         supa.from("cal_events").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("profiles").select("*"),
       ]);
-      // Merge Supabase + localStorage (only add LS items not in Supabase, skip tmp_ that failed)
+      // Supabase is the single source of truth
       const supaTasks=t_.data||[];
+      // Only add tmp_ items that are very recent (< 10s) and not yet in Supabase
       const supaIds=new Set(supaTasks.map(t=>String(t.id)));
-      const lsTasks=(lsGet("tasks")||[]).filter(x=>x.workspace===wsId);
-      // Include LS tasks not yet in Supabase (keep all tmp_ until confirmed)
-      const extraLS=lsTasks.filter(lt=>{
-        if(supaIds.has(String(lt.id))) return false; // already in Supabase
-        // Keep tmp_ items (optimistic) - they'll be replaced when Supabase confirms
-        return true;
+      const recentOptimistic=(lsGet("tasks")||[]).filter(lt=>{
+        if(!String(lt.id).startsWith("tmp_")) return false;
+        if(supaIds.has(String(lt.id))) return false;
+        const age=Date.now()-parseInt(lt.id.replace("tmp_",""));
+        return age < 10000; // only keep for 10 seconds max
       });
-      setTasks([...supaTasks,...extraLS]);
+      setTasks([...supaTasks,...recentOptimistic]);
       setProjs(p_.data||[]);setMtgs(m_.data||[]);
       setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
@@ -1304,11 +1304,15 @@ function App(){
   const [gcalEvents,setGcalEvents]=useState([]);
 
   // Fetch Google Calendar events when connected (including on page load if already connected)
-  // ── AUTO REFRESH every 30s for shared workspace sync ────────────────────
+  // ── AUTO REFRESH every 15s + on window focus ─────────────────────────────
   React.useEffect(()=>{
     if(!user||!seeded) return;
-    const interval = setInterval(()=>{ loadData(); }, 60000);
-    return ()=>clearInterval(interval);
+    const interval = setInterval(()=>{ loadData(); }, 15000);
+    // Also reload when tab/app comes back into focus
+    const onFocus = ()=>{ loadData(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) loadData(); });
+    return ()=>{ clearInterval(interval); window.removeEventListener("focus", onFocus); };
   },[wsId,user,seeded]);
 
   useEffect(()=>{
