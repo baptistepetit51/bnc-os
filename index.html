@@ -1327,6 +1327,8 @@ function App(){
     const taskWs = form._from_gcal ? (form.workspace||wsId) : wsId;
     const supaItem={...form,workspace:taskWs,created_by:user.name};
     delete supaItem._from_gcal;
+    // Never let a new task be created as Done
+    if(!form._from_gcal) supaItem.status = form.status||"To Do";
     const localItem={...supaItem,id:tempId};
     // Save to localStorage IMMEDIATELY as primary storage
     lsIns("tasks",localItem);
