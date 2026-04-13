@@ -1379,6 +1379,9 @@ function App(){
     delete supaItem._from_gcal;
     // Never let a new task be created as Done
     if(!form._from_gcal) supaItem.status = form.status||"To Do";
+    // Strip fields that don't exist in Supabase schema
+    const TASK_COLS = ["workspace","title","location","status","priority","owner","created_by","due","tags","notes","created_at"];
+    Object.keys(supaItem).forEach(k=>{ if(!TASK_COLS.includes(k) && k!=="id") delete supaItem[k]; });
     const localItem={...supaItem,id:tempId};
     // Save to localStorage IMMEDIATELY as primary storage
     lsIns("tasks",localItem);
