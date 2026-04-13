@@ -1002,6 +1002,42 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
 // ─── MAIN APP ─────────────────────────────────────────────────────────────
 function App(){
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // ── PERSONAL DATA SYNC (localStorage + Supabase backup) ──────────────────
+  // Saves personal data to Supabase profiles table as JSON blob
+  async function savePersonalToSupabase(key, value){
+    if(!user) return;
+    try{
+      const data = {[key]: JSON.stringify(value)};
+      await supa.from("profiles").update(data).eq("email", user.email);
+    }catch(e){ /* fails silently, localStorage is backup */ }
+  }
+
+  async function loadPersonalFromSupabase(){
+    if(!user) return;
+    const personalKeys = ["p_focus","p_weekplan","p_weekly","p_goals","p_journal","p_inbox","p_notes","p_sticky"];
+    try{
+      const {data} = await supa.from("profiles").select(personalKeys.join(",")).eq("email", user.email).single();
+      if(!data) return;
+      const wsKey = user.name==="Samy" ? "samy" : "tito";
+      // Restore to localStorage if Supabase has data and localStorage is empty
+      if(data.p_focus && !localStorage.getItem(wsKey+"_focus"))
+        localStorage.setItem(wsKey+"_focus", data.p_focus);
+      if(data.p_weekplan && !localStorage.getItem(wsKey+"_weekplan"))
+        localStorage.setItem(wsKey+"_weekplan", data.p_weekplan);
+      if(data.p_weekly && !localStorage.getItem(wsKey+"_weekly"))
+        localStorage.setItem(wsKey+"_weekly", data.p_weekly);
+      if(data.p_goals && !localStorage.getItem(wsKey+"_goals"))
+        localStorage.setItem(wsKey+"_goals", data.p_goals);
+      if(data.p_journal && !localStorage.getItem(wsKey+"_journal"))
+        localStorage.setItem(wsKey+"_journal", data.p_journal);
+      if(data.p_inbox && !localStorage.getItem(wsKey+"_inbox"))
+        localStorage.setItem(wsKey+"_inbox", data.p_inbox);
+      if(data.p_notes && !localStorage.getItem("sticky_notes"))
+        localStorage.setItem("sticky_notes", data.p_notes);
+      console.log("✅ Personal data restored from Supabase");
+    }catch(e){ console.log("Personal data load error:", e); }
+  }
   React.useEffect(()=>{
     const handler = ()=>setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handler);
@@ -1534,6 +1570,8 @@ function App(){
       setUser(patchedUser);
       localStorage.setItem("bnc_session_user",JSON.stringify(patchedUser));
       if(!patchedUser.workspace_access.includes("bnc")&&patchedUser.workspace_access[0])setWsId(patchedUser.workspace_access[0]);
+      // Restore personal data from Supabase after login
+      setTimeout(()=>loadPersonalFromSupabase(), 1000);
     }} T={T} t={t} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang}/>;
   }
 
@@ -1700,6 +1738,33 @@ function App(){
 
         {/* Footer */}
         <div style={{padding:"10px 10px",borderTop:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:6}}>
+          {/* Export personal data button */}
+          {!sideCol&&isTitoWs&&(
+            <button onClick={()=>{
+              const wsKey = wsId==="samy"?"samy":"tito";
+              const data = {
+                focus: lsGet(wsKey+"_focus")||[],
+                weekplan: JSON.parse(localStorage.getItem(wsKey+"_weekplan")||"[]"),
+                weekly: JSON.parse(localStorage.getItem(wsKey+"_weekly")||"[]"),
+                goals: lsGet(wsKey+"_goals")||[],
+                journal: JSON.parse(localStorage.getItem(wsKey+"_journal")||"[]"),
+                inbox: JSON.parse(localStorage.getItem(wsKey+"_inbox")||"[]"),
+                notes: JSON.parse(localStorage.getItem("sticky_notes")||"[]"),
+              };
+              const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href=url; a.download=wsKey+"_backup_"+new Date().toISOString().slice(0,10)+".json";
+              a.click(); URL.revokeObjectURL(url);
+            }} style={{
+              background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,
+              padding:"6px 10px",fontSize:10,color:T.muted,cursor:"pointer",
+              width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:6,
+            }}>
+              💾 Exporter données perso
+            </button>
+          )}
+
           {!sideCol&&(
             gcalConnected ? (
               <div style={{display:"flex",gap:5}}>
@@ -1974,11 +2039,11 @@ function App(){
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
           {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId}/>}
-          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);}} T={T} wsId={wsId}/>}
+          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
-          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);}} T={T}/>}
-          {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);}} T={T}/>}
-          {module==="tito_journal"  &&<TitoJournal  ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);}} T={T}/>}
+          {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);}} T={T}/>}
+          {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);savePersonalToSupabase("p_inbox",v);}} T={T}/>}
+          {module==="tito_journal"  &&<TitoJournal  ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);savePersonalToSupabase("p_journal",v);}} T={T}/>}
           {module==="week_planner" &&<WeekPlanner  ws={ws} T={T} wsId={wsId} user={user}/>}
         </div>
       </div>
@@ -5780,7 +5845,7 @@ function TitoHome({ws,focus,setFocus,T,wsId}){
   const [newWeekly, setNewWeekly] = useState("");
   // Weekly goals stored separately
   const [weekly, setWeeklyRaw] = useState(()=>{ try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_weekly")||"[]");}catch{return[];} });
-  function setWeekly(v){ setWeeklyRaw(v); localStorage.setItem((wsId||"tito")+"_weekly", JSON.stringify(v)); }
+  function setWeekly(v){ setWeeklyRaw(v); localStorage.setItem((wsId||"tito")+"_weekly", JSON.stringify(v)); savePersonalToSupabase("p_weekly",v); }
 
   const today = new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
   const done  = focus.filter(f=>f.done).length;
@@ -5902,6 +5967,7 @@ function TitoNotes({ws,notes,setNotes,T}){
   function saveStickies(arr){
     setStickyNotes(arr);
     localStorage.setItem("sticky_notes",JSON.stringify(arr));
+    savePersonalToSupabase("p_notes",arr);
   }
   function addSticky(){
     if(!newText.trim())return;
@@ -6299,7 +6365,7 @@ function WeekPlanner({ws, T, wsId, user}){
   const [weekPlan, setWeekPlanRaw] = useState(()=>{
     try{ return JSON.parse(localStorage.getItem(planKey)||"[]"); }catch{ return []; }
   });
-  function setWeekPlan(v){ setWeekPlanRaw(v); localStorage.setItem(planKey, JSON.stringify(v)); }
+  function setWeekPlan(v){ setWeekPlanRaw(v); localStorage.setItem(planKey, JSON.stringify(v)); savePersonalToSupabase("p_weekplan",v); }
 
   // Load all tasks across workspaces from localStorage
   React.useEffect(()=>{
