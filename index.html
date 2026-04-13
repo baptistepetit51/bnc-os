@@ -1146,7 +1146,7 @@ function App(){
     if(!user||!seeded)return;
     try {
       const [t_,p_,m_,i_,c_,mb_]=await Promise.all([
-        supa.from("tasks").select("*").eq("workspace",wsId).order("id",{ascending:false}),
+        supa.from("tasks").select("*").eq("workspace",wsId).order("created_at",{ascending:false}).limit(200),
         supa.from("projects").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("meetings").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("influencers").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
@@ -1167,8 +1167,9 @@ function App(){
       setProjs(p_.data||[]);setMtgs(m_.data||[]);
       setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
-      const fw=arr=>(arr||[]).filter(x=>x.workspace===wsId).sort((a,b)=>b.id-a.id);
-      setTasks(fw(lsGet("tasks")));setProjs(fw(lsGet("projects")));setMtgs(fw(lsGet("meetings")));
+      // Supabase SELECT failed - keep current state intact, don't wipe tasks
+      console.warn("loadData error - keeping current state:", e);
+      return;
       setInfl(fw(lsGet("influencers")));setCal(fw(lsGet("cal_events")));setMembers(lsGet("profiles")||[]);
     }
     // Fallback: if Supabase returned empty but localStorage has data
