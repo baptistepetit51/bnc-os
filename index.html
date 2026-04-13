@@ -1146,7 +1146,7 @@ function App(){
     if(!user||!seeded)return;
     try {
       const [t_,p_,m_,i_,c_,mb_]=await Promise.all([
-        supa.from("tasks").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
+        supa.from("tasks").select("*").eq("workspace",wsId).order("id",{ascending:false}),
         supa.from("projects").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("meetings").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
         supa.from("influencers").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
@@ -1325,7 +1325,7 @@ function App(){
   async function addTask(form){
     const tempId="tmp_"+Date.now();
     const taskWs = form._from_gcal ? (form.workspace||wsId) : wsId;
-    const supaItem={...form,workspace:taskWs,created_by:user.name};
+    const supaItem={...form,workspace:taskWs,created_by:user.name,created_at:new Date().toISOString()};
     delete supaItem._from_gcal;
     // Never let a new task be created as Done
     if(!form._from_gcal) supaItem.status = form.status||"To Do";
