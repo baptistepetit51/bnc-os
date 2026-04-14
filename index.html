@@ -1057,7 +1057,12 @@ function MobileNav({NAV,module,setModule,ws,wsId,switchWs,accessibleWS,T}){
 }
 
 function App(){
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+  React.useEffect(()=>{
+    const check = ()=>setIsMobile(window.innerWidth < 900);
+    window.addEventListener("resize", check);
+    return ()=>window.removeEventListener("resize", check);
+  },[]);
 
   // ── PERSONAL DATA SYNC (localStorage + Supabase backup) ──────────────────
   // Saves personal data to Supabase profiles table as JSON blob
@@ -1203,7 +1208,13 @@ function App(){
         supa.from("profiles").select("*"),
       ]);
       // Supabase is the single source of truth
-      const supaTasks=t_.data||[];
+      const rawTasks=t_.data||[];
+      // Filter: show tasks tagged "Commun" OR owned/created by current user
+      const supaTasks=rawTasks.filter(t=>
+        (t.tags||[]).includes("Commun") ||
+        t.owner===user?.name ||
+        t.created_by===user?.name
+      );
       // Only add tmp_ items that are very recent (< 10s) and not yet in Supabase
       const supaIds=new Set(supaTasks.map(t=>String(t.id)));
       const recentOptimistic=(lsGet("tasks")||[]).filter(lt=>{
@@ -2115,7 +2126,7 @@ function App(){
       </div>
 
       {/* AI ASSISTANT */}
-      {user&&!isMobile&&<AIAssistant ws={ws} user={user} addTask={addTask} addMeeting={addMeeting} addExpense={addExpense} addCalEvent={addCalEvent} deleteTask={deleteTask} deleteMeeting={deleteMeeting} meetings={meetings} tasks={tasks} members={members} T={T} t={t} wsId={wsId}/>}
+      {user&&!isMobile&&window.innerWidth>=900&&<AIAssistant ws={ws} user={user} addTask={addTask} addMeeting={addMeeting} addExpense={addExpense} addCalEvent={addCalEvent} deleteTask={deleteTask} deleteMeeting={deleteMeeting} meetings={meetings} tasks={tasks} members={members} T={T} t={t} wsId={wsId}/>}
 
       {/* Search handled inline in sidebar */}
 
@@ -2282,6 +2293,9 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
   const [priority,setPriority]=useState("Medium");
   const [location,setLocation]=useState("Global");
   const [due,setDue]=useState("");
+  const [isCommun,setIsCommun]=useState(false);
+  const [attachLinks,setAttachLinks]=useState([]);
+  const [newLink,setNewLink]=useState("");
   const inputRef=React.useRef(null);
 
   React.useEffect(()=>{if(open)setTimeout(()=>inputRef.current?.focus(),50);},[open]);
@@ -2295,10 +2309,10 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
       location,
       due_date:due||undefined,
       due:due?new Date(due+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—",
-      reminders:["1","3"],
-      tags:[],notes:"",
+      tags:isCommun?["Commun"]:[],
+      notes: attachLinks.length>0 ? "---LINKS---\n"+attachLinks.map(a=>a.name+"|"+a.url).join("\n") : "",
     });
-    setTitle("");setDue("");setPriority("Medium");setLocation("Global");setOpen(false);
+    setTitle("");setDue("");setPriority("Medium");setLocation("Global");setIsCommun(false);setAttachLinks([]);setNewLink("");setOpen(false);
   }
 
   if(!open)return(
@@ -2332,6 +2346,30 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
         </select>
         <DatePickerInline value={due} onChange={v=>setDue(v||"")} color={ws.color} T={T} placeholder="📅 Deadline"/>
       </div>
+      {/* Visibility + Attachments */}
+      <div style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={()=>setIsCommun(v=>!v)}
+          style={{background:isCommun?ws.color+"22":"transparent",
+            border:`1px solid ${isCommun?ws.color:T.border}`,
+            color:isCommun?ws.color:T.dim,
+            borderRadius:20,padding:"2px 10px",fontSize:10,cursor:"pointer"}}>
+          {isCommun?"👥 Commun":"🔒 Perso"}
+        </button>
+        <div style={{display:"flex",gap:4,flex:1}}>
+          <input value={newLink} onChange={e=>setNewLink(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter"&&newLink.trim()){setAttachLinks(p=>[...p,{name:newLink.split("/").pop().slice(0,25)||"Lien",url:newLink}]);setNewLink("");}}}
+            placeholder="🔗 Lien Drive, Notion..."
+            style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"3px 8px",fontSize:10,color:T.text,outline:"none"}}/>
+        </div>
+      </div>
+      {attachLinks.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
+        {attachLinks.map((a,i)=>(
+          <div key={i} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"2px 8px",fontSize:10,display:"flex",gap:4,alignItems:"center"}}>
+            <a href={a.url} target="_blank" style={{color:ws.color,textDecoration:"none"}}>📎 {a.name.slice(0,20)}</a>
+            <button onClick={()=>setAttachLinks(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.dim,cursor:"pointer",fontSize:10}}>✕</button>
+          </div>
+        ))}
+      </div>}
       {/* Action buttons */}
       <div style={{display:"flex",gap:6}}>
         <button onClick={submit} style={{background:col.color,color:"#fff",border:"none",borderRadius:7,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flex:1}}>
@@ -2552,9 +2590,15 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
                                 {task.priority==="High"&&!isDone&&(
                                   <span style={{fontSize:9,background:"#FF3B3018",color:"#FF3B30",border:"1px solid #FF3B3033",borderRadius:10,padding:"2px 7px",fontWeight:700}}>URGENT</span>
                                 )}
-                                {(task.tags||[]).slice(0,1).map(tag=>(
+                                {(task.tags||[]).filter(t=>t!=="Commun").slice(0,1).map(tag=>(
                                   <span key={tag} style={{fontSize:9,background:(tagColor[tag]||"#777")+"18",color:tagColor[tag]||"#777",border:`1px solid ${(tagColor[tag]||"#777")}33`,borderRadius:10,padding:"2px 7px",fontWeight:600}}>{tag}</span>
                                 ))}
+                                {(task.tags||[]).includes("Commun")&&(
+                                  <span style={{fontSize:9,background:"#0A84FF18",color:"#0A84FF",border:"1px solid #0A84FF33",borderRadius:10,padding:"2px 7px",fontWeight:700}}>👥</span>
+                                )}
+                                {task.notes&&task.notes.startsWith("---LINKS---")&&(
+                                  <span style={{fontSize:9,color:"#BF5AF2"}}>📎</span>
+                                )}
                               </div>
                             </div>
                           );
@@ -5613,8 +5657,8 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
     return raw===todayStr||raw===today.toLocaleDateString("en-US",{month:"short",day:"numeric"});
   });
 
-  const catColors={perso:"#BF5AF2",sante:"#00C896",famille:"#FF9F0A",perso2:"#1a73e8"};
-  const catLabels={perso:"Perso",sante:"Santé",famille:"Famille",perso2:"Autre"};
+  const catColors={perso:"#BF5AF2",bnc:"#FF6B00",tk:"#00C896",de:"#0A84FF"};
+  const catLabels={perso:"Perso",bnc:"BNC",tk:"TK",de:"DE"};
   const moods=["😴","😐","🙂","😊","🔥"];
   const hour=new Date().getHours();
   const greeting=hour<12?"Bonjour":hour<18?"Bon après-midi":"Bonsoir";
