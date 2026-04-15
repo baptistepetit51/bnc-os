@@ -2143,7 +2143,7 @@ function App(){
           {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes} user={user}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} updateProject={updateProject} T={T} t={t}/>}
-          {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t}/>}
+          {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
           {module==="media"    &&<Media ws={ws} influencers={influencers} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
           {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
@@ -2151,7 +2151,7 @@ function App(){
           {module==="access"   &&<Access ws={ws} members={members} setModal={setModal} T={T} t={t}/>}
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
-          {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId}/>}
+          {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId} journal={titoJournal}/>}
           {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
           {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);console.log("Goals saved:", v.length);}} T={T}/>}
@@ -3883,7 +3883,10 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
                   📹 Rejoindre
                 </a>
               )}
-              {!meeting.from_gcal&&<button onClick={()=>setModal({type:"edit_meetings",payload:meeting})} style={{marginTop:10,background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"6px 14px",fontSize:11,color:T.muted,cursor:"pointer"}}>✏ Modifier</button>}
+              {!meeting.from_gcal&&<div style={{display:"flex",gap:6,marginTop:10}}>
+                <button onClick={()=>setModal({type:"edit_meetings",payload:meeting})} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"6px 14px",fontSize:11,color:T.muted,cursor:"pointer"}}>✏ Modifier</button>
+                <button onClick={()=>{if(window.confirm("Supprimer ce meeting ?")) deleteMeeting(meeting.id);}} style={{background:"#FF453A15",border:"1px solid #FF453A44",borderRadius:6,padding:"6px 10px",fontSize:11,color:"#FF453A",cursor:"pointer"}}>🗑</button>
+              </div>}
             </Card>
             <Card T={T}><AgendaBoard meeting={meeting} ws={ws} T={T}/></Card>
           </div>
@@ -5754,11 +5757,19 @@ const WS_META = {
   tito: {name:"Perso",          color:"#BF5AF2", icon:"💜"},
 };
 
-function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWsId,addTask,wsId}){
+function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWsId,addTask,wsId,journal}){
   const today=new Date();today.setHours(0,0,0,0);
   const todayStr=today.toISOString().slice(0,10);
   const tomorrowStr=new Date(today.getTime()+86400000).toISOString().slice(0,10);
   const dateDisplay=today.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
+
+  // ── RAPPEL PRIORITÉS D'HIER ──
+  const yesterdayStr=new Date(today.getTime()-86400000).toISOString().slice(0,10);
+  const [rappelDismissed, setRappelDismissed] = React.useState(()=>
+    localStorage.getItem("rappel_dismissed_"+todayStr)==="1"
+  );
+  const yesterdayEntry = (journal||[]).find(e=>e.date===yesterdayStr);
+  const rappelTmrw = yesterdayEntry?.tmrw?.trim() || "";
 
   // Personal todos (stored locally)
   const [todos,setTodos]=React.useState(()=>{try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_todos")||"[]");}catch{return[];}});
@@ -5806,6 +5817,45 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
 
   return(
     <div style={{maxWidth:720,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
+
+      {/* ── RAPPEL PRIORITÉS HIER ── */}
+      {rappelTmrw && !rappelDismissed && (
+        <div style={{
+          background:"linear-gradient(135deg,#BF5AF222,#FF9F0A11)",
+          border:"1.5px solid #BF5AF244",
+          borderRadius:14,padding:"16px 20px",
+          position:"relative",
+          animation:"slideUp 0.4s ease"
+        }}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+            <div style={{fontSize:28,flexShrink:0,lineHeight:1}}>🧠</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#BF5AF2",letterSpacing:1,marginBottom:6}}>
+                HIER SOIR TU VOULAIS FAIRE AUJOURD'HUI
+              </div>
+              <div style={{fontSize:13,color:T.text,lineHeight:1.7,whiteSpace:"pre-wrap",fontWeight:500}}>
+                {rappelTmrw}
+              </div>
+            </div>
+            <button
+              onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
+              style={{background:"none",border:"none",color:T.dim,fontSize:18,cursor:"pointer",padding:4,flexShrink:0,lineHeight:1}}
+              title="Fermer">✕</button>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:12,paddingLeft:40}}>
+            <button
+              onClick={()=>{setModule("tito_journal");}}
+              style={{background:"#BF5AF222",border:"1px solid #BF5AF244",color:"#BF5AF2",borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+              📝 Voir mon journal
+            </button>
+            <button
+              onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
+              style={{background:"#00C89622",border:"1px solid #00C89644",color:"#00C896",borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+              ✅ C'est noté, merci !
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,#BF5AF2,#9B59B6)`,borderRadius:16,padding:"24px 28px",color:"#fff"}}>
