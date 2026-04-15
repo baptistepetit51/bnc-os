@@ -3830,7 +3830,7 @@ function MeetingCalendar({allMeetings,ws,T,onSelect,setModal}){
   );
 }
 
-function Meetings({ws,meetings,gcalEvents,setModal,T,t}){
+function Meetings({ws,meetings,gcalEvents,setModal,T,t,deleteMeeting}){
   // Merge gcal events, filter personal ones and duplicates
   const PERSONAL_KW=["fitfoot","push day","pull day","leg day"];
   const filteredGcal=(gcalEvents||[]).filter(function(g){
