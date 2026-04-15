@@ -4042,7 +4042,16 @@ function Meetings({ws,meetings,gcalEvents,setModal,T,t,deleteMeeting}){
                         📹
                       </a>
                     )}
-                    <span style={{fontSize:11,color:T.muted,flexShrink:0}}>→</span>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center",flexShrink:0}}>
+                      <span style={{fontSize:11,color:T.muted}}>→</span>
+                      {!m.from_gcal&&(
+                        <button
+                          onClick={e=>{e.stopPropagation();if(window.confirm("Supprimer ce meeting ?"))deleteMeeting(m.id);}}
+                          style={{background:"#FF453A15",border:"1px solid #FF453A44",borderRadius:6,padding:"3px 7px",fontSize:11,color:"#FF453A",cursor:"pointer",lineHeight:1}}>
+                          🗑
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
