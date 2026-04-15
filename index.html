@@ -1224,7 +1224,16 @@ function App(){
         return age < 10000; // only keep for 10 seconds max
       });
       setTasks([...supaTasks,...recentOptimistic]);
-      setProjs(p_.data||[]);setMtgs(m_.data||[]);
+      // Decode BNC_JSON packed fields from description column
+      const decodeProj = (p) => {
+        if(!p || typeof p.description !== "string") return p;
+        if(!p.description.startsWith("BNC_JSON:")) return p;
+        try {
+          const obj = JSON.parse(p.description.replace("BNC_JSON:", ""));
+          return {...p, description: obj.desc||"", steps: obj.steps||[], updates: obj.updates||[]};
+        } catch(e) { return p; }
+      };
+      setProjs((p_.data||[]).map(decodeProj));setMtgs(m_.data||[]);
       setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
       // Supabase SELECT failed - keep current state intact, don't wipe tasks
@@ -1412,9 +1421,12 @@ function App(){
     setTasks(prev=>prev.map(t=>String(t.id)===String(id)?{...t,...form}:t));
     lsUpd("tasks",id,{...form});
     try{
-      await supa.from("tasks").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
-    }catch(e){ /* localStorage already updated */ }
-    await loadData();
+      // Strip unknown columns before sending to Supabase
+      const TASK_COLS_UPD = ["workspace","title","location","status","priority","owner","created_by","due","tags","notes","created_at"];
+      const supaForm = {};
+      TASK_COLS_UPD.forEach(k=>{ if(form[k]!==undefined) supaForm[k]=form[k]; });
+      await supaUpdate("tasks", id, supaForm);
+    }catch(e){ console.warn("updateTask error:", e); }
   }
   async function deleteTask(id){
     // Remove from state immediately
@@ -1438,10 +1450,22 @@ function App(){
   }
   async function updateProject(id,form){
     setProjs(prev=>prev.map(p=>String(p.id)===String(id)?{...p,...form}:p));
+    lsUpd("projects",id,form);
     try{
-      const {error}=await supa.from("projects").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
-      if(error) lsUpd("projects",id,form);
-    }catch(e){ lsUpd("projects",id,form); }
+      // Encode steps/updates/journal into description as JSON blob (no extra SQL columns needed)
+      const PROJ_COLS = ["workspace","title","status","progress","owner","created_by","due","location"];
+      const supaForm = {};
+      PROJ_COLS.forEach(k=>{ if(form[k]!==undefined) supaForm[k]=form[k]; });
+      // Pack steps + updates + raw description into the description field
+      const descObj = {
+        _v: 2, // version marker
+        desc: form.description || "",
+        steps: form.steps || [],
+        updates: form.updates || [],
+      };
+      supaForm.description = "BNC_JSON:" + JSON.stringify(descObj);
+      await supaUpdate("projects", id, supaForm);
+    }catch(e){ console.warn("updateProject error:", e); }
   }
   async function deleteProject(id){
     setProjs(prev=>prev.filter(p=>String(p.id)!==String(id)));
@@ -1487,7 +1511,7 @@ function App(){
     // Optimistic: update state immediately
     setInfl(prev=>prev.map(i=>String(i.id)===String(id)?{...i,...form}:i));
     try{
-      const {error}=await supa.from("influencers").update({...form,updated_at:new Date().toISOString()}).eq("id",id);
+      const {error}=await supaUpdate("influencers", id, (()=>{ const COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","notes"]; const f={}; COLS.forEach(k=>{if(form[k]!==undefined)f[k]=form[k];}); return f; })());
       if(error){ console.error("updateInfluencer error:",error); lsUpd("influencers",id,form); }
     }catch(e){
       lsUpd("influencers",id,form);
@@ -7356,32 +7380,122 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
               </div>
             )}
           </div>
-          <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Note générale sur la tâche..."/></MF>
-          {isEdit&&(
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:8,fontWeight:600}}>JOURNAL D'AVANCEMENT</div>
-              <div style={{maxHeight:160,overflowY:"auto",marginBottom:8}}>
-                {(taskNotes||[]).filter(n=>n.taskId===form.id).slice().reverse().map((n,i)=>(
-                  <div key={i} style={{padding:"8px 10px",background:T.s2,borderRadius:7,marginBottom:6}}>
-                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3}}>
-                      <Avatar name={n.author} size={16} color={ws.color}/>
-                      <span style={{fontSize:10,fontWeight:600}}>{n.author}</span>
-                      <span style={{fontSize:9,color:T.dim,marginLeft:"auto"}}>{n.timestamp}</span>
-                    </div>
-                    <div style={{fontSize:12,color:T.text,lineHeight:1.4}}>{n.text}</div>
-                  </div>
-                ))}
-                {(taskNotes||[]).filter(n=>n.taskId===form.id).length===0&&<div style={{fontSize:11,color:T.dim,fontStyle:"italic",padding:"8px 0"}}>Aucune note d'avancement</div>}
+          {/* ── NOTES & JOURNAL REDESIGN ── */}
+          <div style={{marginBottom:18}}>
+            {/* Notes générale */}
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:15}}>📝</span>
+                <span style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:1,textTransform:"uppercase"}}>Notes</span>
               </div>
-              <div style={{display:"flex",gap:8}}>
-                <input value={form._newNote||""} onChange={e=>f("_newNote",e.target.value)}
-                  placeholder="Ajouter une note d'avancement..." onKeyDown={e=>{if(e.key==="Enter"&&form._newNote?.trim()){addTaskNote(form.id,form._newNote,user.name);f("_newNote","");}}}
-                  style={{flex:1,background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"7px 10px",fontSize:12}}/>
-                <button onClick={()=>{if(form._newNote?.trim()){addTaskNote(form.id,form._newNote,user.name);f("_newNote","");}}}
-                  style={{background:ws.color,color:"#fff",border:"none",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>→</button>
+              <div style={{position:"relative"}}>
+                <textarea
+                  value={form.notes||""}
+                  onChange={e=>f("notes",e.target.value)}
+                  placeholder="Contexte, liens importants, infos clés sur cette tâche..."
+                  rows={3}
+                  style={{
+                    width:"100%",boxSizing:"border-box",
+                    background:T.s2,
+                    border:`1.5px solid ${(form.notes||"").length>0?ws.color+"66":T.border}`,
+                    borderRadius:10,padding:"11px 14px",
+                    fontSize:13,color:T.text,lineHeight:1.6,
+                    resize:"vertical",outline:"none",
+                    fontFamily:"DM Sans,sans-serif",
+                    transition:"border-color 0.2s",
+                  }}
+                  onFocus={e=>e.target.style.borderColor=ws.color}
+                  onBlur={e=>e.target.style.borderColor=(form.notes||"").length>0?ws.color+"66":T.border}
+                />
+                {(form.notes||"").length>0&&(
+                  <div style={{position:"absolute",bottom:8,right:10,fontSize:9,color:T.dim}}>
+                    {(form.notes||"").length} car.
+                  </div>
+                )}
               </div>
             </div>
-          )}
+
+            {/* Journal d'avancement */}
+            {isEdit&&(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{fontSize:15}}>💬</span>
+                  <span style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:1,textTransform:"uppercase"}}>Journal d'avancement</span>
+                  {(taskNotes||[]).filter(n=>n.taskId===form.id).length>0&&(
+                    <span style={{marginLeft:"auto",fontSize:10,background:ws.color+"22",color:ws.color,borderRadius:20,padding:"1px 8px",fontWeight:700}}>
+                      {(taskNotes||[]).filter(n=>n.taskId===form.id).length}
+                    </span>
+                  )}
+                </div>
+
+                {/* Timeline notes */}
+                <div style={{maxHeight:200,overflowY:"auto",marginBottom:10,paddingRight:2}}>
+                  {(taskNotes||[]).filter(n=>n.taskId===form.id).length===0?(
+                    <div style={{textAlign:"center",padding:"18px 0",color:T.dim,fontSize:12,fontStyle:"italic",background:T.s2,borderRadius:10,border:`1.5px dashed ${T.border}`}}>
+                      <div style={{fontSize:22,marginBottom:4}}>💭</div>
+                      Écris la première note...
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                      {(taskNotes||[]).filter(n=>n.taskId===form.id).slice().reverse().map((n,i,arr)=>(
+                        <div key={i} style={{display:"flex",gap:10,paddingBottom:i<arr.length-1?12:0,position:"relative"}}>
+                          {/* Ligne verticale timeline */}
+                          {i<arr.length-1&&(
+                            <div style={{position:"absolute",left:14,top:28,bottom:0,width:1.5,background:T.border+"88"}}/>
+                          )}
+                          <div style={{flexShrink:0,width:28,height:28,borderRadius:"50%",background:ws.color+"22",border:`2px solid ${ws.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:ws.color,zIndex:1}}>
+                            {(n.author||"?")[0].toUpperCase()}
+                          </div>
+                          <div style={{flex:1,background:T.s2,borderRadius:"4px 10px 10px 10px",padding:"8px 12px",border:`1px solid ${T.border}`}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                              <span style={{fontSize:11,fontWeight:700,color:T.text}}>{n.author}</span>
+                              <span style={{fontSize:9,color:T.dim,marginLeft:"auto"}}>🕐 {n.timestamp}</span>
+                            </div>
+                            <div style={{fontSize:12.5,color:T.text,lineHeight:1.5}}>{n.text}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input nouvelle note */}
+                <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+                  <div style={{flex:1,position:"relative"}}>
+                    <textarea
+                      value={form._newNote||""}
+                      onChange={e=>f("_newNote",e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&form._newNote?.trim()){e.preventDefault();addTaskNote(form.id,form._newNote,user.name);f("_newNote","");}}}
+                      placeholder="Quoi de neuf sur cette tâche ? (Entrée pour envoyer)"
+                      rows={1}
+                      style={{
+                        width:"100%",boxSizing:"border-box",
+                        background:T.s2,
+                        border:`1.5px solid ${(form._newNote||"").length>0?ws.color:T.border}`,
+                        borderRadius:10,padding:"9px 12px",
+                        fontSize:12,color:T.text,lineHeight:1.5,
+                        resize:"none",outline:"none",
+                        fontFamily:"DM Sans,sans-serif",
+                        transition:"border-color 0.2s",
+                      }}
+                      onFocus={e=>e.target.style.borderColor=ws.color}
+                      onBlur={e=>e.target.style.borderColor=(form._newNote||"").length>0?ws.color:T.border}
+                    />
+                  </div>
+                  <button
+                    onClick={()=>{if(form._newNote?.trim()){addTaskNote(form.id,form._newNote,user.name);f("_newNote","");}}}
+                    disabled={!(form._newNote||"").trim()}
+                    style={{
+                      background:(form._newNote||"").trim()?ws.color:"#888",
+                      color:"#fff",border:"none",borderRadius:10,
+                      padding:"9px 14px",fontSize:16,cursor:"pointer",
+                      transition:"all 0.2s",flexShrink:0,
+                      opacity:(form._newNote||"").trim()?1:0.5,
+                    }}>↑</button>
+                </div>
+              </div>
+            )}
+          </div>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
 
         {isProj&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du projet"/></MF>
