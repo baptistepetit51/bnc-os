@@ -3108,99 +3108,104 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
 
   // ── ÉQUIPE VIEW ──
   if(view==="equipe"){
-    // Group tasks by team member (exclude current user)
-    const allTeamTasks = tasks; // already loaded from Supabase (all members in workspace)
-    
-    // Get unique owners/creators
-    const teamMembers = [...new Set([
-      ...allTeamTasks.map(tk=>tk.owner).filter(Boolean),
-      ...allTeamTasks.map(tk=>tk.created_by).filter(Boolean),
-    ])].filter(name=>name && name!==user?.name);
-
-    if(teamMembers.length===0){
-      return(
-        <div style={{textAlign:"center",padding:"60px 20px",color:T.dim}}>
-          <div style={{fontSize:40,marginBottom:12}}>👥</div>
-          <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:6}}>Aucun coéquipier</div>
-          <div style={{fontSize:13}}>Les tâches de ton équipe apparaîtront ici.</div>
-        </div>
-      );
-    }
-
+    const TEAM_MEMBERS = ["Samy"]; // Only real team members
     const STATUS_COLOR={"To Do":"#8E8E93","In Progress":ws.color,"Blocked":"#FF453A","Done":"#00C896"};
     const PRI_DOT={"High":"#FF453A","Medium":"#FF9F0A","Low":"#34C759"};
+    const avatarColor = "#BF5AF2"; // Samy color
 
     return(
-      <div className="fade-up" style={{display:"flex",flexDirection:"column",gap:20,padding:"4px 0"}}>
-        {/* Current user's section */}
-        <div style={{background:T.surface,border:`1px solid ${ws.color}44`,borderRadius:14,overflow:"hidden",borderLeft:`3px solid ${ws.color}`}}>
-          <div style={{padding:"12px 16px",background:ws.color+"11",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.border}`}}>
-            <div style={{width:32,height:32,borderRadius:"50%",background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff"}}>
-              {(user?.name||"T")[0].toUpperCase()}
-            </div>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:T.text}}>{user?.name} <span style={{fontSize:11,color:T.dim,fontWeight:400}}>(toi)</span></div>
-              <div style={{fontSize:11,color:T.dim}}>{tasks.filter(tk=>(tk.owner===user?.name||tk.created_by===user?.name)&&tk.status!=="Done").length} tâches actives</div>
-            </div>
-          </div>
-          <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
-            {tasks.filter(tk=>(tk.owner===user?.name||tk.created_by===user?.name)&&tk.status!=="Done").slice(0,5).map(tk=>(
-              <div key={tk.id} onClick={()=>setModal({type:"edittask",payload:tk})} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,cursor:"pointer",transition:"all 0.15s"}}
-                onMouseEnter={e=>e.currentTarget.style.background=ws.color+"15"}
-                onMouseLeave={e=>e.currentTarget.style.background=T.s2}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:PRI_DOT[tk.priority]||"#777",flexShrink:0}}/>
-                <span style={{flex:1,fontSize:12,fontWeight:500,color:T.text}}>{tk.title}</span>
-                <span style={{fontSize:10,background:(STATUS_COLOR[tk.status]||"#777")+"22",color:STATUS_COLOR[tk.status]||"#777",borderRadius:20,padding:"2px 8px",fontWeight:600,whiteSpace:"nowrap"}}>{tk.status}</span>
-              </div>
-            ))}
-            {tasks.filter(tk=>(tk.owner===user?.name||tk.created_by===user?.name)&&tk.status!=="Done").length===0&&(
-              <div style={{textAlign:"center",padding:"16px",color:T.dim,fontSize:12,fontStyle:"italic"}}>Aucune tâche active 🎉</div>
-            )}
-          </div>
-        </div>
+      <div className="fade-up" style={{display:"flex",flexDirection:"column",gap:16,padding:"4px 0"}}>
 
-        {/* Team members sections */}
-        {teamMembers.map(name=>{
-          const memberTasks = allTeamTasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status!=="Done");
-          const doneTasks = allTeamTasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status==="Done").length;
-          const totalTasks = allTeamTasks.filter(tk=>tk.owner===name||tk.created_by===name).length;
-          const avatarColor = name==="Samy"?"#BF5AF2":name==="Alex"?"#30D158":name==="Jay"?"#0A84FF":"#FF9F0A";
+        {/* Back button */}
+        <button onClick={()=>setVw("board")} style={{display:"flex",alignItems:"center",gap:6,background:"transparent",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"4px 0",alignSelf:"flex-start"}}>
+          ← Retour au Kanban
+        </button>
+
+        {/* Current user */}
+        {(()=>{
+          const myTasks = tasks.filter(tk=>(tk.owner===user?.name||tk.created_by===user?.name)&&tk.status!=="Done");
+          const myDone = tasks.filter(tk=>(tk.owner===user?.name||tk.created_by===user?.name)&&tk.status==="Done").length;
+          const myTotal = tasks.filter(tk=>tk.owner===user?.name||tk.created_by===user?.name).length;
           return(
-            <div key={name} style={{background:T.surface,border:`1px solid ${avatarColor}44`,borderRadius:14,overflow:"hidden",borderLeft:`3px solid ${avatarColor}`}}>
-              <div style={{padding:"12px 16px",background:avatarColor+"11",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.border}`}}>
-                <div style={{width:32,height:32,borderRadius:"50%",background:avatarColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff"}}>
-                  {name[0].toUpperCase()}
+            <div style={{background:T.surface,border:`1.5px solid ${ws.color}44`,borderRadius:14,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",background:ws.color+"11",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.border}`}}>
+                <div style={{width:34,height:34,borderRadius:"50%",background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff"}}>
+                  {(user?.name||"T")[0].toUpperCase()}
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:T.text}}>{name}</div>
-                  <div style={{fontSize:11,color:T.dim}}>{memberTasks.length} active · {doneTasks} terminée{doneTasks>1?"s":""}</div>
+                  <div style={{fontSize:13,fontWeight:700,color:T.text}}>{user?.name} <span style={{fontSize:11,color:T.dim,fontWeight:400}}>— toi</span></div>
+                  <div style={{fontSize:11,color:T.dim}}>{myTasks.length} active · {myDone} terminée{myDone>1?"s":""}</div>
                 </div>
-                {totalTasks>0&&(
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
-                    <div style={{fontSize:10,color:T.dim}}>{Math.round(doneTasks/totalTasks*100)}% done</div>
+                {myTotal>0&&(
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:3}}>{Math.round(myDone/myTotal*100)}%</div>
                     <div style={{width:60,height:4,background:T.border,borderRadius:4}}>
-                      <div style={{width:Math.round(doneTasks/totalTasks*100)+"%",height:4,background:avatarColor,borderRadius:4,transition:"width 0.4s"}}/>
+                      <div style={{width:Math.round(myDone/myTotal*100)+"%",height:4,background:ws.color,borderRadius:4}}/>
                     </div>
                   </div>
                 )}
               </div>
-              <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
+              <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
+                {myTasks.length===0?(
+                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12,fontStyle:"italic"}}>Aucune tâche active 🎉</div>
+                ):myTasks.slice(0,6).map(tk=>(
+                  <div key={tk.id} onClick={()=>setModal({type:"edittask",payload:tk})}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,cursor:"pointer",transition:"all 0.15s"}}
+                    onMouseEnter={e=>e.currentTarget.style.background=ws.color+"18"}
+                    onMouseLeave={e=>e.currentTarget.style.background=T.s2}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:PRI_DOT[tk.priority]||"#777",flexShrink:0}}/>
+                    <span style={{flex:1,fontSize:12,fontWeight:500,color:T.text}}>{tk.title}</span>
+                    <span style={{fontSize:9,color:T.dim}}>{tk.location}</span>
+                    <span style={{fontSize:10,background:(STATUS_COLOR[tk.status]||"#777")+"22",color:STATUS_COLOR[tk.status]||"#777",borderRadius:20,padding:"2px 8px",fontWeight:600,whiteSpace:"nowrap"}}>{tk.status}</span>
+                  </div>
+                ))}
+                {myTasks.length>6&&<div style={{textAlign:"center",fontSize:11,color:T.dim}}>+{myTasks.length-6} autres</div>}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Samy */}
+        {TEAM_MEMBERS.map(name=>{
+          const memberTasks = tasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status!=="Done");
+          const memberDone = tasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status==="Done").length;
+          const memberTotal = tasks.filter(tk=>tk.owner===name||tk.created_by===name).length;
+          return(
+            <div key={name} style={{background:T.surface,border:`1.5px solid ${avatarColor}44`,borderRadius:14,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",background:avatarColor+"11",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.border}`}}>
+                <div style={{width:34,height:34,borderRadius:"50%",background:avatarColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff"}}>
+                  {name[0].toUpperCase()}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.text}}>{name}</div>
+                  <div style={{fontSize:11,color:T.dim}}>{memberTasks.length} active · {memberDone} terminée{memberDone>1?"s":""}</div>
+                </div>
+                {memberTotal>0&&(
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:3}}>{Math.round(memberDone/memberTotal*100)}%</div>
+                    <div style={{width:60,height:4,background:T.border,borderRadius:4}}>
+                      <div style={{width:Math.round(memberDone/memberTotal*100)+"%",height:4,background:avatarColor,borderRadius:4}}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
                 {memberTasks.length===0?(
                   <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12,fontStyle:"italic"}}>Aucune tâche active 🎉</div>
-                ):(
-                  memberTasks.slice(0,8).map(tk=>(
-                    <div key={tk.id} onClick={()=>setModal({type:"edittask",payload:tk})} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,cursor:"pointer",transition:"all 0.15s"}}
-                      onMouseEnter={e=>e.currentTarget.style.background=avatarColor+"15"}
-                      onMouseLeave={e=>e.currentTarget.style.background=T.s2}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:PRI_DOT[tk.priority]||"#777",flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:12,fontWeight:500,color:T.text}}>{tk.title}</span>
-                      <span style={{fontSize:10,color:T.dim,marginRight:4}}>{tk.location}</span>
-                      <span style={{fontSize:10,background:(STATUS_COLOR[tk.status]||"#777")+"22",color:STATUS_COLOR[tk.status]||"#777",borderRadius:20,padding:"2px 8px",fontWeight:600,whiteSpace:"nowrap"}}>{tk.status}</span>
-                    </div>
-                  ))
-                )}
-                {memberTasks.length>8&&(
-                  <div style={{textAlign:"center",fontSize:11,color:T.dim,padding:"4px"}}>+{memberTasks.length-8} autres tâches</div>
+                ):memberTasks.slice(0,8).map(tk=>(
+                  <div key={tk.id} onClick={()=>setModal({type:"edittask",payload:tk})}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,cursor:"pointer",transition:"all 0.15s"}}
+                    onMouseEnter={e=>e.currentTarget.style.background=avatarColor+"18"}
+                    onMouseLeave={e=>e.currentTarget.style.background=T.s2}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:PRI_DOT[tk.priority]||"#777",flexShrink:0}}/>
+                    <span style={{flex:1,fontSize:12,fontWeight:500,color:T.text}}>{tk.title}</span>
+                    <span style={{fontSize:9,color:T.dim}}>{tk.location}</span>
+                    <span style={{fontSize:10,background:(STATUS_COLOR[tk.status]||"#777")+"22",color:STATUS_COLOR[tk.status]||"#777",borderRadius:20,padding:"2px 8px",fontWeight:600,whiteSpace:"nowrap"}}>{tk.status}</span>
+                  </div>
+                ))}
+                {memberTasks.length>8&&<div style={{textAlign:"center",fontSize:11,color:T.dim}}>+{memberTasks.length-8} autres</div>}
+                {memberTasks.length===0&&memberTotal===0&&(
+                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12}}>Samy n'a pas encore de tâches dans cet espace.</div>
                 )}
               </div>
             </div>
@@ -3209,7 +3214,6 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
       </div>
     );
   }
-
 
   // ── LIST VIEW ──
   return(
