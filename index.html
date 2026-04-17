@@ -5781,8 +5781,20 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
   const [rappelDismissed, setRappelDismissed] = React.useState(()=>
     localStorage.getItem("rappel_dismissed_"+todayStr)==="1"
   );
-  const yesterdayEntry = (journal||[]).find(e=>e.date===yesterdayStr);
+  // Load journal from prop OR directly from localStorage as fallback
+  const journalData = React.useMemo(()=>{
+    if(journal && journal.length>0) return journal;
+    try{
+      const wsKey = (wsId==="samy")?"samy":"tito";
+      return JSON.parse(localStorage.getItem(wsKey+"_journal")||"[]");
+    }catch{ return []; }
+  }, [journal, wsId]);
+  const yesterdayEntry = journalData.find(e=>e.date===yesterdayStr);
   const rappelTmrw = yesterdayEntry?.tmrw?.trim() || "";
+  // Debug: log to console
+  React.useEffect(()=>{
+    console.log("🧠 Rappel debug:", {yesterdayStr, journalData, yesterdayEntry, rappelTmrw, rappelDismissed});
+  },[journalData]);
 
   // Personal todos (stored locally)
   const [todos,setTodos]=React.useState(()=>{try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_todos")||"[]");}catch{return[];}});
@@ -5831,46 +5843,40 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
   return(
     <div style={{maxWidth:720,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
 
-      {/* ── RAPPEL PRIORITÉS HIER ── */}
+      {/* ── POPUP RAPPEL ── */}
       {rappelTmrw && !rappelDismissed && (
-        <div style={{
-          background:"linear-gradient(135deg,#BF5AF222,#FF9F0A11)",
-          border:"1.5px solid #BF5AF244",
-          borderRadius:14,padding:"16px 20px",
-          position:"relative",
-          animation:"slideUp 0.4s ease"
-        }}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
-            <div style={{fontSize:28,flexShrink:0,lineHeight:1}}>🧠</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#BF5AF2",letterSpacing:1,marginBottom:6}}>
-                HIER SOIR TU VOULAIS FAIRE AUJOURD'HUI
-              </div>
-              <div style={{fontSize:13,color:T.text,lineHeight:1.7,whiteSpace:"pre-wrap",fontWeight:500}}>
-                {rappelTmrw}
-              </div>
+        <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.65)",backdropFilter:"blur(6px)"}}
+          onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}>
+          <div onClick={e=>e.stopPropagation()} style={{
+            maxWidth:380,width:"90%",
+            background:"linear-gradient(145deg,#1C1C2E,#2D1B4E)",
+            borderRadius:24,padding:"28px 24px",
+            border:"1.5px solid #BF5AF255",
+            boxShadow:"0 30px 80px rgba(0,0,0,0.6)",
+            animation:"slideUp 0.3s ease",
+            position:"relative",textAlign:"center",
+          }}>
+            <div style={{fontSize:48,marginBottom:10}}>🧠</div>
+            <div style={{fontSize:10,fontWeight:700,color:"#BF5AF2",letterSpacing:2,marginBottom:4}}>TOI HIER SOIR 👇</div>
+            <div style={{fontSize:17,fontWeight:800,color:"#fff",marginBottom:18,lineHeight:1.3}}>Tu voulais faire ça aujourd'hui :</div>
+            <div style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(191,90,242,0.3)",borderRadius:14,padding:"14px 16px",marginBottom:22,textAlign:"left"}}>
+              <div style={{fontSize:14,color:"#fff",lineHeight:1.8,whiteSpace:"pre-wrap",fontWeight:500}}>{rappelTmrw}</div>
             </div>
-            <button
-              onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
-              style={{background:"none",border:"none",color:T.dim,fontSize:18,cursor:"pointer",padding:4,flexShrink:0,lineHeight:1}}
-              title="Fermer">✕</button>
-          </div>
-          <div style={{display:"flex",gap:8,marginTop:12,paddingLeft:40}}>
-            <button
-              onClick={()=>{setModule("tito_journal");}}
-              style={{background:"#BF5AF222",border:"1px solid #BF5AF244",color:"#BF5AF2",borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+            <button onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
+              style={{width:"100%",background:"linear-gradient(135deg,#BF5AF2,#9B59B6)",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8}}>
+              ✅ C'est noté, let's go !
+            </button>
+            <button onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);setModule("tito_journal");}}
+              style={{width:"100%",background:"transparent",color:"#BF5AF2",border:"1px solid #BF5AF244",borderRadius:12,padding:"10px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
               📝 Voir mon journal
             </button>
-            <button
-              onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
-              style={{background:"#00C89622",border:"1px solid #00C89644",color:"#00C896",borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-              ✅ C'est noté, merci !
-            </button>
+            <button onClick={()=>{localStorage.setItem("rappel_dismissed_"+todayStr,"1");setRappelDismissed(true);}}
+              style={{position:"absolute",top:12,right:14,background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:18,cursor:"pointer"}}>✕</button>
           </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* Header */}      {/* Header */}
       <div style={{background:`linear-gradient(135deg,#BF5AF2,#9B59B6)`,borderRadius:16,padding:"24px 28px",color:"#fff"}}>
         <div style={{fontSize:12,opacity:0.8,marginBottom:4,letterSpacing:1}}>{dateDisplay.toUpperCase()}</div>
         <div style={{fontSize:26,fontWeight:900,marginBottom:12}}>{greeting}, {user?.name} 👋</div>
