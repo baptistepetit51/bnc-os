@@ -3107,6 +3107,17 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
   }
 
   // ── ÉQUIPE VIEW ──
+  const [samyTasks, setSamyTasks] = React.useState([]);
+  const [samyLoading, setSamyLoading] = React.useState(false);
+  React.useEffect(()=>{
+    if(view!=="equipe") return;
+    setSamyLoading(true);
+    fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+encodeURIComponent(wsId)+"&or=(owner.eq.Samy,created_by.eq.Samy)&order=created_at.desc&limit=100",{headers:SUPA_HEADERS})
+      .then(r=>r.json())
+      .then(data=>{ setSamyTasks(Array.isArray(data)?data:[]); setSamyLoading(false); })
+      .catch(()=>setSamyLoading(false));
+  },[view, wsId]);
+
   if(view==="equipe"){
     const TEAM_MEMBERS = ["Samy"]; // Only real team members
     const STATUS_COLOR={"To Do":"#8E8E93","In Progress":ws.color,"Blocked":"#FF453A","Done":"#00C896"};
@@ -3167,9 +3178,9 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
 
         {/* Samy */}
         {TEAM_MEMBERS.map(name=>{
-          const memberTasks = tasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status!=="Done");
-          const memberDone = tasks.filter(tk=>(tk.owner===name||tk.created_by===name)&&tk.status==="Done").length;
-          const memberTotal = tasks.filter(tk=>tk.owner===name||tk.created_by===name).length;
+          const memberTasks = samyTasks.filter(tk=>tk.status!=="Done");
+          const memberDone = samyTasks.filter(tk=>tk.status==="Done").length;
+          const memberTotal = samyTasks.length;
           return(
             <div key={name} style={{background:T.surface,border:`1.5px solid ${avatarColor}44`,borderRadius:14,overflow:"hidden"}}>
               <div style={{padding:"12px 16px",background:avatarColor+"11",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.border}`}}>
@@ -3190,8 +3201,10 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
                 )}
               </div>
               <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
-                {memberTasks.length===0?(
-                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12,fontStyle:"italic"}}>Aucune tâche active 🎉</div>
+                {samyLoading?(
+                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12}}>⏳ Chargement...</div>
+                ):memberTasks.length===0?(
+                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12,fontStyle:"italic"}}>Aucune tâche active pour Samy 🎉</div>
                 ):memberTasks.slice(0,8).map(tk=>(
                   <div key={tk.id} onClick={()=>setModal({type:"edittask",payload:tk})}
                     style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.s2,borderRadius:8,cursor:"pointer",transition:"all 0.15s"}}
@@ -3204,9 +3217,7 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
                   </div>
                 ))}
                 {memberTasks.length>8&&<div style={{textAlign:"center",fontSize:11,color:T.dim}}>+{memberTasks.length-8} autres</div>}
-                {memberTasks.length===0&&memberTotal===0&&(
-                  <div style={{textAlign:"center",padding:"14px",color:T.dim,fontSize:12}}>Samy n'a pas encore de tâches dans cet espace.</div>
-                )}
+
               </div>
             </div>
           );
