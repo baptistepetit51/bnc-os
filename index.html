@@ -2140,7 +2140,7 @@ function App(){
 
         <div style={{flex:1,overflowY:"auto",padding:isMobile?"12px 14px 80px":"24px 28px"}}>
           {module==="dashboard"&&<Dashboard ws={ws} tasks={tasks} projects={projects} meetings={meetings} influencers={influencers} setModule={setModule} T={T} t={t} expenses={expenses} updateExpense={updateExpense}/>}
-          {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes} user={user}/>}
+          {module==="tasks"    &&<Tasks ws={ws} tasks={filtered_tasks} allMembers={members} setModal={setModal} T={T} t={t} updateTask={updateTask} addTask={addTask} taskNotes={taskNotes} user={user} wsId={wsId}/>}
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} updateProject={updateProject} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
@@ -2735,7 +2735,7 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
 }
 
 // ─── TASKS ────────────────────────────────────────────────────────────────
-function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,user}){
+function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,user,wsId}){
   const [view,   setVw]       = useState("board"); // board | list | location
   const [showDone,setShowDone]= useState(false);
   const [dragging,setDragging] = useState(null);
