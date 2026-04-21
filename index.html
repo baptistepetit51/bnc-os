@@ -2778,6 +2778,18 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
     {id:"Blocked",   label:"Bloqué",     color:"#FF3B30", dot:"#FF3B30"},
   ];
 
+  // Samy tasks - always at top level (Rules of Hooks)
+  const [samyTasks, setSamyTasks] = React.useState([]);
+  const [samyLoading, setSamyLoading] = React.useState(false);
+  React.useEffect(()=>{
+    if(view!=="equipe") return;
+    setSamyLoading(true);
+    fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+encodeURIComponent(wsId)+"&or=(owner.eq.Samy,created_by.eq.Samy)&order=created_at.desc&limit=100",{headers:SUPA_HEADERS})
+      .then(r=>r.json())
+      .then(data=>{ setSamyTasks(Array.isArray(data)?data:[]); setSamyLoading(false); })
+      .catch(()=>setSamyLoading(false));
+  },[view, wsId]);
+
   if(view==="board") return(
     <div className="fade-up">
       {/* ── VIEW SELECTOR ── */}
@@ -3105,18 +3117,6 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
       </div>
     );
   }
-
-  // ── ÉQUIPE VIEW ──
-  const [samyTasks, setSamyTasks] = React.useState([]);
-  const [samyLoading, setSamyLoading] = React.useState(false);
-  React.useEffect(()=>{
-    if(view!=="equipe") return;
-    setSamyLoading(true);
-    fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+encodeURIComponent(wsId)+"&or=(owner.eq.Samy,created_by.eq.Samy)&order=created_at.desc&limit=100",{headers:SUPA_HEADERS})
-      .then(r=>r.json())
-      .then(data=>{ setSamyTasks(Array.isArray(data)?data:[]); setSamyLoading(false); })
-      .catch(()=>setSamyLoading(false));
-  },[view, wsId]);
 
   if(view==="equipe"){
     const TEAM_MEMBERS = ["Samy"]; // Only real team members
