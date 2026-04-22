@@ -1512,7 +1512,7 @@ function App(){
   }
   async function addInfluencer(form){
     const tempId="tmp_"+Date.now();
-    const INFL_COLS=["workspace","name","platform","location","status","followers","visit","content","created_by"];
+    const INFL_COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","cost"];
     const fullItem={...form,workspace:wsId,created_by:user.name};
     const supaItem={}; INFL_COLS.forEach(k=>{if(fullItem[k]!==undefined)supaItem[k]=fullItem[k];});
     const localItem={...fullItem,id:tempId};
@@ -1532,7 +1532,7 @@ function App(){
     // Optimistic: update state immediately
     setInfl(prev=>prev.map(i=>String(i.id)===String(id)?{...i,...form}:i));
     try{
-      const {error}=await supaUpdate("influencers", id, (()=>{ const COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","notes"]; const f={}; COLS.forEach(k=>{if(form[k]!==undefined)f[k]=form[k];}); return f; })());
+      const {error}=await supaUpdate("influencers", id, (()=>{ const COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","cost","notes"]; const f={}; COLS.forEach(k=>{if(form[k]!==undefined)f[k]=form[k];}); return f; })());
       if(error){ console.error("updateInfluencer error:",error); lsUpd("influencers",id,form); }
     }catch(e){
       lsUpd("influencers",id,form);
