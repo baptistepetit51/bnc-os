@@ -1240,7 +1240,13 @@ function App(){
         } catch(e) { return p; }
       };
       setProjs((p_.data||[]).map(decodeProj));setMtgs(m_.data||[]);
-      setInfl(i_.data||[]);setCal(c_.data||[]);setMembers(mb_.data||[]);
+      // Merge Supabase influencers with localStorage cost data
+      const lsInfls = lsGet("influencers")||[];
+      const mergedInfls = (i_.data||[]).map(si=>{
+        const ls = lsInfls.find(l=>String(l.id)===String(si.id)||l.title===si.title);
+        return ls?.cost ? {...si, cost:ls.cost} : si;
+      });
+      setInfl(mergedInfls);setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
       // Supabase SELECT failed - keep current state intact, don't wipe tasks
       console.warn("loadData error - keeping current state:", e);
@@ -1532,7 +1538,7 @@ function App(){
     // Optimistic: update state immediately
     setInfl(prev=>prev.map(i=>String(i.id)===String(id)?{...i,...form}:i));
     try{
-      const {error}=await supaUpdate("influencers", id, (()=>{ const COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","cost","notes"]; const f={}; COLS.forEach(k=>{if(form[k]!==undefined)f[k]=form[k];}); return f; })());
+      const {error}=await supaUpdate("influencers", id, (()=>{ const COLS=["workspace","name","platform","location","status","followers","visit","content","created_by","cost"]; const f={}; COLS.forEach(k=>{if(form[k]!==undefined)f[k]=form[k];}); return f; })());
       if(error){ console.error("updateInfluencer error:",error); lsUpd("influencers",id,form); }
     }catch(e){
       lsUpd("influencers",id,form);
