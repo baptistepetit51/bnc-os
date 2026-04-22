@@ -5308,7 +5308,7 @@ function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencer
       {/* Location filter */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:9,color:T.muted,letterSpacing:2}}>LOCATION</span>
-        {wsLocations.map(l=>(
+        {(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=>(
           <button key={l} onClick={()=>setLocFilt(l)} style={{background:locFilt===l?ws.color:T.s2,color:locFilt===l?"#fff":T.muted,border:`1px solid ${locFilt===l?ws.color:T.border}`,borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:locFilt===l?600:400,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
