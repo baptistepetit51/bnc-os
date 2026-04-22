@@ -1555,19 +1555,18 @@ function App(){
   // ── Expenses CRUD ──
   async function loadExpenses(){
     // Load from Supabase first
+    // Always show localStorage data immediately
+    setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId).sort((a,b)=>b.id-a.id));
+    setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId).sort((a,b)=>b.id-a.id));
+    // Try to also load from Supabase (if table exists)
     try{
       const [expR, prodR] = await Promise.all([
         fetch(SUPA_URL+"/rest/v1/expenses?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
         fetch(SUPA_URL+"/rest/v1/products?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
       ]);
-      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } else setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId)); }
-      else setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId));
-      if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } else setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId)); }
-      else setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId));
-    }catch(e){
-      setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId).sort((a,b)=>b.id-a.id));
-      setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId).sort((a,b)=>b.id-a.id));
-    }
+      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } }
+      if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } }
+    }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
@@ -1602,8 +1601,13 @@ function App(){
     const expItem={...form,workspace:wsId,created_by:user.name,created_at:new Date().toISOString()};
     const supaItem={};
     EXP_COLS.forEach(k=>{if(expItem[k]!==undefined)supaItem[k]=expItem[k];});
-    try{ await supaInsert("expenses", supaItem); }
-    catch(e){ lsIns("expenses",{...form,workspace:wsId,created_by:user.name}); }
+    // Always save to localStorage first for instant UI
+    lsIns("expenses",{...expItem,id:Date.now()});
+    try{
+      const {data,error}=await supaInsert("expenses", supaItem);
+      if(error) console.warn("addExpense Supabase error:", error);
+    }
+    catch(e){ console.warn("addExpense catch:", e); }
     if(form.urgency==="Critique"||form.urgency==="Haute"){
       addNotif({type:"expense",urgency:form.urgency,icon:"💸",title:"Dépense "+form.urgency+": "+form.title,body:form.amount+"$ · "+form.location});
     }
