@@ -1250,22 +1250,21 @@ function App(){
         } catch(e) { return p; }
       };
       setProjs((p_.data||[]).map(decodeProj));setMtgs(m_.data||[]);
-      // Influencers: use Supabase if available, localStorage as fallback
+      // Influencers: Supabase is ALWAYS the source of truth
       const lsInfls = lsGet("influencers")||[];
-      const supaInfls = i_.data && i_.data.length > 0 ? i_.data : null;
-      if(supaInfls){
-        // Merge cost from localStorage
+      if(i_.error === null) {
+        // Supabase responded (even if empty = all deleted) → trust it
+        const supaInfls = i_.data || [];
         const mergedInfls = supaInfls.map(si=>{
           const ls = lsInfls.find(l=>String(l.id)===String(si.id));
           return ls?.cost ? {...si, cost:ls.cost} : si;
         });
         setInfl(mergedInfls);
-        lsSet("influencers", mergedInfls); // sync localStorage
+        lsSet("influencers", mergedInfls);
       } else {
-        // Supabase returned nothing - use localStorage
+        // Supabase failed (network error) → use localStorage as fallback
         const wsInfls = lsInfls.filter(i=>i.workspace===wsId);
-        if(wsInfls.length > 0) setInfl(wsInfls);
-        // else keep current state (don't wipe)
+        setInfl(wsInfls);
       }setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
       // Supabase SELECT failed - keep current state intact, don't wipe tasks
@@ -1577,7 +1576,11 @@ function App(){
   async function deleteInfluencer(id){
     setInfl(prev=>prev.filter(i=>String(i.id)!==String(id)));
     lsDel("influencers",id);
-    try{ await supaDelete("influencers", id); }catch(e){}
+    // Sync localStorage immediately
+    const current = lsGet("influencers")||[];
+    lsSet("influencers", current.filter(i=>String(i.id)!==String(id)));
+    try{ await supaDelete("influencers", id); }catch(e){ console.warn("deleteInfluencer error:", e); }
+    setTimeout(()=>loadData(), 500);
   }
   async function addCalEvent(form){
     const item={...form,workspace:wsId,created_by:user.name,color:calColor(form.category)};
