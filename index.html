@@ -1373,6 +1373,7 @@ function App(){
     {id:"tito_journal",  label:"Journal",       icon:"📓"},
     {id:"week_planner",  label:"Ma Semaine",    icon:"📋"},
     {id:"global_cal",    label:"Calendrier",    icon:"⊞"},
+    {id:"tito_depenses", label:"Dépenses",       icon:"💰"},
   ] : wsId==="de" ? [
     {id:"dashboard",  label:t.dashboard,       icon:"◈"},
     {id:"de_launch",  label:"Launch Tracker",  icon:"🚀"},
@@ -1553,8 +1554,20 @@ function App(){
 
   // ── Expenses CRUD ──
   async function loadExpenses(){
-    setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId).sort((a,b)=>b.id-a.id));
-    setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId).sort((a,b)=>b.id-a.id));
+    // Load from Supabase first
+    try{
+      const [expR, prodR] = await Promise.all([
+        fetch(SUPA_URL+"/rest/v1/expenses?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
+        fetch(SUPA_URL+"/rest/v1/products?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
+      ]);
+      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } else setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId)); }
+      else setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId));
+      if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } else setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId)); }
+      else setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId));
+    }catch(e){
+      setExpenses((lsGet("expenses")||[]).filter(e=>e.workspace===wsId).sort((a,b)=>b.id-a.id));
+      setProducts((lsGet("products")||[]).filter(p=>p.workspace===wsId).sort((a,b)=>b.id-a.id));
+    }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
@@ -1585,7 +1598,11 @@ function App(){
     setMediaBudget(prev=>prev.map(b=>b.id===id?{...b,...form}:b));
   }
   async function addExpense(form){
-    try{ await supaInsert("expenses", {...form,workspace:wsId,created_by:user.name}); }
+    const EXP_COLS=["workspace","title","amount","category","date","location","urgency","payment","due_date","notes","created_by","created_at"];
+    const expItem={...form,workspace:wsId,created_by:user.name,created_at:new Date().toISOString()};
+    const supaItem={};
+    EXP_COLS.forEach(k=>{if(expItem[k]!==undefined)supaItem[k]=expItem[k];});
+    try{ await supaInsert("expenses", supaItem); }
     catch(e){ lsIns("expenses",{...form,workspace:wsId,created_by:user.name}); }
     if(form.urgency==="Critique"||form.urgency==="Haute"){
       addNotif({type:"expense",urgency:form.urgency,icon:"💸",title:"Dépense "+form.urgency+": "+form.title,body:form.amount+"$ · "+form.location});
@@ -2152,12 +2169,13 @@ function App(){
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
           {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId} journal={titoJournal}/>}
-          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId}/>}
-          {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T}/>}
+          {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId} saveFn={savePersonalToSupabase}/>}
+          {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T} saveFn={savePersonalToSupabase}/>}
           {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);console.log("Goals saved:", v.length);}} T={T}/>}
           {module==="tito_inbox"   &&<TitoInbox   ws={ws} inbox={titoInbox}    setInbox={v=>{lsSet(wsId+"_inbox",v);setTitoInbox(v);savePersonalToSupabase("p_inbox",v);}} T={T}/>}
           {module==="tito_journal"  &&<TitoJournal  ws={ws} journal={titoJournal} setJournal={v=>{lsSet(wsId+"_journal",v);setTitoJournal(v);savePersonalToSupabase("p_journal",v);}} T={T}/>}
           {module==="week_planner" &&<WeekPlanner  ws={ws} T={T} wsId={wsId} user={user}/>}
+          {module==="tito_depenses" &&<TitoDepenses ws={ws} T={T} wsId={wsId} user={user}/>}
         </div>
       </div>
 
@@ -6171,12 +6189,12 @@ function TaskCard({task,T,setWsId,setModule}){
 }
 
 // ─── TITO PERSO ───────────────────────────────────────────────────────────
-function TitoHome({ws,focus,setFocus,T,wsId}){
+function TitoHome({ws,focus,setFocus,T,wsId,saveFn}){
   const [newTask,   setNewTask]   = useState("");
   const [newWeekly, setNewWeekly] = useState("");
   // Weekly goals stored separately
   const [weekly, setWeeklyRaw] = useState(()=>{ try{return JSON.parse(localStorage.getItem((wsId||"tito")+"_weekly")||"[]");}catch{return[];} });
-  function setWeekly(v){ setWeeklyRaw(v); localStorage.setItem((wsId||"tito")+"_weekly", JSON.stringify(v)); savePersonalToSupabase("p_weekly",v); }
+  function setWeekly(v){ setWeeklyRaw(v); localStorage.setItem((wsId||"tito")+"_weekly", JSON.stringify(v)); saveFn&&saveFn("p_weekly",v); }
 
   const today = new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
   const done  = focus.filter(f=>f.done).length;
@@ -6287,7 +6305,7 @@ function TitoHome({ws,focus,setFocus,T,wsId}){
   );
 }
 
-function TitoNotes({ws,notes,setNotes,T}){
+function TitoNotes({ws,notes,setNotes,T,saveFn}){
   const [stickyNotes,setStickyNotes]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("sticky_notes")||"[]");}catch{return[];}
   });
@@ -6298,7 +6316,7 @@ function TitoNotes({ws,notes,setNotes,T}){
   function saveStickies(arr){
     setStickyNotes(arr);
     localStorage.setItem("sticky_notes",JSON.stringify(arr));
-    savePersonalToSupabase("p_notes",arr);
+    saveFn&&saveFn("p_notes",arr);
   }
   function addSticky(){
     if(!newText.trim())return;
@@ -6918,6 +6936,200 @@ function WeekPlanner({ws, T, wsId, user}){
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── TITO DÉPENSES PERSO ─────────────────────────────────────────────────────
+function TitoDepenses({ws,T,wsId,user}){
+  const CATS = [
+    {id:"taxes",      label:"Taxes & Impôts",   icon:"📋", color:"#FF453A"},
+    {id:"voyage",     label:"Billets d'avion",   icon:"✈️",  color:"#0A84FF"},
+    {id:"vacances",   label:"Vacances & Hôtels", icon:"🏖️",  color:"#FF9F0A"},
+    {id:"sante",      label:"Santé",             icon:"🏥", color:"#30D158"},
+    {id:"perso",      label:"Perso & Loisirs",   icon:"🎯", color:"#BF5AF2"},
+    {id:"equipement", label:"Équipement",        icon:"💻", color:"#64D2FF"},
+    {id:"autre",      label:"Autre",             icon:"📦", color:"#8E8E93"},
+  ];
+  const STORAGE_KEY = (wsId||"tito")+"_perso_depenses";
+  const [depenses, setDepenses] = React.useState(()=>{
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); }catch{ return []; }
+  });
+  const [showForm, setShowForm] = React.useState(false);
+  const [editItem, setEditItem] = React.useState(null);
+  const [form, setForm] = React.useState({title:"",amount:"",cat:"perso",date:new Date().toISOString().slice(0,10),notes:"",paid:false});
+  const [filterCat, setFilterCat] = React.useState("all");
+  const [filterYear, setFilterYear] = React.useState(new Date().getFullYear().toString());
+  const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  function save(data){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    setDepenses(data);
+  }
+  function submitForm(){
+    if(!form.title.trim()||!form.amount) return;
+    if(editItem!==null){
+      const updated = depenses.map((d,i)=>i===editItem?{...form,amount:parseFloat(form.amount)||0}:d);
+      save(updated);
+      setEditItem(null);
+    } else {
+      save([{...form,amount:parseFloat(form.amount)||0,id:Date.now()},...depenses]);
+    }
+    setForm({title:"",amount:"",cat:"perso",date:new Date().toISOString().slice(0,10),notes:"",paid:false});
+    setShowForm(false);
+  }
+  function deleteItem(id){ save(depenses.filter(d=>d.id!==id)); }
+  function startEdit(i){
+    setEditItem(i); setForm({...depenses[i],amount:String(depenses[i].amount)});
+    setShowForm(true);
+  }
+
+  const years = [...new Set(depenses.map(d=>d.date?.slice(0,4)).filter(Boolean))];
+  if(!years.includes(filterYear)) years.unshift(filterYear);
+  years.sort((a,b)=>b-a);
+
+  const filtered = depenses.filter(d=>{
+    const matchCat = filterCat==="all" || d.cat===filterCat;
+    const matchYear = !filterYear || d.date?.startsWith(filterYear);
+    return matchCat && matchYear;
+  });
+
+  const total = filtered.reduce((s,d)=>s+(d.amount||0),0);
+  const paid = filtered.filter(d=>d.paid).reduce((s,d)=>s+(d.amount||0),0);
+  const unpaid = total - paid;
+
+  // Group by category for summary
+  const byCat = CATS.map(c=>({
+    ...c,
+    total: filtered.filter(d=>d.cat===c.id).reduce((s,d)=>s+(d.amount||0),0),
+    count: filtered.filter(d=>d.cat===c.id).length,
+  })).filter(c=>c.count>0);
+
+  return(
+    <div style={{maxWidth:700,margin:"0 auto",display:"flex",flexDirection:"column",gap:16}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"#BF5AF2",letterSpacing:1}}>💰 DÉPENSES PERSO</div>
+          <div style={{fontSize:22,fontWeight:800,color:T.text}}>{filterYear}</div>
+        </div>
+        <button onClick={()=>{setShowForm(true);setEditItem(null);setForm({title:"",amount:"",cat:"perso",date:new Date().toISOString().slice(0,10),notes:"",paid:false});}}
+          style={{background:"#BF5AF2",color:"#fff",border:"none",borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          + Dépense
+        </button>
+      </div>
+
+      {/* Year filter */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {years.map(y=>(
+          <button key={y} onClick={()=>setFilterYear(y)}
+            style={{background:filterYear===y?"#BF5AF2":"transparent",color:filterYear===y?"#fff":T.muted,border:`1px solid ${filterYear===y?"#BF5AF2":T.border}`,borderRadius:20,padding:"4px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+            {y}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary cards */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        {[
+          {label:"Total",amount:total,color:"#BF5AF2",icon:"💳"},
+          {label:"Payé",amount:paid,color:"#30D158",icon:"✅"},
+          {label:"À payer",amount:unpaid,color:unpaid>0?"#FF453A":T.dim,icon:"⏳"},
+        ].map(card=>(
+          <div key={card.label} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 14px"}}>
+            <div style={{fontSize:10,color:T.muted,fontWeight:700,marginBottom:4}}>{card.icon} {card.label.toUpperCase()}</div>
+            <div style={{fontSize:20,fontWeight:800,color:card.color}}>{card.amount.toFixed(0)} $</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Category filter + breakdown */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 14px"}}>
+        <div style={{fontSize:10,fontWeight:700,color:T.muted,marginBottom:10,letterSpacing:1}}>PAR CATÉGORIE</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button onClick={()=>setFilterCat("all")}
+            style={{background:filterCat==="all"?"#BF5AF2":"transparent",color:filterCat==="all"?"#fff":T.muted,border:`1px solid ${filterCat==="all"?"#BF5AF2":T.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,cursor:"pointer"}}>
+            Tout
+          </button>
+          {CATS.map(c=>{
+            const catData = byCat.find(b=>b.id===c.id);
+            return(
+              <button key={c.id} onClick={()=>setFilterCat(c.id)}
+                style={{background:filterCat===c.id?c.color+"22":"transparent",color:filterCat===c.id?c.color:T.muted,border:`1px solid ${filterCat===c.id?c.color:T.border}`,borderRadius:20,padding:"4px 12px",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+                {c.icon} {c.label}
+                {catData&&<span style={{fontWeight:700}}>· {catData.total.toFixed(0)}$</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Form */}
+      {showForm&&(
+        <div style={{background:T.surface,border:`1.5px solid #BF5AF244`,borderRadius:14,padding:"18px 20px"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#BF5AF2",marginBottom:14}}>{editItem!==null?"✏️ Modifier":"+ Nouvelle dépense"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div style={{gridColumn:"1/-1"}}>
+              <input value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Description..."
+                style={{width:"100%",boxSizing:"border-box",background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:T.text,outline:"none"}}/>
+            </div>
+            <input value={form.amount} onChange={e=>f("amount",e.target.value)} placeholder="Montant ($)" type="number"
+              style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:T.text,outline:"none"}}/>
+            <input value={form.date} onChange={e=>f("date",e.target.value)} type="date"
+              style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:T.text,outline:"none"}}/>
+            <select value={form.cat} onChange={e=>f("cat",e.target.value)} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:T.text,outline:"none"}}>
+              {CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+            </select>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <input type="checkbox" checked={form.paid} onChange={e=>f("paid",e.target.checked)} id="paid_cb" style={{width:16,height:16,cursor:"pointer"}}/>
+              <label htmlFor="paid_cb" style={{fontSize:12,color:T.text,cursor:"pointer"}}>Payé</label>
+            </div>
+          </div>
+          <textarea value={form.notes} onChange={e=>f("notes",e.target.value)} placeholder="Notes..."
+            rows={2} style={{width:"100%",boxSizing:"border-box",background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",fontSize:12,color:T.text,outline:"none",resize:"none",marginBottom:10}}/>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={submitForm} style={{flex:1,background:"#BF5AF2",color:"#fff",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              {editItem!==null?"Modifier":"Ajouter"}
+            </button>
+            <button onClick={()=>{setShowForm(false);setEditItem(null);}} style={{background:T.s2,color:T.muted,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 16px",fontSize:13,cursor:"pointer"}}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {filtered.length===0?(
+          <div style={{textAlign:"center",padding:"40px 20px",color:T.dim}}>
+            <div style={{fontSize:32,marginBottom:8}}>💸</div>
+            <div style={{fontSize:13}}>Aucune dépense pour cette période</div>
+          </div>
+        ):filtered.map((d,i)=>{
+          const cat = CATS.find(c=>c.id===d.cat)||CATS[CATS.length-1];
+          return(
+            <div key={d.id||i} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"11px 14px",display:"flex",alignItems:"center",gap:12,borderLeft:`3px solid ${cat.color}`}}>
+              <div style={{fontSize:20,flexShrink:0}}>{cat.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span style={{fontSize:13,fontWeight:600,color:T.text}}>{d.title}</span>
+                  {d.paid&&<span style={{fontSize:9,background:"#30D15822",color:"#30D158",borderRadius:10,padding:"1px 7px",fontWeight:700}}>✅ PAYÉ</span>}
+                  {!d.paid&&<span style={{fontSize:9,background:"#FF453A22",color:"#FF453A",borderRadius:10,padding:"1px 7px",fontWeight:700}}>⏳ EN ATTENTE</span>}
+                </div>
+                <div style={{fontSize:11,color:T.dim}}>{cat.label} · {d.date}</div>
+                {d.notes&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{d.notes}</div>}
+              </div>
+              <div style={{fontSize:16,fontWeight:800,color:cat.color,flexShrink:0}}>{(d.amount||0).toFixed(0)} $</div>
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                <button onClick={()=>startEdit(filtered.indexOf(d)>=0?depenses.indexOf(d):i)} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:6,padding:"4px 8px",fontSize:11,color:T.muted,cursor:"pointer"}}>✏️</button>
+                <button onClick={()=>deleteItem(d.id)} style={{background:"#FF453A15",border:"1px solid #FF453A33",borderRadius:6,padding:"4px 8px",fontSize:11,color:"#FF453A",cursor:"pointer"}}>🗑</button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
