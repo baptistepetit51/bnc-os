@@ -1229,7 +1229,11 @@ function App(){
         const age=Date.now()-parseInt(lt.id.replace("tmp_",""));
         return age < 10000; // only keep for 10 seconds max
       });
-      setTasks([...supaTasks,...recentOptimistic]);
+      // Deduplicate by id
+      const allTasks = [...supaTasks,...recentOptimistic];
+      const seen = new Set();
+      const dedupedTasks = allTasks.filter(t=>{ const k=String(t.id); if(seen.has(k)) return false; seen.add(k); return true; });
+      setTasks(dedupedTasks);
       // Decode BNC_JSON packed fields from description column
       const decodeProj = (p) => {
         if(!p || typeof p.description !== "string") return p;
