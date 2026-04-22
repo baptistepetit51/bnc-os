@@ -1208,10 +1208,10 @@ function App(){
       const [t_,p_,m_,i_,c_,mb_]=await Promise.all([
         supaSelect("tasks", wsId),
         supaSelect("projects", wsId),
-        supa.from("meetings").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
-        supa.from("influencers").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
-        supa.from("cal_events").select("*").eq("workspace",wsId).order("created_at",{ascending:false}),
-        supa.from("profiles").select("*"),
+        supaSelect("meetings", wsId),
+        supaSelect("influencers", wsId),
+        supaSelect("cal_events", wsId),
+        fetch(SUPA_URL+"/rest/v1/profiles?select=*&limit=50",{headers:SUPA_HEADERS}).then(r=>r.json()).then(d=>({data:Array.isArray(d)?d:[]})).catch(()=>({data:[]})),
       ]);
       // Supabase is the single source of truth
       const rawTasks=t_.data||[];
@@ -1512,8 +1512,10 @@ function App(){
   }
   async function addInfluencer(form){
     const tempId="tmp_"+Date.now();
-    const supaItem={...form,workspace:wsId,created_by:user.name};
-    const localItem={...supaItem,id:tempId};
+    const INFL_COLS=["workspace","name","platform","location","status","followers","visit","content","created_by"];
+    const fullItem={...form,workspace:wsId,created_by:user.name};
+    const supaItem={}; INFL_COLS.forEach(k=>{if(fullItem[k]!==undefined)supaItem[k]=fullItem[k];});
+    const localItem={...fullItem,id:tempId};
     lsIns("influencers",localItem);
     setInfl(prev=>[localItem,...prev]);
     try{
@@ -1522,7 +1524,9 @@ function App(){
         setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
         lsUpd("influencers",tempId,data);
       }
-    }catch(e){ /* localStorage already saved */ }
+    }catch(e){ console.warn("addInfluencer error:", e); }
+    // Reload to sync with Supabase
+    setTimeout(()=>loadData(), 500);
   }
   async function updateInfluencer(id,form){
     // Optimistic: update state immediately
@@ -6400,7 +6404,7 @@ function TitoGoals({ws,goals,setGoals,T}){
     "Santé":    { color:"#FF3B30", bg:"#FF3B3015", icon:"💪" },
   };
 
-  const ICON_PICKS = ["🏠","💰","🚗","✈️","💪","📚","🎯","🏆","👨‍👩‍👧","🌍","💼","🎵","🏋️","🍕","📱","💻","🎓","🏖️","⚡","🔥"];
+  const ICON_PICKS = ["🏠","💰","🚗","✈","💪","📚","🎯","🏆","👨‍👩‍👧","🌍","💼","🎵","🏋️","🍕","📱","💻","🎓","🏖","⚡","🔥"];
 
   const activeGoals = goals.filter(g=>!g.done);
   const doneGoals   = goals.filter(g=>g.done);
