@@ -510,12 +510,18 @@ async function supaDelete(table, id) {
   return {error: r.ok ? null : await r.json()};
 }
 async function supaSelect(table, workspace) {
-  const r = await fetch(SUPA_URL + '/rest/v1/' + table + '?workspace=eq.' + workspace + '&order=created_at.desc&limit=200', {
-    method: 'GET',
-    headers: SUPA_HEADERS
-  });
+  const url = SUPA_URL + '/rest/v1/' + table + '?workspace=eq.' + workspace + '&order=created_at.desc&limit=200';
+  const r = await fetch(url, { method: 'GET', headers: SUPA_HEADERS });
   const json = await r.json();
-  if (!r.ok) { console.error('supaSelect error:', json); return {data: null, error: json}; }
+  if (!r.ok) {
+    console.error('supaSelect error on', table, ':', json);
+    // If table doesn't have workspace column, try without filter
+    if(json?.code === '42703') {
+      const r2 = await fetch(SUPA_URL + '/rest/v1/' + table + '?order=created_at.desc&limit=200', { method: 'GET', headers: SUPA_HEADERS });
+      if(r2.ok) { const j2 = await r2.json(); return {data: j2, error: null}; }
+    }
+    return {data: null, error: json};
+  }
   return {data: json, error: null};
 }
 
@@ -1244,13 +1250,23 @@ function App(){
         } catch(e) { return p; }
       };
       setProjs((p_.data||[]).map(decodeProj));setMtgs(m_.data||[]);
-      // Merge Supabase influencers with localStorage cost data
+      // Influencers: use Supabase if available, localStorage as fallback
       const lsInfls = lsGet("influencers")||[];
-      const mergedInfls = (i_.data||[]).map(si=>{
-        const ls = lsInfls.find(l=>String(l.id)===String(si.id)||l.title===si.title);
-        return ls?.cost ? {...si, cost:ls.cost} : si;
-      });
-      setInfl(mergedInfls);setCal(c_.data||[]);setMembers(mb_.data||[]);
+      const supaInfls = i_.data && i_.data.length > 0 ? i_.data : null;
+      if(supaInfls){
+        // Merge cost from localStorage
+        const mergedInfls = supaInfls.map(si=>{
+          const ls = lsInfls.find(l=>String(l.id)===String(si.id));
+          return ls?.cost ? {...si, cost:ls.cost} : si;
+        });
+        setInfl(mergedInfls);
+        lsSet("influencers", mergedInfls); // sync localStorage
+      } else {
+        // Supabase returned nothing - use localStorage
+        const wsInfls = lsInfls.filter(i=>i.workspace===wsId);
+        if(wsInfls.length > 0) setInfl(wsInfls);
+        // else keep current state (don't wipe)
+      }setCal(c_.data||[]);setMembers(mb_.data||[]);
     } catch(e) {
       // Supabase SELECT failed - keep current state intact, don't wipe tasks
       console.warn("loadData error - keeping current state:", e);
@@ -1529,14 +1545,24 @@ function App(){
     lsIns("influencers",localItem);
     setInfl(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supaInsert("influencers", supaItem);
+      let {data,error}=await supaInsert("influencers", supaItem);
+      if(error){
+        // Retry without optional columns
+        const minCols=["workspace","name","platform","location","status","followers","visit","content","created_by"];
+        const minItem={}; minCols.forEach(k=>{if(supaItem[k]!==undefined)minItem[k]=supaItem[k];});
+        const retry=await supaInsert("influencers", minItem);
+        data=retry.data; error=retry.error;
+      }
       if(!error&&data){
-        setInfl(prev=>prev.map(i=>i.id===tempId?data:i));
-        lsUpd("influencers",tempId,data);
+        setInfl(prev=>prev.map(i=>i.id===tempId?{...localItem,...data}:i));
+        lsUpd("influencers",tempId,{...localItem,...data});
+        console.log("✅ Influencer saved to Supabase");
+      } else {
+        console.warn("❌ addInfluencer error:", error);
       }
     }catch(e){ console.warn("addInfluencer error:", e); }
     // Reload to sync with Supabase
-    setTimeout(()=>loadData(), 500);
+    setTimeout(()=>loadData(), 1000);
   }
   async function updateInfluencer(id,form){
     // Optimistic: update state immediately
@@ -1584,8 +1610,8 @@ function App(){
         fetch(SUPA_URL+"/rest/v1/expenses?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
         fetch(SUPA_URL+"/rest/v1/products?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
       ]);
-      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } }
-      if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } }
+      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } else { const ls=(lsGet("expenses")||[]).filter(e=>e.workspace===wsId); if(ls.length>0)setExpenses(ls); } }
+      if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } else { const ls=(lsGet("products")||[]).filter(p=>p.workspace===wsId); if(ls.length>0)setProducts(ls); } }
     }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
