@@ -2300,7 +2300,7 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expense
           <Card T={T}>
             <div style={{fontSize:11,fontWeight:600,color:T.muted,letterSpacing:1,marginBottom:14}}>{t.recentTasks.toUpperCase()}</div>
             {tasks.filter(x=>x.status!=="Done").slice(0,5).map(task=>(
-              <div key={task.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",background:T.s2,borderRadius:7,marginBottom:6}}>
+              <div key={task.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",background:(task.tags||[]).includes("Commun")?"#0A84FF08":T.s2,borderRadius:7,marginBottom:6,borderLeft:(task.tags||[]).includes("Commun")?"3px solid #0A84FF":"3px solid transparent"}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:TASK_STATUS[task.status]?.dot,flexShrink:0}}/>
                 <div style={{flex:1,fontSize:13,fontWeight:500}}>{task.title}</div>
                 <Badge label={task.location} color={T.dim} small/>
@@ -2401,6 +2401,7 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
   const [location,setLocation]=useState("Global");
   const [due,setDue]=useState("");
   const [isCommun,setIsCommun]=useState(false);
+  const [taskOwner,setTaskOwner]=useState("me");
   const [attachLinks,setAttachLinks]=useState([]);
   const [newLink,setNewLink]=useState("");
   const inputRef=React.useRef(null);
@@ -2418,8 +2419,9 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
       due:due?new Date(due+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—",
       tags:isCommun?["Commun"]:[],
       notes: attachLinks.length>0 ? "---LINKS---\n"+attachLinks.map(a=>a.name+"|"+a.url).join("\n") : "",
+      owner: taskOwner==="me"?(t?.user||"Tito"):taskOwner==="equipe"?undefined:taskOwner,
     });
-    setTitle("");setDue("");setPriority("Medium");setLocation("Global");setIsCommun(false);setAttachLinks([]);setNewLink("");setOpen(false);
+    setTitle("");setDue("");setPriority("Medium");setLocation("Global");setIsCommun(false);setTaskOwner("me");setAttachLinks([]);setNewLink("");setOpen(false);
   }
 
   if(!open)return(
@@ -2462,6 +2464,18 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
             borderRadius:20,padding:"2px 10px",fontSize:10,cursor:"pointer"}}>
           {isCommun?"👥 Commun":"🔒 Perso"}
         </button>
+        {/* Owner quick select */}
+        <div style={{display:"flex",gap:4,marginLeft:4}}>
+          {[{v:"me",label:"Moi"},{v:"Samy",label:"Samy"},{v:"equipe",label:"Équipe"}].map(o=>(
+            <button key={o.v} onClick={()=>{setTaskOwner(o.v);if(o.v==="equipe"||o.v==="Samy")setIsCommun(true);}}
+              style={{background:taskOwner===o.v?ws.color+"22":"transparent",
+                color:taskOwner===o.v?ws.color:T.dim,
+                border:`1px solid ${taskOwner===o.v?ws.color:T.border}`,
+                borderRadius:20,padding:"2px 9px",fontSize:10,cursor:"pointer",fontWeight:taskOwner===o.v?700:400}}>
+              {o.label}
+            </button>
+          ))}
+        </div>
         <div style={{display:"flex",gap:4,flex:1}}>
           <input value={newLink} onChange={e=>setNewLink(e.target.value)}
             onKeyDown={e=>{if(e.key==="Enter"&&newLink.trim()){setAttachLinks(p=>[...p,{name:newLink.split("/").pop().slice(0,25)||"Lien",url:newLink}]);setNewLink("");}}}
@@ -2701,7 +2715,7 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
                                   <span key={tag} style={{fontSize:9,background:(tagColor[tag]||"#777")+"18",color:tagColor[tag]||"#777",border:`1px solid ${(tagColor[tag]||"#777")}33`,borderRadius:10,padding:"2px 7px",fontWeight:600}}>{tag}</span>
                                 ))}
                                 {(task.tags||[]).includes("Commun")&&(
-                                  <span style={{fontSize:9,background:"#0A84FF18",color:"#0A84FF",border:"1px solid #0A84FF33",borderRadius:10,padding:"2px 7px",fontWeight:700}}>👥</span>
+                                  <span style={{fontSize:9,background:"#0A84FF22",color:"#0A84FF",border:"1px solid #0A84FF55",borderRadius:10,padding:"2px 8px",fontWeight:800,letterSpacing:0.3}}>👥 Équipe</span>
                                 )}
                                 {task.notes&&task.notes.startsWith("---LINKS---")&&(
                                   <span style={{fontSize:9,color:"#BF5AF2"}}>📎</span>
@@ -2809,10 +2823,12 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
 function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,user,wsId}){
   const [view,   setVw]       = useState("board"); // board | list | location
   const [showDone,setShowDone]= useState(false);
+  const [showTeamOnly,setShowTeamOnly] = useState(false);
   const [dragging,setDragging] = useState(null);
   const [dragOver,setDragOver] = useState(null);
 
-  const activeTasks = showDone ? tasks : tasks.filter(tk=>tk.status!=="Done");
+  const baseTasks = showDone ? tasks : tasks.filter(tk=>tk.status!=="Done");
+  const activeTasks = showTeamOnly ? baseTasks.filter(tk=>(tk.tags||[]).includes("Commun")) : baseTasks;
   const doneCount   = tasks.filter(tk=>tk.status==="Done").length;
   const [dragPos, setDragPos]  = useState({x:0,y:0});
 
@@ -2849,17 +2865,19 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
     {id:"Blocked",   label:"Bloqué",     color:"#FF3B30", dot:"#FF3B30"},
   ];
 
-  // Samy tasks - always at top level (Rules of Hooks)
+  // Team tasks - always at top level (Rules of Hooks)
   const [samyTasks, setSamyTasks] = React.useState([]);
   const [samyLoading, setSamyLoading] = React.useState(false);
   React.useEffect(()=>{
     if(view!=="equipe") return;
+    // Fetch the OTHER user's tasks (not current user)
+    const teamMemberName = user?.name==="Samy" ? "Tito" : "Samy";
     setSamyLoading(true);
-    fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+encodeURIComponent(wsId)+"&or=(owner.eq.Samy,created_by.eq.Samy)&order=created_at.desc&limit=100",{headers:SUPA_HEADERS})
+    fetch(SUPA_URL+"/rest/v1/tasks?workspace=eq."+encodeURIComponent(wsId)+"&or=(owner.eq."+teamMemberName+",created_by.eq."+teamMemberName+")&order=created_at.desc&limit=100",{headers:SUPA_HEADERS})
       .then(r=>r.json())
       .then(data=>{ setSamyTasks(Array.isArray(data)?data:[]); setSamyLoading(false); })
       .catch(()=>setSamyLoading(false));
-  },[view, wsId]);
+  },[view, wsId, user?.name]);
 
   if(view==="board") return(
     <div className="fade-up">
@@ -2877,6 +2895,18 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
             }}>{v.label}</button>
           ))}
         </div>
+        {/* Équipe filter */}
+        <button onClick={()=>setShowTeamOnly(v=>!v)} style={{
+          background:showTeamOnly?"#0A84FF22":T.s2,
+          color:showTeamOnly?"#0A84FF":T.muted,
+          border:`1px solid ${showTeamOnly?"#0A84FF66":T.border}`,
+          borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:showTeamOnly?700:400,
+          display:"flex",alignItems:"center",gap:6,cursor:"pointer",
+        }}
+          onMouseEnter={e=>{if(!showTeamOnly)e.currentTarget.style.borderColor="#0A84FF44";}}
+          onMouseLeave={e=>{if(!showTeamOnly)e.currentTarget.style.borderColor=T.border;}}>
+          👥 Équipe
+        </button>
         {/* Archive toggle */}
         <button onClick={()=>setShowDone(v=>!v)} style={{
           background:showDone?"#00C89622":T.s2,
@@ -3190,10 +3220,11 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
   }
 
   if(view==="equipe"){
-    const TEAM_MEMBERS = ["Samy"]; // Only real team members
+    const teamMemberName = user?.name==="Samy" ? "Tito" : "Samy";
+    const TEAM_MEMBERS = [teamMemberName]; // The OTHER user
     const STATUS_COLOR={"To Do":"#8E8E93","In Progress":ws.color,"Blocked":"#FF453A","Done":"#00C896"};
     const PRI_DOT={"High":"#FF453A","Medium":"#FF9F0A","Low":"#34C759"};
-    const avatarColor = "#BF5AF2"; // Samy color
+    const avatarColor = teamMemberName==="Samy" ? "#BF5AF2" : "#FF6B00"; // Samy=purple, Tito=orange
 
     return(
       <div className="fade-up" style={{display:"flex",flexDirection:"column",gap:16,padding:"4px 0"}}>
