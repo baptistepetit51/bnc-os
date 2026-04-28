@@ -2401,7 +2401,34 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expense
                                 return "none";
                               })(),
                             }}/>
-                <div style={{flex:1,fontSize:13,fontWeight:500}}>{task.title}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:500,color:T.text,lineHeight:1.4}}>{task.title}</div>
+                  {(()=>{
+                    // Show checklist progress if task has one
+                    if(!task.notes) return null;
+                    const clIdx = task.notes.indexOf("---CHECKLIST---");
+                    if(clIdx < 0) return null;
+                    const linkIdx = task.notes.indexOf("---LINKS---");
+                    const clEnd = linkIdx > clIdx ? linkIdx : task.notes.length;
+                    const clBlock = task.notes.slice(clIdx+15, clEnd).trim();
+                    if(!clBlock) return null;
+                    const items = clBlock.split("\n").filter(l=>l.trim());
+                    const done = items.filter(l=>l.startsWith("[x]")||l.startsWith("[X]")).length;
+                    const total = items.length;
+                    if(total===0) return null;
+                    const pct = Math.round(done/total*100);
+                    return(
+                      <div style={{marginTop:5,display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{flex:1,height:2,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+                          <div style={{height:"100%",borderRadius:99,background:pct===100?"#30D158":ws.color,width:pct+"%",transition:"width 0.3s ease"}}/>
+                        </div>
+                        <span style={{fontSize:9,color:pct===100?"#30D158":T.dim,fontWeight:600,flexShrink:0}}>
+                          {done}/{total}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
                 <Badge label={task.location} color={T.dim} small/>
                 <div style={{fontSize:10,color:T.muted}}>{t.createdBy} <strong style={{color:T.text}}>{task.created_by}</strong></div>
                 <Avatar name={task.owner} size={22} color={ws.color}/>
@@ -2493,7 +2520,7 @@ function deadlineInfo(due_date){
 }
 
 // ─── INLINE TASK ADD ─────────────────────────────────────────────────────
-function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
+function InlineTaskAdd({col,ws,updateTask,addTask,T,t,user}){
   const [open,setOpen]=useState(false);
   const [title,setTitle]=useState("");
   const [priority,setPriority]=useState("Medium");
@@ -2621,7 +2648,6 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
       priority:newTaskPri,
       tags:[addingTask.tag],
       location:"Global",
-      workspace:"de",
       notes:"",
       due:"—",
     });
@@ -3169,7 +3195,7 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
                 })}
 
                 {/* Add button */}
-                <InlineTaskAdd col={col} ws={ws} updateTask={updateTask} addTask={addTask} T={T} t={t}/>
+                <InlineTaskAdd col={col} ws={ws} updateTask={updateTask} addTask={addTask} T={T} t={t} user={user}/>
               </div>
             </div>
           );
@@ -8176,7 +8202,168 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             <MF label={t.status} T={T}><select value={form.status||"Upcoming"} onChange={e=>f("status",e.target.value)}>{["Upcoming","Récurrent","Done"].map(s=><option key={s}>{s}</option>)}</select></MF>
             <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
           </div>
-          <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)}/></MF>
+          {/* ── NOTES + CHECKLIST ── */}
+          {(()=>{
+            // Parse notes into text + checklist parts
+            const notesRaw = form.notes || "";
+            const clSep = "---CHECKLIST---";
+            const linkSep = "---LINKS---";
+            const clIdx = notesRaw.indexOf(clSep);
+            const linkIdx = notesRaw.indexOf(linkSep);
+
+            // Extract the plain text part (before checklist/links markers)
+            const endOfText = clIdx >= 0 ? clIdx : (linkIdx >= 0 ? linkIdx : notesRaw.length);
+            const plainText = notesRaw.slice(0, endOfText).trimEnd();
+
+            // Extract checklist items
+            let checkItems = [];
+            if(clIdx >= 0){
+              const clEnd = linkIdx >= 0 && linkIdx > clIdx ? linkIdx : notesRaw.length;
+              const clBlock = notesRaw.slice(clIdx + clSep.length, clEnd).trim();
+              if(clBlock) checkItems = clBlock.split("\n").filter(l=>l.trim()).map((l,i)=>{
+                const done = l.startsWith("[x]") || l.startsWith("[X]");
+                const text = l.replace(/^\[.\]\s*/, "").trim();
+                return {id:i, text, done};
+              });
+            }
+
+            // Helper: rebuild notes string from parts
+            const rebuildNotes = (text, items, linksBlock) => {
+              let result = text;
+              if(items.length > 0){
+                result += (result ? "\n" : "") + clSep + "\n" + items.map(it=>(it.done?"[x] ":"[ ] ")+it.text).join("\n");
+              }
+              if(linksBlock) result += "\n" + linksBlock;
+              return result;
+            };
+            const linksBlock = linkIdx >= 0 ? notesRaw.slice(linkIdx) : "";
+
+            const doneCount = checkItems.filter(it=>it.done).length;
+            const pct = checkItems.length > 0 ? Math.round(doneCount/checkItems.length*100) : 0;
+
+            return(<>
+              {/* Notes text */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:10,color:T.muted,letterSpacing:0.5,marginBottom:6,fontWeight:500}}>Notes</div>
+                <textarea
+                  value={plainText}
+                  onChange={e=>f("notes", rebuildNotes(e.target.value, checkItems, linksBlock))}
+                  placeholder="Ajoute des notes, contexte, liens..."
+                  style={{
+                    width:"100%",minHeight:72,resize:"vertical",lineHeight:1.6,
+                    background:T.s2,border:`1px solid ${T.border}`,
+                    borderRadius:8,padding:"10px 12px",
+                    fontSize:13,color:T.text,outline:"none",
+                    fontFamily:"inherit",transition:"border-color 0.15s",
+                  }}
+                  onFocus={e=>e.target.style.borderColor=ws.color}
+                  onBlur={e=>e.target.style.borderColor=T.border}
+                />
+              </div>
+
+              {/* Checklist */}
+              <div style={{marginBottom:14}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:10,color:T.muted,letterSpacing:0.5,fontWeight:500}}>Checklist</span>
+                    {checkItems.length>0&&(
+                      <span style={{fontSize:10,color:T.dim}}>{doneCount}/{checkItems.length}</span>
+                    )}
+                  </div>
+                  {checkItems.length>0&&(
+                    <span style={{fontSize:10,fontWeight:700,color:pct===100?"#30D158":ws.color}}>{pct}%</span>
+                  )}
+                </div>
+
+                {/* Progress bar */}
+                {checkItems.length>0&&(
+                  <div style={{height:3,background:T.s3,borderRadius:99,marginBottom:10,overflow:"hidden"}}>
+                    <div style={{
+                      height:"100%",borderRadius:99,
+                      background:pct===100?"#30D158":ws.color,
+                      width:pct+"%",
+                      transition:"width 0.3s cubic-bezier(0.16,1,0.3,1)",
+                      boxShadow:pct===100?"0 0 8px #30D15866":`0 0 6px ${ws.color}66`,
+                    }}/>
+                  </div>
+                )}
+
+                {/* Items */}
+                <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                  {checkItems.map((item,i)=>(
+                    <div key={i} style={{
+                      display:"flex",alignItems:"center",gap:8,
+                      padding:"6px 10px",
+                      background:item.done?ws.color+"0a":T.s2,
+                      borderRadius:7,
+                      border:`1px solid ${item.done?ws.color+"30":T.border}`,
+                      transition:"all 0.15s",
+                    }}>
+                      {/* Checkbox */}
+                      <button onClick={()=>{
+                        const updated = checkItems.map((it,j)=>j===i?{...it,done:!it.done}:it);
+                        f("notes", rebuildNotes(plainText, updated, linksBlock));
+                      }} style={{
+                        width:18,height:18,borderRadius:5,flexShrink:0,
+                        background:item.done?ws.color:"transparent",
+                        border:`2px solid ${item.done?ws.color:T.muted}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        cursor:"pointer",transition:"all 0.15s",padding:0,
+                      }}>
+                        {item.done&&<span style={{color:"#fff",fontSize:11,lineHeight:1,fontWeight:700}}>✓</span>}
+                      </button>
+                      {/* Text */}
+                      <input
+                        value={item.text}
+                        onChange={e=>{
+                          const updated=checkItems.map((it,j)=>j===i?{...it,text:e.target.value}:it);
+                          f("notes", rebuildNotes(plainText, updated, linksBlock));
+                        }}
+                        style={{
+                          flex:1,background:"transparent",border:"none",
+                          color:item.done?T.dim:T.text,fontSize:12,padding:0,
+                          textDecoration:item.done?"line-through":"none",
+                          outline:"none",fontFamily:"inherit",
+                        }}
+                      />
+                      {/* Delete */}
+                      <button onClick={()=>{
+                        const updated=checkItems.filter((_,j)=>j!==i);
+                        f("notes", rebuildNotes(plainText, updated, linksBlock));
+                      }} style={{
+                        background:"transparent",border:"none",
+                        color:T.dim,fontSize:14,cursor:"pointer",
+                        padding:"0 2px",lineHeight:1,flexShrink:0,
+                        opacity:0,transition:"opacity 0.1s",
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                      onMouseLeave={e=>e.currentTarget.style.opacity="0"}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add item button */}
+                <button onClick={()=>{
+                  const updated=[...checkItems,{id:Date.now(),text:"",done:false}];
+                  f("notes", rebuildNotes(plainText, updated, linksBlock));
+                }} style={{
+                  marginTop:6,width:"100%",
+                  background:"transparent",
+                  border:`1.5px dashed ${T.border}`,
+                  borderRadius:7,padding:"6px 10px",
+                  display:"flex",alignItems:"center",gap:6,
+                  color:T.dim,fontSize:12,cursor:"pointer",
+                  transition:"border-color 0.15s,color 0.15s",
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
+                  <span style={{fontSize:16,lineHeight:1}}>+</span>
+                  <span>Ajouter un élément</span>
+                </button>
+              </div>
+            </>);
+          })()}
           {/* Google Calendar sync status */}
           <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:gcalIsConnected()?"#00C89612":"#FF9F0A12",border:`1px solid ${gcalIsConnected()?"#00C89633":"#FF9F0A33"}`,borderRadius:7,marginBottom:10}}>
             <span style={{fontSize:14}}>{gcalIsConnected()?"✅":"⚠️"}</span>
