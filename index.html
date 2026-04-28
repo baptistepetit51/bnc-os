@@ -10,151 +10,88 @@
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/icon-192.png"/>
   <title>BNC OS — Business Intelligence Platform</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html,body,#root{height:100%;overflow:hidden;}
-    body{background:#08080a; font-family:'Inter',system-ui,sans-serif;}
-    
-    /* ── PREMIUM SCROLLBAR ── */
-    ::-webkit-scrollbar{width:4px;height:4px}
-    ::-webkit-scrollbar-track{background:transparent}
-    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:8px}
-    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.16)}
-    
-    /* ── PREMIUM INPUTS ── */
-    input,select,textarea{
-      background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.08);
-      color:#f2f2f2;
-      border-radius:10px;
-      padding:10px 14px;
-      font-family:'Inter',sans-serif;
-      font-size:13px;
-      width:100%;
-      transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
-      outline:none;
-    }
-    input:focus,select:focus,textarea:focus{
-      border-color:var(--accent,#FF6B00);
-      background:rgba(255,255,255,0.06);
-      box-shadow:0 0 0 3px rgba(255,107,0,0.12);
-    }
-    input::placeholder{color:rgba(255,255,255,0.25);}
-    select option{background:#1a1a1e;color:#f2f2f2;}
-    button{cursor:pointer;font-family:'Inter',sans-serif;}
-    textarea{resize:vertical;min-height:80px;line-height:1.6;}
-    
-    /* ── PREMIUM ANIMATIONS ── */
-    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
-    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 5px rgba(255,59,48,0)}}
-    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-    @keyframes mascotBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-    @keyframes mascotWave{0%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}100%{transform:rotate(0deg)}}
-    @keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}
-    
-    .fade-up{animation:fadeUp 0.25s cubic-bezier(0.4,0,0.2,1)}
-    .fade-in{animation:fadeIn 0.2s ease}
-    
-    /* ── PREMIUM NAV ITEM ── */
-    .nav-item{
-      display:flex;align-items:center;gap:10px;
-      padding:8px 12px;border-radius:10px;
-      border:none;width:100%;text-align:left;
-      transition:all 0.15s cubic-bezier(0.4,0,0.2,1);
-      background:transparent;color:rgba(255,255,255,0.45);
-      font-size:12.5px;font-weight:500;letter-spacing:0.01em;
-      position:relative;overflow:hidden;
-    }
-    .nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
-    .nav-item.active{background:rgba(255,107,0,0.15);color:#FF6B00;font-weight:600;}
-    .nav-item.active::before{
-      content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
-      width:3px;height:60%;border-radius:0 3px 3px 0;background:currentColor;
-    }
-    
-    /* ── GLASS CARD ── */
-    .glass-card{
-      background:rgba(255,255,255,0.03);
-      border:1px solid rgba(255,255,255,0.07);
-      border-radius:16px;
-      backdrop-filter:blur(20px);
-    }
-    
-    /* ── PREMIUM BUTTON ── */
-    .btn-primary{
-      background:var(--accent,#FF6B00);color:#fff;
-      border:none;border-radius:10px;padding:10px 20px;
-      font-size:13px;font-weight:600;letter-spacing:0.02em;
-      transition:all 0.15s;display:inline-flex;align-items:center;gap:6px;
-    }
-    .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,107,0,0.3);}
-    .btn-primary:active{transform:translateY(0);filter:brightness(0.95);}
-    
-    /* ── LIGHT MODE OVERRIDES ── */
-    body.light-mode{background:#f0f2f5;}
-    body.light-mode input,body.light-mode select,body.light-mode textarea{
-      background:#fff;border-color:rgba(0,0,0,0.1);color:#1a1a1e;
-    }
-    body.light-mode input::placeholder{color:rgba(0,0,0,0.3);}
-    body.light-mode select option{background:#fff;color:#1a1a1e;}
-    body.light-mode .glass-card{background:rgba(255,255,255,0.9);border-color:rgba(0,0,0,0.08);}
-    body.light-mode ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);}
-    body.light-mode .nav-item{color:rgba(0,0,0,0.45);}
-    body.light-mode .nav-item:hover{background:rgba(0,0,0,0.05);color:rgba(0,0,0,0.8);}
-    body.light-mode .nav-item.active{background:rgba(255,107,0,0.1);color:#FF6B00;}
-  
-    /* ── MOBILE RESPONSIVE ── */
-    @media (max-width: 768px) {
-      /* Hide sidebar on mobile - use bottom nav instead */
-      .desktop-sidebar { display: none !important; }
-      .mobile-nav { display: flex !important; }
-      
-      /* Full width content */
-      .main-content { padding: 12px 14px !important; }
-      
-      /* Stack grids */
-      [style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
-      }
-      
-      /* Modals full screen */
-      .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
-      .modal-box { 
-        width: 100% !important; 
-        max-width: 100% !important; 
-        border-radius: 20px 20px 0 0 !important;
-        max-height: 92vh !important;
-      }
-      
-      /* Tables scroll horizontally */
-      .inline-table { overflow-x: auto !important; }
-      
-      /* Kanban columns scroll */
-      .kanban-board { 
-        display: flex !important; 
-        flex-direction: row !important;
-        overflow-x: auto !important;
-        gap: 12px !important;
-        padding-bottom: 8px !important;
-      }
-      .kanban-col { min-width: 260px !important; flex-shrink: 0 !important; }
-      
-      /* Topbar compact */
-      .topbar { padding: 0 14px !important; height: 50px !important; }
-      .topbar-breadcrumb { font-size: 13px !important; }
-      
-      /* Cards stack */
-      .dashboard-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
-    }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body,#root{height:100%;overflow:hidden;}
+  body{
+    background:#0e0e12;
+    font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    text-rendering:optimizeLegibility;
+  }
 
-    @media (max-width: 480px) {
-      .dashboard-grid { grid-template-columns: 1fr !important; }
-      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
-    }
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+
+  /* ── GLOBAL INPUTS ── */
+  input,select,textarea{
+    font-family:inherit;
+    font-size:13px;
+    color:inherit;
+    outline:none;
+  }
+  button{cursor:pointer;font-family:inherit;}
+  textarea{resize:vertical;min-height:80px;line-height:1.6;}
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes slideInLeft{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.5)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  @keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+  @keyframes mascotBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes mascotWave{0%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}100%{transform:rotate(0)}}
+  @keyframes deadline-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}50%{box-shadow:0 0 10px 3px rgba(255,59,48,0.25)}}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .fade-up{animation:fadeUp 0.22s cubic-bezier(0.16,1,0.3,1);}
+  .fade-in{animation:fadeIn 0.18s ease;}
+
+  /* ── NAV ITEM ── */
+  .nav-item{
+    display:flex;align-items:center;gap:9px;
+    padding:6px 10px;border-radius:8px;
+    border:none;width:100%;text-align:left;
+    background:transparent;
+    color:rgba(255,255,255,0.35);
+    font-size:12px;font-weight:500;
+    transition:background 0.12s,color 0.12s;
+    position:relative;cursor:pointer;
+  }
+  .nav-item:hover{
+    background:rgba(255,255,255,0.06);
+    color:rgba(255,255,255,0.8);
+  }
+  .nav-item.active{
+    background:var(--accent-soft,rgba(255,107,0,0.12));
+    color:var(--accent,#FF6B00);
+    font-weight:600;
+  }
+  .nav-item.active::before{
+    content:'';position:absolute;left:0;top:50%;
+    transform:translateY(-50%);
+    width:2px;height:50%;border-radius:0 2px 2px 0;
+    background:var(--accent,#FF6B00);
+    box-shadow:0 0 8px var(--accent,#FF6B00);
+  }
+
+  /* ── LIGHT MODE OVERRIDES ── */
+  body.light-mode{background:#f2f3f7;}
+  body.light-mode .nav-item{color:rgba(0,0,0,0.4);}
+  body.light-mode .nav-item:hover{background:rgba(0,0,0,0.05);color:rgba(0,0,0,0.75);}
+  body.light-mode .nav-item.active{
+    background:var(--accent-soft,rgba(255,107,0,0.1));
+    color:var(--accent,#FF6B00);
+  }
+  body.light-mode ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);}
+  body.light-mode ::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.22);}
 </style>
 </head>
 <body>
@@ -555,8 +492,38 @@ const LOGO_DE  = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BS
 
 // ─── THEMES ───────────────────────────────────────────────────────────────
 const THEMES = {
-  dark:  { bg:"#08080a", surface:"#111114", s2:"#16161a", s3:"#1e1e23", border:"rgba(255,255,255,0.07)", text:"#f2f2f7", muted:"rgba(255,255,255,0.45)", dim:"rgba(255,255,255,0.2)", inputBg:"rgba(255,255,255,0.04)", shadow:"0 24px 64px rgba(0,0,0,0.7),0 4px 16px rgba(0,0,0,0.5)" },
-  light: { bg:"#f0f2f5", surface:"#ffffff", s2:"#f7f8fa", s3:"#edeef0", border:"rgba(0,0,0,0.08)", text:"#1a1a1e", muted:"rgba(0,0,0,0.45)", dim:"rgba(0,0,0,0.2)", inputBg:"#ffffff", shadow:"0 24px 64px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.04)" },
+  dark: {
+    bg:"#0e0e12",
+    surface:"#16161c",
+    s2:"#1c1c24",
+    s3:"#22222c",
+    s4:"#2a2a36",
+    border:"rgba(255,255,255,0.08)",
+    borderHover:"rgba(255,255,255,0.16)",
+    text:"#ededf5",
+    muted:"rgba(255,255,255,0.45)",
+    dim:"rgba(255,255,255,0.22)",
+    inputBg:"rgba(255,255,255,0.04)",
+    shadow:"0 24px 64px rgba(0,0,0,0.6),0 6px 20px rgba(0,0,0,0.4)",
+    shadowSm:"0 3px 12px rgba(0,0,0,0.3)",
+    glow:"rgba(255,255,255,0.05)",
+  },
+  light: {
+    bg:"#f2f3f7",
+    surface:"#ffffff",
+    s2:"#f7f8fb",
+    s3:"#edeef3",
+    s4:"#e3e5ec",
+    border:"rgba(0,0,0,0.08)",
+    borderHover:"rgba(0,0,0,0.16)",
+    text:"#13131a",
+    muted:"rgba(0,0,0,0.42)",
+    dim:"rgba(0,0,0,0.2)",
+    inputBg:"#ffffff",
+    shadow:"0 16px 48px rgba(0,0,0,0.08),0 3px 12px rgba(0,0,0,0.04)",
+    shadowSm:"0 2px 6px rgba(0,0,0,0.06)",
+    glow:"rgba(255,255,255,0.9)",
+  },
 };
 
 // ─── i18n ─────────────────────────────────────────────────────────────────
@@ -642,27 +609,27 @@ function WSLogo({ws, size=32, light=false}){
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────
 function Badge({label,color,small}){return <span style={{background:color+"14",color,border:`1px solid ${color}28`,borderRadius:20,padding:small?"2px 8px":"4px 12px",fontSize:small?9:11,fontWeight:600,letterSpacing:0.3,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",backdropFilter:"blur(4px)"}}>{label}</span>;}
-function Avatar({name,size=26,color="#FF6B00"}){return <div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${color}28,${color}14)`,border:`1.5px solid ${color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:800,color,flexShrink:0,boxShadow:`0 2px 8px ${color}22`,backdropFilter:"blur(4px)"}}>{name?.[0]?.toUpperCase()}</div>;}
+function Avatar({name,size=26,color="#FF6B00"}){return <div style={{width:size,height:size,borderRadius:"50%",background:color+"20",border:`1px solid ${color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.36,fontWeight:700,color,flexShrink:0}}>{name?.[0]?.toUpperCase()}</div>;}
 function PBar({value,color="#FF6B00",T}){return <div style={{height:5,background:"rgba(255,255,255,0.06)",borderRadius:8,overflow:"hidden",width:"100%"}}><div style={{width:`${Math.min(100,value||0)}%`,height:"100%",background:`linear-gradient(90deg,${color}cc,${color})`,borderRadius:8,transition:"width 0.6s cubic-bezier(0.4,0,0.2,1)",boxShadow:`0 0 10px ${color}55`}}/></div>;}
 
 function Card({children,onClick,T,style={},accent}){
   const [h,setH]=useState(false);
   return <div onClick={onClick} onMouseEnter={()=>onClick&&setH(true)} onMouseLeave={()=>setH(false)}
     style={{
-      background:h?T.s2:T.surface,
-      border:`1px solid ${h&&onClick?"rgba(255,255,255,0.12)":T.border}`,
-      borderRadius:14,padding:"18px 20px",
+      background:T.surface,
+      border:`1px solid ${h&&onClick?T.borderHover:T.border}`,
+      borderRadius:12,padding:"18px 20px",
       cursor:onClick?"pointer":"default",
-      transition:"all 0.2s cubic-bezier(0.4,0,0.2,1)",
-      boxShadow:h&&onClick?"0 12px 32px rgba(0,0,0,0.2),0 2px 8px rgba(0,0,0,0.12)":"0 1px 3px rgba(0,0,0,0.08)",
-      transform:h&&onClick?"translateY(-2px)":"translateY(0)",
-      ...(accent?{borderLeft:`3px solid ${accent}`,paddingLeft:17}:{}),
+      transition:"border-color 0.15s,box-shadow 0.15s,transform 0.15s",
+      boxShadow:h&&onClick?"0 8px 24px rgba(0,0,0,0.15)":"none",
+      transform:h&&onClick?"translateY(-1px)":"none",
+      ...(accent?{borderLeft:`2px solid ${accent}`,paddingLeft:18}:{}),
       ...style
     }}>{children}</div>;
 }
 
 function MF({label,children,T}){return <div style={{marginBottom:15}}><div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,textTransform:"uppercase"}}>{label}</div>{children}</div>;}
-function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:24}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:600,boxShadow:`0 2px 12px ${color}44`,transition:"all 0.15s"}}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:10,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B3044",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"rgba(255,255,255,0.4)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.cancel}</button></div>;}
+function Btns({color,onSave,onDelete,onClose,t,confirmDel}){return <div style={{display:"flex",gap:8,marginTop:20,paddingTop:16,borderTop:`1px solid rgba(255,255,255,0.07)`}}><button onClick={onSave} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:8,padding:"10px 16px",fontSize:13,fontWeight:600,transition:"opacity 0.15s"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.88"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{t.save}</button>{onDelete&&(confirmDel?<button onClick={onDelete} style={{background:"#FF3B30",color:"#fff",border:"none",borderRadius:10,padding:"11px 14px",fontSize:13,fontWeight:700}}>⚠ Confirmer</button>:<button onClick={onDelete} style={{background:"transparent",color:"#FF3B30",border:"1px solid #FF3B3044",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.delete}</button>)}<button onClick={onClose} style={{background:"transparent",color:"rgba(255,255,255,0.4)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"11px 14px",fontSize:13,transition:"all 0.15s"}}>{t.cancel}</button></div>;}
 
 // ─── MINI CALENDAR PICKER ─────────────────────────────────────────────────
 function DeadlineBadge({value}){
@@ -1155,7 +1122,7 @@ function App(){
 
   const T = THEMES[theme];
   const t = I18N[lang];
-  const ws = WORKSPACES.find(w=>w.id===wsId);
+  const ws = WORKSPACES.find(w=>w.id===wsId) || WORKSPACES[0];
 
   // Workspaces accessible by user
   const accessibleWS = user ? WORKSPACES.filter(w=>user.workspace_access?.includes(w.id)) : [];
@@ -1796,36 +1763,82 @@ function App(){
   },[theme, ws.color]);
 
     return(
-    <div style={{display:"flex",height:"100vh",background:T.bg,fontFamily:"'Inter',system-ui,sans-serif",color:T.text,overflow:"hidden"}}>
-      <style>{`*{box-sizing:border-box;}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${T.dim};border-radius:8px}::-webkit-scrollbar-thumb:hover{background:${T.muted}}input,select,textarea{background:${T.inputBg};border:1.5px solid ${T.border};color:${T.text};border-radius:8px;padding:9px 12px;font-family:'Inter',system-ui,sans-serif;font-size:13px;width:100%;transition:border-color 0.15s;}input:focus,select:focus,textarea:focus{outline:none;border-color:${ws.color};box-shadow:0 0 0 3px ${ws.color}18;}button{cursor:pointer;font-family:'Inter',system-ui,sans-serif;}textarea{resize:vertical;min-height:72px;}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.4)}50%{box-shadow:0 0 0 4px rgba(255,59,48,0)}}@keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.fade-in{animation:fadeIn 0.2s ease}`}</style>
+    <div style={{display:"flex",height:"100vh",background:T.bg,fontFamily:"'Inter',system-ui,-apple-system,sans-serif",color:T.text,overflow:"hidden"}}>
+      <style>{`
+    :root{
+      --accent:${ws?.color||"#FF6B00"};
+      --accent-soft:${ws?.color||"#FF6B00"}18;
+      --accent-glow:${ws?.color||"#FF6B00"}35;
+    }
+    *{box-sizing:border-box;}
+    input,select,textarea{
+      background:${T.inputBg};
+      border:1px solid ${T.border};
+      color:${T.text};
+      border-radius:8px;
+      padding:8px 12px;
+      width:100%;
+      transition:border-color 0.15s,box-shadow 0.15s;
+      font-size:13px;
+      font-family:inherit;
+    }
+    input:focus,select:focus,textarea:focus{
+      outline:none;
+      border-color:${ws?.color||"#FF6B00"};
+      box-shadow:0 0 0 3px ${ws?.color||"#FF6B00"}20;
+    }
+    input::placeholder,textarea::placeholder{color:${T.dim};}
+    select option{background:${T.s2};color:${T.text};}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0.5)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    @keyframes checkPop{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.3)}100%{transform:scale(1);opacity:1}}
+    @keyframes deadline-glow{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}50%{box-shadow:0 0 10px 3px rgba(255,59,48,0.25)}}
+    .fade-up{animation:fadeUp 0.2s cubic-bezier(0.16,1,0.3,1);}
+  `}</style>
 
       {/* ── PREMIUM SIDEBAR ── */}
       {!isMobile&&<aside style={{
-        width:sideCol?64:240,flexShrink:0,
-        background:theme==="dark"?"rgba(8,8,10,0.98)":"rgba(255,255,255,0.97)",
+        width:sideCol?60:228,flexShrink:0,
+        background:T.surface,
         borderRight:`1px solid ${T.border}`,
         display:"flex",flexDirection:"column",
-        transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",
+        transition:"width 0.25s cubic-bezier(0.4,0,0.2,1)",
         overflow:"hidden",
-        backdropFilter:"blur(20px)",
         position:"relative",zIndex:50,
       }}>
         {/* Brand */}
-        <div style={{padding:"16px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:11,minHeight:64}}>
+        <div style={{
+          padding:"12px 14px",
+          borderBottom:`1px solid ${T.border}`,
+          display:"flex",alignItems:"center",gap:10,minHeight:56,
+        }}>
           <div style={{position:"relative",flexShrink:0}}>
-            <WSLogo ws={ws} size={36}/>
-            <div style={{position:"absolute",bottom:-2,right:-2,width:10,height:10,borderRadius:"50%",background:"#00C896",border:`2px solid ${T.bg}`}}/>
+            <WSLogo ws={ws} size={34}/>
+            <div style={{
+              position:"absolute",bottom:-1,right:-1,width:9,height:9,
+              borderRadius:"50%",background:"#30D158",
+              border:`2px solid ${theme==="dark"?"#09090c":"#fff"}`,
+              boxShadow:"0 0 6px rgba(48,209,88,0.6)",
+            }}/>
           </div>
           {!sideCol&&<div style={{overflow:"hidden",flex:1}}>
-            <div style={{fontSize:13,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:-0.2}}>{ws.name}</div>
-            <div style={{fontSize:9,color:T.muted,fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,marginTop:1,textTransform:"uppercase"}}>{t.workspace}</div>
+            <div style={{fontSize:12.5,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:-0.3,color:T.text}}>{ws.name}</div>
+            <div style={{fontSize:9,color:T.dim,letterSpacing:1.5,marginTop:1,textTransform:"uppercase",fontWeight:600}}>{t.workspace}</div>
           </div>}
           <button onClick={()=>setSideCol(c=>!c)} style={{
             background:"transparent",border:`1px solid ${T.border}`,
-            color:T.muted,borderRadius:7,width:24,height:24,
+            color:T.muted,borderRadius:8,width:22,height:22,
             display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:11,flexShrink:0,transition:"all 0.15s",
-          }}>{sideCol?"›":"‹"}</button>
+            fontSize:10,flexShrink:0,transition:"all 0.2s",
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.background=T.s2;e.currentTarget.style.borderColor=T.borderHover;}}
+          onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.border;}}>
+            {sideCol?"›":"‹"}
+          </button>
         </div>
 
         {/* WS switcher */}
@@ -1842,9 +1855,10 @@ function App(){
                   padding:sideCol?"9px 0":"7px 10px",
                   justifyContent:sideCol?"center":"flex-start",
                   borderRadius:10,border:"none",
-                  background:isActive?w.color+"18":"transparent",marginBottom:2,
-                  transition:"all 0.15s cubic-bezier(0.4,0,0.2,1)",
-                  outline:isActive?`1.5px solid ${w.color}33`:"none",
+                  background:isActive?w.color+"14":"transparent",
+                  marginBottom:2,
+                  transition:"background 0.12s",
+                  outline:isActive?`1px solid ${w.color}30`:"none",
                   position:"relative",
                 }}
                 onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background="rgba(255,255,255,0.05)";}}
@@ -1874,8 +1888,8 @@ function App(){
 
         {/* ── INLINE SEARCH ── */}
         {!sideCol&&(
-          <div style={{margin:"10px 12px 4px",position:"relative"}}>
-            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:T.dim,pointerEvents:"none",zIndex:1}}>⌕</span>
+          <div style={{margin:"8px 10px 4px",position:"relative"}}>
+            <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",fontSize:13,color:T.dim,pointerEvents:"none",zIndex:1}}>⌕</span>
             <input
               ref={searchRef}
               value={search}
@@ -1891,10 +1905,12 @@ function App(){
               placeholder={t.searchPlaceholder}
               style={{
                 width:"100%",
-                background:T.s2,border:`1px solid ${T.border}`,
-                borderRadius:10,padding:"8px 28px 8px 32px",
+                background:T.s2,
+                border:`1px solid ${T.border}`,
+                borderRadius:8,
+                padding:"7px 26px 7px 30px",
                 fontSize:12,color:T.text,outline:"none",
-                transition:"all 0.15s",
+                transition:"border-color 0.15s",
                 fontFamily:"'Inter',system-ui,sans-serif",
               }}
               onFocus={e=>{e.target.style.borderColor=ws.color;e.target.style.background=T.s3;}}
@@ -2016,11 +2032,17 @@ function App(){
             <button onClick={()=>setTheme(v=>{const n=v==="dark"?"light":"dark";localStorage.setItem('bnc_theme',n);return n;})} style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px",fontSize:10,color:T.muted,cursor:"pointer",transition:"all 0.15s"}}>{theme==="dark"?"☀️ Light":"🌙 Dark"}</button>
             <button onClick={()=>setLang(v=>v==="fr"?"en":"fr")} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 10px",fontSize:10,color:T.muted,fontWeight:700,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>{lang==="fr"?"EN":"FR"}</button>
           </div>}
-          <div style={{display:"flex",alignItems:"center",gap:9,padding:"4px 2px"}}>
-            <Avatar name={user.name} size={30} color={ws.color}/>
+          <div style={{
+              display:"flex",alignItems:"center",gap:9,
+              padding:"6px 8px",borderRadius:8,
+              transition:"background 0.12s",
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <Avatar name={user.name} size={28} color={ws.color}/>
             {!sideCol&&<div style={{flex:1,overflow:"hidden"}}>
-              <div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name}</div>
-              <div style={{fontSize:10,color:T.muted}}>{t.roles[user.role]}</div>
+              <div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:-0.1}}>{user.name}</div>
+              <div style={{fontSize:9.5,color:T.dim,fontWeight:500}}>{t.roles[user.role]}</div>
             </div>}
             {<button title={t.logout} onClick={()=>{
               // Clear all local data - Supabase is source of truth
@@ -2037,21 +2059,26 @@ function App(){
       {/* ── PREMIUM TOPBAR ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{
-          height:isMobile?50:60,borderBottom:`1px solid ${T.border}`,
-          display:"flex",alignItems:"center",padding:isMobile?"0 14px":"0 24px",gap:isMobile?8:12,
-          background:theme==="dark"?"rgba(8,8,10,0.95)":T.surface,
-          flexShrink:0,backdropFilter:"blur(20px)",
+          height:isMobile?50:56,
+          borderBottom:`1px solid ${T.border}`,
+          display:"flex",alignItems:"center",
+          padding:isMobile?"0 14px":"0 20px 0 22px",
+          gap:isMobile?8:10,
+          background:T.surface,
+          flexShrink:0,
           position:"sticky",top:0,zIndex:10,
         }}>
           {/* Breadcrumb */}
-          <div style={{flex:1,display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:T.dim,letterSpacing:1,textTransform:"uppercase"}}>{ws.abbr}</span>
+          <div style={{flex:1,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,fontWeight:600,color:T.muted}}>{ws.abbr}</span>
             <span style={{color:T.dim,fontSize:12}}>/</span>
-            <span style={{fontSize:14,fontWeight:600,letterSpacing:-0.1}}>{NAV.find(n=>n.id===module)?.label}</span>
+            <span style={{fontSize:13,fontWeight:600,color:T.text,letterSpacing:-0.1}}>
+              {NAV.find(n=>n.id===module)?.label}
+            </span>
           </div>
 
           {/* Location filter (projects + media only — tasks has built-in location view) */}
-          {!isMobile&&["projects","media"].includes(module)&&wsId==="bnc"&&(
+          {!isMobile&&["projects","media"].includes(module)&&["bnc","tk"].includes(wsId)&&(
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {wsLocations.map(l=>(
                 <button key={l} onClick={()=>setLocFilt(l)} style={{
@@ -2089,11 +2116,12 @@ function App(){
           {/* Notification bell */}
           <div style={{position:"relative"}}>
             <button onClick={()=>setNotifOpen(o=>!o)} title="Notifications" style={{
-              background:unreadCount>0?"#FF3B3012":"transparent",
-              border:`1px solid ${unreadCount>0?"#FF3B3044":T.border}`,
-              borderRadius:10,width:40,height:40,
+              background:"transparent",
+              border:`1px solid ${unreadCount>0?"#FF3B3033":T.border}`,
+              borderRadius:8,width:34,height:34,
               display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:17,position:"relative",cursor:"pointer",transition:"all 0.15s",
+              fontSize:15,position:"relative",cursor:"pointer",
+              transition:"border-color 0.15s",
             }}
             onMouseEnter={e=>{e.currentTarget.style.background=T.s2;}}
             onMouseLeave={e=>{e.currentTarget.style.background=unreadCount>0?"#FF3B3012":"transparent";}}>
@@ -2102,7 +2130,8 @@ function App(){
                 <span style={{
                   position:"absolute",top:-4,right:-4,
                   minWidth:18,height:18,borderRadius:9,
-                  background:"#FF3B30",border:`2px solid ${T.bg}`,
+                  background:notifs.filter(n=>n.type!=="meeting"&&!n.read).length>0?"#FF3B30":"#0A84FF",
+                  border:`2px solid ${T.bg}`,
                   color:"#fff",fontSize:9,fontWeight:700,
                   display:"flex",alignItems:"center",justifyContent:"center",
                   padding:"0 4px",animation:"pulse 2s infinite",
@@ -2135,7 +2164,7 @@ function App(){
                 {/* Today summary banner */}
                 <NotifSummaryBanner notifs={notifs} T={T}/>
 
-                {/* Notif list */}
+                {/* Notif list - categorized */}
                 <div style={{maxHeight:380,overflowY:"auto"}}>
                   {notifs.length===0&&(
                     <div style={{padding:"32px",textAlign:"center"}}>
@@ -2144,7 +2173,13 @@ function App(){
                       <div style={{fontSize:11,color:T.dim,marginTop:4}}>Aucune tâche en retard</div>
                     </div>
                   )}
-                  {notifs.map(n=>{
+                  {/* ─ Tâches urgentes ─ */}
+                  {notifs.filter(n=>n.type!=="meeting").length>0&&(
+                    <div style={{padding:"8px 16px 4px",background:T.s2,borderBottom:`1px solid ${T.border}`}}>
+                      <span style={{fontSize:9,fontWeight:700,color:"#FF3B30",letterSpacing:1.5}}>⚡ TÂCHES — {notifs.filter(n=>n.type!=="meeting"&&!n.read).length} non lues</span>
+                    </div>
+                  )}
+                  {notifs.filter(n=>n.type!=="meeting").map(n=>{
                     const bgColor={
                       "Critique":"#FF3B30",
                       "Haute":"#FF9F0A",
@@ -2194,6 +2229,30 @@ function App(){
                       </div>
                     );
                   })}
+                  {/* ─ Meetings ─ */}
+                  {notifs.filter(n=>n.type==="meeting").length>0&&(
+                    <div style={{padding:"8px 16px 4px",background:T.s2,borderBottom:`1px solid ${T.border}`,borderTop:`1px solid ${T.border}`}}>
+                      <span style={{fontSize:9,fontWeight:700,color:"#0A84FF",letterSpacing:1.5}}>📅 MEETINGS — {notifs.filter(n=>n.type==="meeting"&&!n.read).length} non lus</span>
+                    </div>
+                  )}
+                  {notifs.filter(n=>n.type==="meeting").map(n=>(
+                    <div key={n.id+"m"} style={{
+                      padding:"10px 16px",borderBottom:`1px solid ${T.border}`,
+                      background:n.read?"transparent":"#0A84FF08",
+                      display:"flex",gap:10,alignItems:"center",cursor:"pointer",
+                      transition:"background 0.15s",
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background=T.s2}
+                    onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":"#0A84FF08"}
+                    onClick={()=>{setNotifs(prev=>prev.map(x=>x.id===n.id?{...x,read:true}:x));setModule("meetings");setNotifOpen(false);}}>
+                      <div style={{width:32,height:32,borderRadius:8,background:"#0A84FF18",border:"1px solid #0A84FF33",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>📅</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:n.read?500:700,color:n.read?T.muted:T.text}}>{n.title}</div>
+                        <div style={{fontSize:11,color:T.muted}}>{n.body}</div>
+                      </div>
+                      {!n.read&&<div style={{width:6,height:6,borderRadius:"50%",background:"#0A84FF",flexShrink:0}}/>}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Footer */}
@@ -2214,7 +2273,7 @@ function App(){
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} updateProject={updateProject} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
-          {module==="media"    &&<Media ws={ws} influencers={influencers} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
+          {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
           {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
           {module==="products" &&<Products2 ws={ws} products={products} setModal={setModal} updateProduct={updateProduct} T={T} t={t}/>}
@@ -2287,11 +2346,17 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expense
 
       <div style={{display:"grid",gridTemplateColumns:window.innerWidth<768?"repeat(2,1fr)":"repeat(4,1fr)",gap:window.innerWidth<768?10:12}}>
         {kpis.map(k=>(
-          <Card key={k.label} T={T} onClick={()=>setModule(k.mod)}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><span style={{fontSize:11,color:T.muted,fontWeight:500,letterSpacing:0.5}}>{k.label.toUpperCase()}</span><span style={{fontSize:20,opacity:0.3}}>{k.icon}</span></div>
-            <div style={{fontSize:38,fontWeight:800,color:k.color,lineHeight:1,letterSpacing:-1}}>{k.value}</div>
-            <div style={{fontSize:11,color:T.muted,marginTop:8}}>{k.sub}</div>
-          </Card>
+          <div key={k.label} onClick={()=>setModule(k.mod)}
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 18px",cursor:"pointer",transition:"border-color 0.15s,box-shadow 0.15s,transform 0.15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=k.color+"55";e.currentTarget.style.boxShadow=`0 4px 20px rgba(0,0,0,0.15)`;e.currentTarget.style.transform="translateY(-1px)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.boxShadow="";e.currentTarget.style.transform="";}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+              <span style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.8,textTransform:"uppercase"}}>{k.label}</span>
+              <span style={{fontSize:18,opacity:0.5}}>{k.icon}</span>
+            </div>
+            <div style={{fontSize:32,fontWeight:800,color:k.color,lineHeight:1,letterSpacing:-1,marginBottom:6}}>{k.value}</div>
+            <div style={{fontSize:11,color:T.dim}}>{k.sub}</div>
+          </div>
         ))}
       </div>
 
@@ -2300,8 +2365,40 @@ function Dashboard({ws,tasks,projects,meetings,influencers,setModule,T,t,expense
           <Card T={T}>
             <div style={{fontSize:11,fontWeight:600,color:T.muted,letterSpacing:1,marginBottom:14}}>{t.recentTasks.toUpperCase()}</div>
             {tasks.filter(x=>x.status!=="Done").slice(0,5).map(task=>(
-              <div key={task.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",background:(task.tags||[]).includes("Commun")?"#0A84FF08":T.s2,borderRadius:7,marginBottom:6,borderLeft:(task.tags||[]).includes("Commun")?"3px solid #0A84FF":"3px solid transparent"}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:TASK_STATUS[task.status]?.dot,flexShrink:0}}/>
+              <div key={task.id} style={(()=>{
+                              const isCommun=(task.tags||[]).includes("Commun");
+                              const hasDate=!!task.due_date;
+                              let anim="none",shadow="none",bg=T.s2,bl="none";
+                              if(hasDate){
+                                const d=new Date(task.due_date+"T00:00:00");
+                                const today=new Date(); today.setHours(0,0,0,0);
+                                const diff=Math.round((d-today)/86400000);
+                                if(diff<0){anim="shake 0.5s ease infinite";shadow="0 0 0 1px #FF3B3050";bg="#FF3B3008";}
+                                else if(diff===0){anim="pulse 1.2s ease-in-out infinite";shadow="0 0 0 1px #FF9F0A50";bg="#FF9F0A06";}
+                              }
+                              if(isCommun){bl="2px solid #0A84FF";bg=bg==T.s2?"#0A84FF06":bg;}
+                              return{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",background:bg,borderRadius:8,marginBottom:5,borderLeft:bl,animation:anim,boxShadow:shadow,cursor:"pointer"};
+                            })()}>
+                <div style={{
+                              width:8,height:8,borderRadius:"50%",flexShrink:0,
+                              background:(()=>{
+                                if(!task.due_date) return TASK_STATUS[task.status]?.dot||"#8E8E93";
+                                const d=new Date(task.due_date+"T00:00:00");
+                                const today=new Date(); today.setHours(0,0,0,0);
+                                const diff=Math.round((d-today)/86400000);
+                                if(diff<0) return "#FF3B30";
+                                if(diff===0) return "#FF9F0A";
+                                return TASK_STATUS[task.status]?.dot||"#8E8E93";
+                              })(),
+                              animation:(()=>{
+                                if(!task.due_date) return "none";
+                                const d=new Date(task.due_date+"T00:00:00");
+                                const today=new Date(); today.setHours(0,0,0,0);
+                                const diff=Math.round((d-today)/86400000);
+                                if(diff<=0) return "pulse 1s ease-in-out infinite";
+                                return "none";
+                              })(),
+                            }}/>
                 <div style={{flex:1,fontSize:13,fontWeight:500}}>{task.title}</div>
                 <Badge label={task.location} color={T.dim} small/>
                 <div style={{fontSize:10,color:T.muted}}>{t.createdBy} <strong style={{color:T.text}}>{task.created_by}</strong></div>
@@ -2419,7 +2516,7 @@ function InlineTaskAdd({col,ws,updateTask,addTask,T,t}){
       due:due?new Date(due+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—",
       tags:isCommun?["Commun"]:[],
       notes: attachLinks.length>0 ? "---LINKS---\n"+attachLinks.map(a=>a.name+"|"+a.url).join("\n") : "",
-      owner: taskOwner==="me"?(t?.user||"Tito"):taskOwner==="equipe"?undefined:taskOwner,
+      owner: taskOwner==="me"?user?.name:taskOwner==="equipe"?user?.name:taskOwner,
     });
     setTitle("");setDue("");setPriority("Medium");setLocation("Global");setIsCommun(false);setTaskOwner("me");setAttachLinks([]);setNewLink("");setOpen(false);
   }
@@ -2712,7 +2809,7 @@ function DELaunchTracker({ws,tasks,updateTask,addTask,T}){
                                   <span style={{fontSize:9,background:"#FF3B3018",color:"#FF3B30",border:"1px solid #FF3B3033",borderRadius:10,padding:"2px 7px",fontWeight:700}}>URGENT</span>
                                 )}
                                 {(task.tags||[]).filter(t=>t!=="Commun").slice(0,1).map(tag=>(
-                                  <span key={tag} style={{fontSize:9,background:(tagColor[tag]||"#777")+"18",color:tagColor[tag]||"#777",border:`1px solid ${(tagColor[tag]||"#777")}33`,borderRadius:10,padding:"2px 7px",fontWeight:600}}>{tag}</span>
+                                  <span key={tag} style={{fontSize:9,background:(tagColor[tag]||"#777")+"15",color:tagColor[tag]||"#777",border:`1px solid ${(tagColor[tag]||"#777")}44`,borderRadius:99,padding:"2px 8px",fontWeight:700,fontSize:9,letterSpacing:0.3}}>{tag}</span>
                                 ))}
                                 {(task.tags||[]).includes("Commun")&&(
                                   <span style={{fontSize:9,background:"#0A84FF22",color:"#0A84FF",border:"1px solid #0A84FF55",borderRadius:10,padding:"2px 8px",fontWeight:800,letterSpacing:0.3}}>👥 Équipe</span>
@@ -2887,11 +2984,12 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
         <div style={{display:"flex",gap:4,background:T.s2,borderRadius:10,padding:3,border:`1px solid ${T.border}`}}>
           {[{id:"board",label:"🗂 Kanban"},{id:"list",label:"≡ Liste"},{id:"location",label:"📍 Locations"},{id:"equipe",label:"👥 Équipe"}].map(v=>(
             <button key={v.id} onClick={()=>setVw(v.id)} style={{
-              background:view===v.id?ws.color:"transparent",
-              color:view===v.id?"#fff":T.muted,
-              border:"none",borderRadius:7,padding:"6px 14px",
+              background:view===v.id?ws.color+"14":"transparent",
+              color:view===v.id?ws.color:T.muted,
+              border:"none",borderRadius:6,padding:"5px 12px",
               fontSize:12,fontWeight:view===v.id?600:400,
-              cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",
+              cursor:"pointer",transition:"background 0.12s,color 0.12s",
+              whiteSpace:"nowrap",
             }}>{v.label}</button>
           ))}
         </div>
@@ -2909,11 +3007,12 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
         </button>
         {/* Archive toggle */}
         <button onClick={()=>setShowDone(v=>!v)} style={{
-          background:showDone?"#00C89622":T.s2,
-          color:showDone?"#00C896":T.muted,
-          border:`1px solid ${showDone?"#00C89666":T.border}`,
-          borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:showDone?600:400,
-          display:"flex",alignItems:"center",gap:6,cursor:"pointer",
+          background:"transparent",
+          color:showDone?"#00C896":T.dim,
+          border:`1px solid ${showDone?"#00C89644":T.border}`,
+          borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:500,
+          display:"flex",alignItems:"center",gap:5,cursor:"pointer",
+          transition:"border-color 0.12s,color 0.12s",
         }}>
           <span style={{fontSize:13}}>📦</span>
           Archives {doneCount>0&&<span style={{background:showDone?"#00C896":"#6b6b6b",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:9,fontWeight:700}}>{doneCount}</span>}
@@ -2939,28 +3038,18 @@ function Tasks({ws,tasks,allMembers,setModal,T,t,updateTask,addTask,taskNotes,us
               onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}}
             >
               {/* Column header */}
-              <div style={{
-                display:"flex",alignItems:"center",gap:8,marginBottom:12,
-                padding:"8px 12px",
-                background:isOver?col.color+"18":T.s2,
-                borderRadius:8,border:`1px solid ${isOver?col.color:T.border}`,
-                transition:"all 0.15s",
-              }}>
-                <div style={{width:9,height:9,borderRadius:"50%",background:col.color,boxShadow:`0 0 6px ${col.color}66`}}/>
-                <span style={{fontSize:12,fontWeight:700,color:isOver?col.color:T.text}}>{col.label}</span>
-                <span style={{
-                  marginLeft:"auto",fontSize:11,fontWeight:700,
-                  background:col.color+"22",color:col.color,
-                  padding:"1px 8px",borderRadius:20,
-                }}>{colTasks.length}</span>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10,padding:"2px 0 8px"}}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:col.color,flexShrink:0}}/>
+                <span style={{fontSize:11,fontWeight:700,color:T.muted,letterSpacing:0.5,textTransform:"uppercase",flex:1}}>{col.label}</span>
+                <span style={{fontSize:11,fontWeight:600,color:T.dim}}>{colTasks.length}</span>
               </div>
 
               {/* Drop zone */}
               <div style={{
-                display:"flex",flexDirection:"column",gap:8,
-                minHeight:80,borderRadius:10,
+                display:"flex",flexDirection:"column",gap:6,
+                minHeight:80,borderRadius:8,
                 background:isOver?col.color+"08":"transparent",
-                border:`2px dashed ${isOver?col.color:"transparent"}`,
+                border:`1px dashed ${isOver?col.color+"55":"transparent"}`,
                 padding:isOver?"6px":"0",
                 transition:"all 0.15s",
               }}>
@@ -3489,7 +3578,7 @@ function Projects({ws,projects,setModal,updateProject,T,t}){
       </button>
 
       {/* Header */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 24px",marginBottom:16}}>
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:"20px 24px",marginBottom:16,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,flexWrap:"wrap"}}>
@@ -6053,7 +6142,7 @@ function DailyBrief({ws,user,allTasks,allMeetings,gcalEvents,T,t,setModule,setWs
           {/* Progress bar */}
           {todayTodos.length>0&&(
             <div style={{height:4,background:T.s3,borderRadius:2,marginTop:-6}}>
-              <div style={{height:4,width:progress+"%",background:"linear-gradient(90deg,#BF5AF2,#9B59B6)",borderRadius:2,transition:"width 0.4s"}}/>
+              <div style={{height:4,width:progress+"%",background:"linear-gradient(90deg,#BF5AF2,#7B2FBE)",borderRadius:99,transition:"width 0.5s cubic-bezier(0.16,1,0.3,1)",boxShadow:"0 0 8px rgba(191,90,242,0.4)"}}/>
             </div>
           )}
 
@@ -7672,7 +7761,8 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       } else if(form.due && form.due !== "—") {
         dueFormatted = form.due;
       }
-      const ev={status:"To Do",priority:"Medium",owner:user.name,due:"—",tags:[],location:"Global",reminders:["1","3"],...form,due:dueFormatted};
+      const resolvedOwner = (form.tags||[]).includes("Commun") ? (form.owner||user.name) : (form.owner||user.name);
+      const ev={status:"To Do",priority:"Medium",owner:resolvedOwner,due:"—",tags:[],location:"Global",...form,due:dueFormatted};
       if(isEdit) await updateTask(form.id,ev);
       else {
         await addTask(ev);
@@ -7747,6 +7837,21 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(!form.title)return;
       const ev={phase:"Idée",location:"Global",updates:[],description:"",price:"",target:"",...form};
       if(isEdit)updateProduct(form.id,ev); else addProduct(ev);
+      // Auto-add to calendar if launch date set
+      if(form.add_to_cal && form.launch_date){
+        const d = new Date(form.launch_date+"T12:00:00");
+        const endD = form.launch_end_date ? new Date(form.launch_end_date+"T12:00:00") : null;
+        await addCalEvent({
+          title: "🍴 "+form.title+(form.menu_duration&&form.menu_duration!=="Permanent"?" ("+form.menu_duration+")":""),
+          category: "New Product",
+          location: (form.locations||[form.location||"Global"]).join(", "),
+          month: d.getMonth()+1,
+          day: d.getDate(),
+          end_month: endD ? endD.getMonth()+1 : null,
+          end_day: endD ? endD.getDate() : null,
+          has_end: !!endD,
+        });
+      }
     } else if(isAgenda){
       const meeting=modal.payload;
       const agenda=[...(meeting.agenda||[]),{title:form.title,note:form.note||"",duration:form.duration||""}];
@@ -7789,9 +7894,26 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
   const MS=t.months;
 
   return(
-    <div onClick={close} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:T.surface,border:`1px solid ${T.border}`,borderTop:`2px solid ${ws.color}`,borderRadius:12,padding:28,width:500,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadow}}>
-        <div style={{fontSize:15,fontWeight:700,color:ws.color,marginBottom:20}}>
+    <div onClick={close} style={{
+        position:"fixed",inset:0,
+        background:"rgba(0,0,0,0.55)",
+        backdropFilter:"blur(8px)",
+        WebkitBackdropFilter:"blur(8px)",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        zIndex:1000,padding:16,
+        animation:"fadeIn 0.15s ease",
+      }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        background:T.surface,
+        border:`1px solid ${T.border}`,
+        borderTop:`2px solid ${ws.color}`,
+        borderRadius:14,padding:"24px 26px",
+        width:500,maxWidth:"100%",
+        maxHeight:"90vh",overflowY:"auto",
+        boxShadow:T.shadow,
+        animation:"slideUp 0.2s cubic-bezier(0.16,1,0.3,1)",
+      }}>
+        <div style={{fontSize:13,fontWeight:700,color:ws.color,marginBottom:20,display:"flex",alignItems:"center",gap:8}}>
           {isEdit?(isMed?t.editInfluencer:isCal?"Modifier event":isMtg?t.editMeeting:isProj?t.editProject:t.editTask):(isMed?t.newInfluencer:isCal?t.addEvent:isMtg?t.newMeeting:isProj?t.newProject:isAcc?t.inviteMember:t.newTask)}
         </div>
 
@@ -7802,9 +7924,14 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
             <MF label={t.owner} T={T}>
             <select value={(form.tags||[]).includes("Commun")?"Équipe":(form.owner||user.name)} onChange={e=>{
-              f("owner",e.target.value==="Équipe"?user.name:e.target.value);
-              if(e.target.value==="Équipe") f("tags",[...((form.tags||[]).filter(t=>t!=="Commun")),"Commun"]);
-              else f("tags",(form.tags||[]).filter(t=>t!=="Commun"));
+              const newOwner = e.target.value==="Équipe"?user.name:e.target.value;
+              f("owner", newOwner);
+              // Auto-tag Commun when assigning to someone else or Équipe
+              if(e.target.value==="Équipe" || (newOwner && newOwner!==user.name)){
+                f("tags",[...((form.tags||[]).filter(t=>t!=="Commun")),"Commun"]);
+              } else {
+                f("tags",(form.tags||[]).filter(t=>t!=="Commun"));
+              }
             }}>
               {members.map(m=><option key={m.id}>{m.name}</option>)}
               <option value="Équipe">👥 Équipe</option>
@@ -8178,6 +8305,33 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             </MF>
             <MF label="Prix cible ($)" T={T}><input type="number" value={form.price||""} onChange={e=>f("price",e.target.value)} placeholder="ex: 14.99"/></MF>
             <MF label="Cible client" T={T}><input value={form.target||""} onChange={e=>f("target",e.target.value)} placeholder="ex: 18-35 ans"/></MF>
+          </div>
+          {/* ── CALENDRIER LANCEMENT ── */}
+          <div style={{background:T.s2,border:`1px solid ${ws.color}33`,borderRadius:10,padding:"14px 16px",marginBottom:4}}>
+            <div style={{fontSize:11,fontWeight:700,color:ws.color,letterSpacing:1,marginBottom:12}}>📅 LANCEMENT & DURÉE</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <MF label="Date de lancement" T={T}>
+                <input type="date" value={form.launch_date||""} onChange={e=>f("launch_date",e.target.value)}
+                  style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%",outline:"none"}}/>
+              </MF>
+              <MF label="Durée sur le menu" T={T}>
+                <select value={form.menu_duration||"Permanent"} onChange={e=>f("menu_duration",e.target.value)}
+                  style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%",outline:"none"}}>
+                  {["Permanent","1 semaine","2 semaines","1 mois","2 mois","3 mois","Saison","Édition limitée"].map(d=><option key={d}>{d}</option>)}
+                </select>
+              </MF>
+              <MF label="Date de fin (optionnel)" T={T}>
+                <input type="date" value={form.launch_end_date||""} onChange={e=>f("launch_end_date",e.target.value)}
+                  style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%",outline:"none"}}/>
+              </MF>
+              <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:T.text}}>
+                  <input type="checkbox" checked={!!form.add_to_cal} onChange={e=>f("add_to_cal",e.target.checked)}
+                    style={{width:16,height:16,cursor:"pointer",accentColor:ws.color}}/>
+                  Ajouter au Calendrier
+                </label>
+              </div>
+            </div>
           </div>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
