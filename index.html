@@ -1131,11 +1131,11 @@ function App(){
   async function seedIfEmpty(){
     // Force insert DE tasks if missing
     try{
-      const {data:deTasks}=await supa.from("tasks").select("id").eq("workspace","de");
-      if(!deTasks||deTasks.length===0){
+      const deCheck = await supaSelect("tasks","de");
+      if(!deCheck.error && (!deCheck.data || deCheck.data.length===0)){
         const deSeedTasks=SEED_TASKS.filter(function(t){return t.workspace==="de";});
         for(var i=0;i<deSeedTasks.length;i++){
-          await supa.from("tasks").upsert({...deSeedTasks[i],created_at:new Date().toISOString()},{onConflict:"id",ignoreDuplicates:true});
+          await supaInsert("tasks",{...deSeedTasks[i],created_at:new Date().toISOString()});
         }
         console.log("DE tasks seeded:",deSeedTasks.length);
       }
@@ -1408,7 +1408,9 @@ function App(){
     lsIns("tasks",localItem);
     setTasks(prev=>[localItem,...prev]);
     try{
-      const {data,error}=await supaInsert("tasks", supaItem);
+      console.log("🔄 Saving task:", supaItem.title, "ws:", supaItem.workspace);
+    const {data,error}=await supaInsert("tasks", supaItem);
+    if(error) console.error("❌ supaInsert error:", JSON.stringify(error));
       if(!error&&data){
         // Replace tempId with real Supabase id in both state and localStorage
         setTasks(prev=>prev.map(t=>t.id===tempId?data:t));
