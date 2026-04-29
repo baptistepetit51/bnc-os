@@ -1365,6 +1365,7 @@ function App(){
   const NAV= isTitoWs ? [
     {id:"daily_brief",  label:"Ma Journée",    icon:"☀"},
     {id:"tito_home",    label:"Focus",         icon:"⚡"},
+    {id:"tito_tasks",   label:"Tâches Perso",  icon:"☑"},
     {id:"tito_notes",   label:"Notes",         icon:"📝"},
     {id:"tito_goals",   label:"Objectifs",     icon:"🎯"},
     {id:"tito_inbox",   label:"Inbox / Idées", icon:"💡"},
@@ -1547,6 +1548,28 @@ function App(){
       if(error){ console.error("updateInfluencer error:",error); lsUpd("influencers",id,form); }
     }catch(e){
       lsUpd("influencers",id,form);
+    }
+    // Auto-sync: if cost updated → add/update matching expense
+    if(form.cost!==undefined && parseFloat(form.cost)>0){
+      const infl = influencers.find(i=>String(i.id)===String(id))||form;
+      const inflName = form.name||infl.name||"Influenceur";
+      // Check if an expense for this influencer already exists (by title match)
+      const expTitle = `📱 ${inflName} (Médias)`;
+      const existingExp = expenses.find(e=>e.title===expTitle);
+      if(existingExp){
+        await updateExpense(existingExp.id,{...existingExp, amount:parseFloat(form.cost)||0});
+      } else {
+        await addExpense({
+          title:expTitle,
+          amount:parseFloat(form.cost)||0,
+          category:"marketing",
+          date:new Date().toISOString().slice(0,10),
+          location:form.location||infl.location||"Global",
+          urgency:"Moyenne",
+          payment:"À payer",
+          notes:`Synchronisé depuis Médias — ${form.platform||infl.platform||""}`,
+        });
+      }
     }
   }
   async function deleteInfluencer(id){
@@ -2290,6 +2313,7 @@ function App(){
           {module==="clients"    &&<Clients   ws={ws} clients={clients} setModal={setModal} T={T}/>}
           {module==="global_cal" &&<GlobalCal  ws={ws} tasks={tasks} calEvents={calEvents} meetings={meetings} T={T} t={t} setModal={setModal}/>}
           {module==="daily_brief" &&<DailyBrief ws={ws} user={user} allTasks={tasks} allMeetings={meetings} gcalEvents={gcalEvents} T={T} t={t} setModule={setModule} setWsId={setWsId} wsId={wsId} journal={titoJournal}/>}
+          {module==="tito_tasks" &&<TitoTasksPerso ws={ws} T={T} t={t} user={user} wsId={wsId} setModal={setModal}/>}
           {module==="tito_home"  &&<TitoHome  ws={ws} focus={titoFocus}  setFocus={v=>{lsSet(wsId+"_focus",v);setTitoFocus(v);savePersonalToSupabase("p_focus",v);}} T={T} wsId={wsId} saveFn={savePersonalToSupabase}/>}
           {module==="tito_notes" &&<TitoNotes ws={ws} notes={titoNotes}  setNotes={v=>{localStorage.setItem(wsId+"_notes",v);setTitoNotes(v);}} T={T} saveFn={savePersonalToSupabase}/>}
           {module==="tito_goals" &&<TitoGoals ws={ws} goals={titoGoals}  setGoals={v=>{lsSet(wsId+"_goals",v);setTitoGoals(v);savePersonalToSupabase("p_goals",v);console.log("Goals saved:", v.length);}} T={T}/>}
@@ -6426,6 +6450,185 @@ function TaskCard({task,T,setWsId,setModule}){
 }
 
 // ─── TITO PERSO ───────────────────────────────────────────────────────────
+
+function TitoTasksPerso({ws,T,t,user,wsId,setModal}){
+  const LS_KEY = "tito_perso_tasks";
+  const [tasks,setTasks] = React.useState(()=>{
+    try{ return JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){return [];}
+  });
+  const [adding,setAdding] = React.useState(null); // col id
+  const [newTitle,setNewTitle] = React.useState("");
+  const [editTask,setEditTask] = React.useState(null);
+  const [filterTag,setFilterTag] = React.useState("Toutes");
+
+  function save(updated){ setTasks(updated); localStorage.setItem(LS_KEY,JSON.stringify(updated)); }
+  function addTask(col){
+    if(!newTitle.trim()) return;
+    const t={id:Date.now(),title:newTitle.trim(),status:col,priority:"Medium",tag:filterTag==="Toutes"?"Perso":filterTag,notes:"",created:new Date().toISOString()};
+    save([t,...tasks]);
+    setNewTitle(""); setAdding(null);
+  }
+  function moveTask(id,status){ save(tasks.map(t=>t.id===id?{...t,status}:t)); }
+  function deleteTask(id){ save(tasks.filter(t=>t.id!==id)); }
+  function updateTask(id,updates){ save(tasks.map(t=>t.id===id?{...t,...updates}:t)); }
+
+  const COLS=[
+    {id:"À faire",color:"#8E8E93",emoji:"📋"},
+    {id:"En cours",color:ws.color,emoji:"⚡"},
+    {id:"Done",color:"#30D158",emoji:"✅"},
+  ];
+  const TAGS=["Perso","Pro extra","Santé","Famille","Finance","Apprentissage","Autre"];
+  const allTags=["Toutes",...TAGS];
+  const filtered = filterTag==="Toutes" ? tasks : tasks.filter(t=>t.tag===filterTag);
+  const doneCount = tasks.filter(t=>t.status==="Done").length;
+  const pct = tasks.length>0 ? Math.round(doneCount/tasks.length*100) : 0;
+
+  return(
+    <div style={{padding:"0 2px",animation:"fadeUp 0.2s ease"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:700,letterSpacing:-0.3,color:T.text}}>Tâches Perso</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:2}}>{tasks.length} tâches · {doneCount} complétées · {pct}%</div>
+        </div>
+        {/* Progress */}
+        {tasks.length>0&&(
+          <div style={{flex:1,minWidth:120,maxWidth:200}}>
+            <div style={{height:4,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+              <div style={{height:"100%",borderRadius:99,background:pct===100?"#30D158":ws.color,width:pct+"%",transition:"width 0.4s ease"}}/>
+            </div>
+          </div>
+        )}
+        {/* New task button */}
+        <button onClick={()=>{setAdding("À faire");setNewTitle("");}} style={{
+          background:ws.color,color:"#fff",border:"none",borderRadius:8,
+          padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer",
+          display:"flex",alignItems:"center",gap:6,
+        }}>+ Nouvelle tâche</button>
+      </div>
+
+      {/* Tag filters */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {allTags.map(tag=>(
+          <button key={tag} onClick={()=>setFilterTag(tag)} style={{
+            background:filterTag===tag?ws.color+"20":"transparent",
+            color:filterTag===tag?ws.color:T.muted,
+            border:`1px solid ${filterTag===tag?ws.color+"44":T.border}`,
+            borderRadius:99,padding:"3px 12px",fontSize:11,fontWeight:filterTag===tag?600:400,
+            cursor:"pointer",transition:"all 0.12s",
+          }}>{tag}</button>
+        ))}
+      </div>
+
+      {/* Columns */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+        {COLS.map(col=>{
+          const colTasks = filtered.filter(t=>t.status===col.id);
+          return(
+            <div key={col.id} style={{background:T.s2,borderRadius:12,padding:"14px 12px",border:`1px solid ${T.border}`}}>
+              {/* Col header */}
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:12}}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:col.color,flexShrink:0}}/>
+                <span style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:0.5,flex:1}}>{col.id}</span>
+                <span style={{fontSize:11,color:T.dim,fontWeight:600}}>{colTasks.length}</span>
+              </div>
+
+              {/* Tasks */}
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {colTasks.map(task=>(
+                  <div key={task.id} style={{
+                    background:T.surface,borderRadius:8,padding:"9px 11px",
+                    border:`1px solid ${T.border}`,cursor:"pointer",
+                    transition:"border-color 0.12s",
+                  }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=col.color+"55"}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                      {/* Check circle */}
+                      <button onClick={e=>{e.stopPropagation();moveTask(task.id,task.status==="Done"?"À faire":"Done");}}
+                        style={{
+                          width:16,height:16,borderRadius:"50%",flexShrink:0,marginTop:1,
+                          background:task.status==="Done"?"#30D158":"transparent",
+                          border:`2px solid ${task.status==="Done"?"#30D158":T.muted}`,
+                          cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                          padding:0,transition:"all 0.15s",
+                        }}>
+                        {task.status==="Done"&&<span style={{color:"#fff",fontSize:9,fontWeight:800}}>✓</span>}
+                      </button>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{
+                          fontSize:12.5,fontWeight:500,color:task.status==="Done"?T.dim:T.text,
+                          textDecoration:task.status==="Done"?"line-through":"none",lineHeight:1.4,
+                        }}>{task.title}</div>
+                        {task.notes&&<div style={{fontSize:11,color:T.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.notes}</div>}
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5}}>
+                          {task.tag&&<span style={{
+                            fontSize:9,fontWeight:600,
+                            background:ws.color+"18",color:ws.color,
+                            borderRadius:99,padding:"1px 7px",
+                          }}>{task.tag}</span>}
+                          <span style={{fontSize:9,color:T.dim,marginLeft:"auto"}}>
+                            {{High:"🔴",Medium:"🟡",Low:"🟢"}[task.priority]||""}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Delete */}
+                      <button onClick={e=>{e.stopPropagation();deleteTask(task.id);}} style={{
+                        background:"transparent",border:"none",color:T.dim,
+                        fontSize:14,cursor:"pointer",padding:"0 2px",
+                        opacity:0,transition:"opacity 0.1s",flexShrink:0,
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                      onMouseLeave={e=>e.currentTarget.style.opacity="0"}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add new */}
+              {adding===col.id ? (
+                <div style={{marginTop:8,background:T.surface,borderRadius:8,padding:"10px 11px",border:`1px solid ${ws.color}44`}}>
+                  <input
+                    autoFocus
+                    value={newTitle}
+                    onChange={e=>setNewTitle(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter")addTask(col.id);if(e.key==="Escape"){setAdding(null);setNewTitle("");}}}
+                    placeholder="Titre de la tâche..."
+                    style={{width:"100%",background:"transparent",border:"none",outline:"none",fontSize:12.5,color:T.text,fontFamily:"inherit"}}
+                  />
+                  <div style={{display:"flex",gap:6,marginTop:8}}>
+                    <button onClick={()=>addTask(col.id)} style={{
+                      background:ws.color,color:"#fff",border:"none",borderRadius:6,
+                      padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer",
+                    }}>Ajouter</button>
+                    <button onClick={()=>{setAdding(null);setNewTitle("");}} style={{
+                      background:"transparent",border:`1px solid ${T.border}`,
+                      borderRadius:6,padding:"5px 10px",fontSize:11,
+                      color:T.muted,cursor:"pointer",
+                    }}>Annuler</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={()=>{setAdding(col.id);setNewTitle("");}} style={{
+                  marginTop:8,width:"100%",background:"transparent",
+                  border:`1.5px dashed ${T.border}`,borderRadius:7,
+                  padding:"7px 10px",color:T.dim,fontSize:12,cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:5,
+                  transition:"border-color 0.12s,color 0.12s",
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
+                  + Nouvelle tâche
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TitoHome({ws,focus,setFocus,T,wsId,saveFn}){
   const [newTask,   setNewTask]   = useState("");
   const [newWeekly, setNewWeekly] = useState("");
