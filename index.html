@@ -1402,14 +1402,21 @@ function App(){
     if(!form._from_gcal) supaItem.status = form.status||"To Do";
     // Strip fields that don't exist in Supabase schema
     const TASK_COLS = ["workspace","title","location","status","priority","owner","created_by","due","due_date","tags","notes","created_at"];
-    Object.keys(supaItem).forEach(k=>{ if(!TASK_COLS.includes(k) && k!=="id") delete supaItem[k]; });
+    Object.keys(supaItem).forEach(k=>{ if(!TASK_COLS.includes(k)) delete supaItem[k]; });
+    delete supaItem.id; // Never send id — let Supabase auto-generate
     const localItem={...supaItem,id:tempId};
     // Save to localStorage IMMEDIATELY as primary storage
     lsIns("tasks",localItem);
     setTasks(prev=>[localItem,...prev]);
     try{
       console.log("🔄 Saving task:", supaItem.title, "ws:", supaItem.workspace);
-    const {data,error}=await supaInsert("tasks", supaItem);
+    let {data,error}=await supaInsert("tasks", supaItem);
+    // If due_date column doesn't exist yet, retry without it
+    if(error && error.code==="42703" && supaItem.due_date!==undefined){
+      delete supaItem.due_date;
+      const retry = await supaInsert("tasks", supaItem);
+      data=retry.data; error=retry.error;
+    }
     if(error) console.error("❌ supaInsert error:", JSON.stringify(error));
       if(!error&&data){
         // Replace tempId with real Supabase id in both state and localStorage
