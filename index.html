@@ -5718,7 +5718,23 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
               <span style={{fontSize:11,color:T.muted}}>{exp.location}</span>
             </Cell>
             <Cell exp={exp} field="amount" width={COL.amount} center>
-              <span style={{fontSize:13,fontWeight:800,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+              <div style={{textAlign:"center"}}>
+                <span style={{fontSize:13,fontWeight:800,color:uc.color}}>{(+exp.amount||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+                {Array.isArray(exp.payments)&&exp.payments.length>0&&(()=>{
+                  const paid=exp.payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+                  const total=parseFloat(exp.amount)||0;
+                  const pct=total>0?Math.min(100,Math.round(paid/total*100)):0;
+                  const isPaid=paid>=total;
+                  return(
+                    <div style={{marginTop:3}}>
+                      <div style={{height:2,background:"rgba(255,255,255,0.08)",borderRadius:99,overflow:"hidden",width:"100%"}}>
+                        <div style={{height:"100%",borderRadius:99,width:pct+"%",background:isPaid?"#30D158":"#FF9F0A",transition:"width 0.3s ease"}}/>
+                      </div>
+                      <span style={{fontSize:8,color:isPaid?"#30D158":"#FF9F0A",fontWeight:700}}>{isPaid?"Soldé":`${(total-paid).toFixed(0)}$ restant`}</span>
+                    </div>
+                  );
+                })()}
+              </div>
             </Cell>
             <Cell exp={exp} field="urgency" width={COL.urgency} center>
               <span style={{fontSize:10,fontWeight:600,color:uc.color}}>{uc.icon} {exp.urgency}</span>
@@ -8532,7 +8548,8 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             </div>
           </MF>
           <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
-          {/* Urgency preview */}
+
+                    {/* Urgency preview */}
           <UrgencyPreview urgency={form.urgency} amount={form.amount} T={T}/>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
