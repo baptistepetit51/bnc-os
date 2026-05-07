@@ -560,8 +560,8 @@ const NOW         = new Date();
 const NM=NOW.getMonth()+1, ND=NOW.getDate(), NY=NOW.getFullYear();
 const toInt=(m,d)=>m*100+d;
 function mOff(m,y){const d=new Date(y,m-1,1).getDay();return d===0?6:d-1;}
-function evCovers(ev,m,d){const t=toInt(m,d),s=toInt(ev.month,ev.day),e=ev.end_month?toInt(ev.end_month,ev.end_day):s;return t>=s&&t<=e;}
-function bPos(ev,m,d){if(!ev.end_month)return"solo";const iS=ev.month===m&&ev.day===d,iE=ev.end_month===m&&ev.end_day===d;if(iS&&iE)return"solo";if(iS)return"start";if(iE)return"end";return"mid";}
+function evCovers(ev,m,d){const t=toInt(m,d),s=toInt(ev.month,ev.day),em=ev.end_month||(ev.has_end?ev.month:null),ed=ev.end_day||(ev.has_end?ev.day:null),e=em?toInt(em,ed):s;return t>=s&&t<=e;}
+function bPos(ev,m,d){const em=ev.end_month||(ev.has_end?ev.month:null),ed=ev.end_day||(ev.has_end?ev.day:null);if(!em)return"solo";const iS=ev.month===m&&ev.day===d,iE=em===m&&ed===d;if(iS&&iE)return"solo";if(iS)return"start";if(iE)return"end";return"mid";}
 
 // ─── DEFAULT SEED DATA ────────────────────────────────────────────────────
 const SEED_TASKS = [
@@ -8143,7 +8143,9 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(isEdit)await updateInfluencer(form.id,ev); else await addInfluencer(ev);
     } else if(isCal){
       if(!form.title)return;
-      const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form};
+      // Ensure end_month is set when has_end is true
+      const fixedEndMonth = form.has_end && !form.end_month ? form.month : form.end_month;
+      const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form,end_month:fixedEndMonth};
       if(isEdit)await updateCalEvent(form.id,ev); else await addCalEvent(ev);
     } else if(isExp){
       if(!form.title||form.title.trim()==="")return; // amount can be 0
@@ -8564,7 +8566,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
               <div style={{width:90}}><input type="number" min={1} max={31} value={form.end_day||1} onChange={e=>f("end_day",Math.min(31,Math.max(1,+e.target.value)))} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></div>
             </div>
             <div style={{background:ws.color+"15",border:`1px solid ${ws.color}33`,borderLeft:`3px solid ${ws.color}`,borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12,color:T.muted}}>
-              <span style={{color:ws.color,fontWeight:700}}>{Math.max(1,Math.round((new Date(NY,form.end_month-1,form.end_day)-new Date(NY,form.month-1,form.day))/86400000)+1)} {t.days}</span>
+              <span style={{color:ws.color,fontWeight:700}}>{Math.max(1,Math.round((new Date(NY,(form.end_month||form.month)-1,(form.end_day||form.day))-new Date(NY,form.month-1,form.day))/86400000)+1)} {t.days}</span>
               {" "}&nbsp;·&nbsp; {MS[form.month-1]} {form.day} → {MS[(form.end_month||form.month)-1]} {form.end_day||form.day}
             </div></>}
           <MF label={t.notes} T={T}><input value={form.note||""} onChange={e=>f("note",e.target.value)} placeholder="Plateforme, détails..."/></MF>
