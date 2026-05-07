@@ -5695,8 +5695,8 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
     if(e.key==="Escape"){setEditId(null);setEditField(null);}
   }
   function saveNewRow(){
-    if(!newRow.title.trim()||newRow.amount===""||newRow.amount===undefined)return;
-    setModal({type:"add_expenses",prefill:{...newRow,due_date:""}});
+    if(!newRow.title.trim())return; // only title required to open modal
+    setModal({type:"add_expenses",prefill:{...newRow,due_date:"",amount:newRow.amount||""}});
     setNewRow({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
     setAddingNew(false);
   }
@@ -6067,14 +6067,35 @@ function GlobalCal({ws,tasks,calEvents,meetings,T,t,setModal}){
         {cells.map((day,idx)=>{
           if(!day)return<div key={"b"+idx} style={{background:T.bg,minHeight:80,borderRadius:4}}/>;
           const isT=curMonth===NM&&day===ND;
-          const dEvs=allEvents.filter(e=>e.month===curMonth&&e.day===day);
+          const dEvs=allEvents.filter(e=>evCovers(e,curMonth,day));
           return(
             <div key={"d"+day} style={{background:isT?ws.color+"18":T.surface,border:`1px solid ${isT?ws.color:T.border}`,borderRadius:6,minHeight:80,padding:"4px 2px",overflow:"hidden"}}>
               <div style={{fontSize:10,color:isT?ws.color:T.dim,fontWeight:isT?800:400,padding:"0 4px",marginBottom:2}}>{day}</div>
-              {dEvs.slice(0,3).map((ev,i)=>(
-                <div key={i} style={{background:ev.color,color:"#fff",fontSize:8,padding:"1px 4px",borderRadius:3,marginBottom:1,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",fontWeight:600,cursor:"pointer"}}
-                  title={ev.title}>{typeIcon[ev.type]} {ev.title}</div>
-              ))}
+              {dEvs.slice(0,3).map((ev,i)=>{
+                const pos=ev.end_month?bPos(ev,curMonth,day):"solo";
+                const isStart=pos==="start"||pos==="solo";
+                const isEnd=pos==="end"||pos==="solo";
+                const isMid=pos==="middle";
+                return(
+                  <div key={i} style={{
+                    background:ev.color+(isMid?"cc":""),
+                    color:"#fff",fontSize:8,
+                    padding:isMid?"1px 0":"1px 4px",
+                    paddingLeft:isMid?"0":"4px",
+                    paddingRight:isMid?"0":"4px",
+                    borderRadius:isStart&&isEnd?3:isStart?"3px 0 0 3px":isEnd?"0 3px 3px 0":0,
+                    marginBottom:1,
+                    marginLeft:isMid||isEnd?"-3px":"0",
+                    marginRight:isMid||isStart&&!isEnd?"-3px":"0",
+                    overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+                    fontWeight:600,cursor:"pointer",
+                    opacity:isMid?0.85:1,
+                  }}
+                  title={ev.title}>
+                    {isStart?`${typeIcon[ev.type]} ${ev.title}`:""}
+                  </div>
+                );
+              })}
               {dEvs.length>3&&<div style={{fontSize:8,color:T.muted,padding:"0 4px"}}>+{dEvs.length-3}</div>}
             </div>
           );
@@ -6091,7 +6112,7 @@ function GlobalCal({ws,tasks,calEvents,meetings,T,t,setModal}){
                 <div style={{width:36,height:36,borderRadius:8,background:ev.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{typeIcon[ev.type]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600}}>{ev.title}</div>
-                  <div style={{fontSize:10,color:T.muted}}>{typeLabel[ev.type]} · {t.months[curMonth-1]} {ev.day}</div>
+                  <div style={{fontSize:10,color:T.muted}}>{typeLabel[ev.type]} · {t.months[(ev.month||curMonth)-1]} {ev.day}{ev.end_month?` → ${t.months[ev.end_month-1]} ${ev.end_day}`:""}</div>
                 </div>
                 <span style={{fontSize:10,color:ev.color,fontWeight:700,background:ev.color+"18",padding:"2px 8px",borderRadius:10}}>{typeLabel[ev.type]}</span>
               </div>
@@ -8125,7 +8146,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form};
       if(isEdit)await updateCalEvent(form.id,ev); else await addCalEvent(ev);
     } else if(isExp){
-      if(!form.title||form.amount===undefined||form.amount===""||form.amount===null)return;
+      if(!form.title||form.title.trim()==="")return; // amount can be 0
       const ev={urgency:"Moyenne",category:"Autre",location:"Global",notes:"",payment_status:"À payer",...form};
       if(isEdit)await updateExpense(form.id,ev); else await addExpense(ev);
     } else if(isProd){
