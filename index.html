@@ -5046,7 +5046,9 @@ function WeekView({events,ws,T,t,setModal,LOC_COLOR,weekStart,setWeekStart}){
     const dm=d.getMonth()+1; const dd=d.getDate();
     return events.filter(ev=>{
       const s=ev.month*100+(ev.day||1);
-      const en=ev.end_month?(ev.end_month*100+(ev.end_day||1)):s;
+      const em=ev.end_month||(ev.has_end?ev.month:null);
+      const ed=ev.end_day||(ev.has_end?ev.day:null);
+      const en=em?(em*100+(ed||1)):s;
       return en>=(dm*100+dd)&&s<=(dm*100+dd);
     });
   }
@@ -5082,13 +5084,27 @@ function WeekView({events,ws,T,t,setModal,LOC_COLOR,weekStart,setWeekStart}){
               </div>
               {evs.map(ev=>(
                 <div key={ev.id} onClick={()=>setModal({type:"edit_calendar",payload:ev})}
-                  style={{
-                    background:calColor(ev.category),color:calText(ev.category),
-                    fontSize:9,fontWeight:700,padding:"3px 6px",borderRadius:5,
-                    marginBottom:3,cursor:"pointer",
-                    overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
-                  }}>
-                  {ev.title}
+                  style={(()=>{
+                    const em2=ev.end_month||(ev.has_end?ev.month:null);
+                    const ed2=ev.end_day||(ev.has_end?ev.day:null);
+                    const isStart=ev.month===d.getMonth()+1&&ev.day===d.getDate();
+                    const isEnd=em2===d.getMonth()+1&&ed2===d.getDate();
+                    const isMid=!isStart&&!isEnd&&(ev.end_month||ev.has_end);
+                    return{
+                      background:calColor(ev.category),color:calText(ev.category),
+                      fontSize:9,fontWeight:700,padding:"3px 6px",
+                      borderRadius:isStart&&isEnd?"5px":isStart?"5px 0 0 5px":isEnd?"0 5px 5px 0":"0",
+                      marginBottom:3,cursor:"pointer",
+                      marginLeft:isMid||isEnd?"-7px":"0",
+                      marginRight:isMid||isStart&&!isEnd?"-7px":"0",
+                      overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+                      opacity:isMid?0.8:1,
+                    };
+                  })()}>
+                  {(()=>{
+                    const isStart=ev.month===d.getMonth()+1&&ev.day===d.getDate();
+                    return isStart||(!(ev.end_month||ev.has_end))?ev.title:"";
+                  })()}
                 </div>
               ))}
               {evs.length===0&&<div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:8}}>—</div>}
