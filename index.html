@@ -8446,6 +8446,124 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             );
           })()}
 
+<<<<<<< HEAD
+=======
+        {isProj&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du projet"/></MF>
+          <MF label={t.description} T={T}><textarea value={form.description||""} onChange={e=>f("description",e.target.value)}/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label={t.status} T={T}><select value={form.status||"Planning"} onChange={e=>f("status",e.target.value)}>{Object.keys(PROJ_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
+            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
+            <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
+            <MF label={t.dueDate} T={T}><DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/></MF>
+          </div>
+          <MF label={`${t.progress}: ${form.progress||0}%`} T={T}><input type="range" min={0} max={100} value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:ws.color,border:"none",padding:0}}/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
+
+        {isMtg&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du meeting"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label={t.dueDate} T={T}><DatePicker value={form.meeting_date||""} onChange={v=>f("meeting_date",v)} color={ws.color} T={T}/></MF>
+            <MF label="Heure" T={T}><input type="time" value={form.time||""} onChange={e=>f("time",e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></MF>
+            <MF label={t.status} T={T}><select value={form.status||"Upcoming"} onChange={e=>f("status",e.target.value)}>{["Upcoming","Récurrent","Done"].map(s=><option key={s}>{s}</option>)}</select></MF>
+            <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
+          </div>
+                    {/* Google Calendar sync status */}
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:gcalIsConnected()?"#00C89612":"#FF9F0A12",border:`1px solid ${gcalIsConnected()?"#00C89633":"#FF9F0A33"}`,borderRadius:7,marginBottom:10}}>
+            <span style={{fontSize:14}}>{gcalIsConnected()?"✅":"⚠️"}</span>
+            <span style={{fontSize:11,color:gcalIsConnected()?"#00C896":"#FF9F0A",fontWeight:600}}>{gcalIsConnected()?"Sera synchronisé dans Google Calendar":"Google Calendar non connecté"}</span>
+          </div>
+          <div style={{background:"#1a73e822",border:"1px solid #1a73e844",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:16}}>📹</span>
+              <span style={{fontSize:12,fontWeight:700,color:"#1a73e8"}}>Google Meet</span>
+            </div>
+            {<MeetLinkSection form={form} f={f} T={T}/>}
+          </div>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
+
+        {isMed&&<><MF label={t.name} T={T}><input value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="@handle"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label={t.platform} T={T}><select value={form.platform||"Instagram"} onChange={e=>f("platform",e.target.value)}>{["Instagram","TikTok","YouTube","Twitter"].map(s=><option key={s}>{s}</option>)}</select></MF>
+            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
+            <MF label={t.followers} T={T}><input value={form.followers||""} onChange={e=>f("followers",e.target.value)} placeholder="ex: 45K"/></MF>
+            <MF label="Coût ($)" T={T}><input type="number" value={form.cost||""} onChange={e=>f("cost",e.target.value)} placeholder="ex: 500"/></MF>
+            <MF label={t.status} T={T}><select value={form.status||"À contacter"} onChange={e=>f("status",e.target.value)}>{Object.keys(INFL_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
+            <MF label={t.visit} T={T}><input value={form.visit||""} onChange={e=>f("visit",e.target.value)} placeholder="ex: Apr 20"/></MF>
+            <MF label={t.content} T={T}><input value={form.content||""} onChange={e=>f("content",e.target.value)} placeholder="ex: Reel + Story"/></MF>
+          </div>
+          <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)}/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
+
+        {isCal&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Lancement Tacos Truffe"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Catégorie" T={T}><select value={form.category||"New Product"} onChange={e=>f("category",e.target.value)}>{CAL_CATS.map(c=><option key={c}>{c}</option>)}</select></MF>
+            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
+          </div>
+          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:6}}>{t.startDate.toUpperCase()}</div>
+          <div style={{display:"flex",gap:10,marginBottom:14}}>
+            <div style={{flex:1}}><select value={form.month||NM} onChange={e=>f("month",+e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}>{MS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></div>
+            <div style={{width:90}}><input type="number" min={1} max={31} value={form.day||1} onChange={e=>f("day",Math.min(31,Math.max(1,+e.target.value)))} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <button onClick={()=>f("has_end",!form.has_end)} style={{background:form.has_end?ws.color:T.s2,color:form.has_end?"#fff":T.muted,border:`1px solid ${form.has_end?ws.color:T.border}`,borderRadius:7,padding:"6px 14px",fontSize:11,display:"flex",alignItems:"center",gap:7}}>
+              <span>{form.has_end?"☑":"☐"}</span>{form.has_end?t.periodActive:t.addEndDate}
+            </button>
+          </div>
+          {form.has_end&&<><div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:6}}>{t.endDate.toUpperCase()}</div>
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              <div style={{flex:1}}><select value={form.end_month||NM} onChange={e=>f("end_month",+e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}>{MS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></div>
+              <div style={{width:90}}><input type="number" min={1} max={31} value={form.end_day||1} onChange={e=>f("end_day",Math.min(31,Math.max(1,+e.target.value)))} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></div>
+            </div>
+            <div style={{background:ws.color+"15",border:`1px solid ${ws.color}33`,borderLeft:`3px solid ${ws.color}`,borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12,color:T.muted}}>
+              <span style={{color:ws.color,fontWeight:700}}>{Math.max(1,Math.round((new Date(NY,(form.end_month||form.month)-1,(form.end_day||form.day))-new Date(NY,form.month-1,form.day))/86400000)+1)} {t.days}</span>
+              {" "}&nbsp;·&nbsp; {MS[form.month-1]} {form.day} → {MS[(form.end_month||form.month)-1]} {form.end_day||form.day}
+            </div></>}
+          <MF label={t.notes} T={T}><input value={form.note||""} onChange={e=>f("note",e.target.value)} placeholder="Plateforme, détails..."/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
+
+        {isExp&&<>
+          <MF label="Titre de la dépense" T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Réparation friteuse Vancouver"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Montant (CAD $)" T={T}><input type="number" min={0} value={form.amount||""} onChange={e=>f("amount",e.target.value)} placeholder="ex: 450"/></MF>
+            <MF label="Niveau d'urgence" T={T}>
+              <select value={form.urgency||"Moyenne"} onChange={e=>f("urgency",e.target.value)}>
+                {Object.keys(URGENCY).map(u=><option key={u}>{u}</option>)}
+              </select>
+            </MF>
+            <MF label="Catégorie" T={T}>
+              <select value={form.category||"Autre"} onChange={e=>f("category",e.target.value)}>
+                {EXP_CATS.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </MF>
+            <MF label="Location" T={T}>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+                {(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+              </select>
+            </MF>
+          </div>
+          <MF label="Date prévue" T={T}>
+            <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
+          </MF>
+          {/* Payment status */}
+          <MF label="Statut de paiement" T={T}>
+            <div style={{display:"flex",gap:8}}>
+              {Object.entries(PAY_STATUS).map(([key,ps])=>(
+                <button key={key} type="button" onClick={()=>f("payment_status",key)} style={{
+                  flex:1,padding:"10px",borderRadius:9,border:`1.5px solid ${(form.payment_status||"À payer")===key?ps.color:T.border}`,
+                  background:(form.payment_status||"À payer")===key?ps.bg:"transparent",
+                  color:(form.payment_status||"À payer")===key?ps.color:T.muted,
+                  fontSize:13,fontWeight:700,cursor:"pointer",transition:"all 0.15s",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                }}>
+                  <span style={{fontSize:16}}>{ps.icon}</span>{ps.label}
+                </button>
+              ))}
+            </div>
+          </MF>
+          <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
+
+                    {/* Urgency preview */}
+          <UrgencyPreview urgency={form.urgency} amount={form.amount} T={T}/>
+>>>>>>> ae8748901f0908e957de64416f4849cd933820d0
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
 
