@@ -560,8 +560,8 @@ const NOW         = new Date();
 const NM=NOW.getMonth()+1, ND=NOW.getDate(), NY=NOW.getFullYear();
 const toInt=(m,d)=>m*100+d;
 function mOff(m,y){const d=new Date(y,m-1,1).getDay();return d===0?6:d-1;}
-function evCovers(ev,m,d){const t=toInt(m,d),s=toInt(ev.month,ev.day),e=ev.end_month?toInt(ev.end_month,ev.end_day):s;return t>=s&&t<=e;}
-function bPos(ev,m,d){if(!ev.end_month)return"solo";const iS=ev.month===m&&ev.day===d,iE=ev.end_month===m&&ev.end_day===d;if(iS&&iE)return"solo";if(iS)return"start";if(iE)return"end";return"mid";}
+function evCovers(ev,m,d){const t=toInt(m,d),s=toInt(ev.month,ev.day),em=ev.end_month||(ev.has_end?ev.month:null),ed=ev.end_day||(ev.has_end?ev.day:null),e=em?toInt(em,ed):s;return t>=s&&t<=e;}
+function bPos(ev,m,d){const em=ev.end_month||(ev.has_end?ev.month:null),ed=ev.end_day||(ev.has_end?ev.day:null);if(!em)return"solo";const iS=ev.month===m&&ev.day===d,iE=em===m&&ed===d;if(iS&&iE)return"solo";if(iS)return"start";if(iE)return"end";return"mid";}
 
 // ─── DEFAULT SEED DATA ────────────────────────────────────────────────────
 const SEED_TASKS = [
@@ -1402,7 +1402,7 @@ function App(){
     // Never let a new task be created as Done
     if(!form._from_gcal) supaItem.status = form.status||"To Do";
     // Strip fields that don't exist in Supabase schema
-    const TASK_COLS = ["workspace","title","location","status","priority","owner","created_by","due","due_date","tags","notes","created_at"];
+    const TASK_COLS = ["workspace","title","location","status","priority","owner","created_by","due","tags","notes","created_at"];
     Object.keys(supaItem).forEach(k=>{ if(!TASK_COLS.includes(k)) delete supaItem[k]; });
     delete supaItem.id; // Never send id — let Supabase auto-generate
     const localItem={...supaItem,id:tempId};
@@ -1431,7 +1431,7 @@ function App(){
     lsUpd("tasks",id,{...form});
     try{
       // Strip unknown columns before sending to Supabase
-      const TASK_COLS_UPD = ["workspace","title","location","status","priority","owner","created_by","due","due_date","tags","notes","created_at"];
+      const TASK_COLS_UPD = ["workspace","title","location","status","priority","owner","created_by","due","tags","notes","created_at"];
       const supaForm = {};
       TASK_COLS_UPD.forEach(k=>{ if(form[k]!==undefined) supaForm[k]=form[k]; });
       await supaUpdate("tasks", id, supaForm);
@@ -5046,7 +5046,9 @@ function WeekView({events,ws,T,t,setModal,LOC_COLOR,weekStart,setWeekStart}){
     const dm=d.getMonth()+1; const dd=d.getDate();
     return events.filter(ev=>{
       const s=ev.month*100+(ev.day||1);
-      const en=ev.end_month?(ev.end_month*100+(ev.end_day||1)):s;
+      const em=ev.end_month||(ev.has_end?ev.month:null);
+      const ed=ev.end_day||(ev.has_end?ev.day:null);
+      const en=em?(em*100+(ed||1)):s;
       return en>=(dm*100+dd)&&s<=(dm*100+dd);
     });
   }
@@ -5082,13 +5084,27 @@ function WeekView({events,ws,T,t,setModal,LOC_COLOR,weekStart,setWeekStart}){
               </div>
               {evs.map(ev=>(
                 <div key={ev.id} onClick={()=>setModal({type:"edit_calendar",payload:ev})}
-                  style={{
-                    background:calColor(ev.category),color:calText(ev.category),
-                    fontSize:9,fontWeight:700,padding:"3px 6px",borderRadius:5,
-                    marginBottom:3,cursor:"pointer",
-                    overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
-                  }}>
-                  {ev.title}
+                  style={(()=>{
+                    const em2=ev.end_month||(ev.has_end?ev.month:null);
+                    const ed2=ev.end_day||(ev.has_end?ev.day:null);
+                    const isStart=ev.month===d.getMonth()+1&&ev.day===d.getDate();
+                    const isEnd=em2===d.getMonth()+1&&ed2===d.getDate();
+                    const isMid=!isStart&&!isEnd&&(ev.end_month||ev.has_end);
+                    return{
+                      background:calColor(ev.category),color:calText(ev.category),
+                      fontSize:9,fontWeight:700,padding:"3px 6px",
+                      borderRadius:isStart&&isEnd?"5px":isStart?"5px 0 0 5px":isEnd?"0 5px 5px 0":"0",
+                      marginBottom:3,cursor:"pointer",
+                      marginLeft:isMid||isEnd?"-7px":"0",
+                      marginRight:isMid||isStart&&!isEnd?"-7px":"0",
+                      overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+                      opacity:isMid?0.8:1,
+                    };
+                  })()}>
+                  {(()=>{
+                    const isStart=ev.month===d.getMonth()+1&&ev.day===d.getDate();
+                    return isStart||(!(ev.end_month||ev.has_end))?ev.title:"";
+                  })()}
                 </div>
               ))}
               {evs.length===0&&<div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:8}}>—</div>}
@@ -5695,8 +5711,8 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
     if(e.key==="Escape"){setEditId(null);setEditField(null);}
   }
   function saveNewRow(){
-    if(!newRow.title.trim()||newRow.amount===""||newRow.amount===undefined)return;
-    setModal({type:"add_expenses",prefill:{...newRow,due_date:""}});
+    if(!newRow.title.trim())return; // only title required to open modal
+    setModal({type:"add_expenses",prefill:{...newRow,due_date:"",amount:newRow.amount||""}});
     setNewRow({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
     setAddingNew(false);
   }
@@ -6067,14 +6083,35 @@ function GlobalCal({ws,tasks,calEvents,meetings,T,t,setModal}){
         {cells.map((day,idx)=>{
           if(!day)return<div key={"b"+idx} style={{background:T.bg,minHeight:80,borderRadius:4}}/>;
           const isT=curMonth===NM&&day===ND;
-          const dEvs=allEvents.filter(e=>e.month===curMonth&&e.day===day);
+          const dEvs=allEvents.filter(e=>evCovers(e,curMonth,day));
           return(
             <div key={"d"+day} style={{background:isT?ws.color+"18":T.surface,border:`1px solid ${isT?ws.color:T.border}`,borderRadius:6,minHeight:80,padding:"4px 2px",overflow:"hidden"}}>
               <div style={{fontSize:10,color:isT?ws.color:T.dim,fontWeight:isT?800:400,padding:"0 4px",marginBottom:2}}>{day}</div>
-              {dEvs.slice(0,3).map((ev,i)=>(
-                <div key={i} style={{background:ev.color,color:"#fff",fontSize:8,padding:"1px 4px",borderRadius:3,marginBottom:1,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",fontWeight:600,cursor:"pointer"}}
-                  title={ev.title}>{typeIcon[ev.type]} {ev.title}</div>
-              ))}
+              {dEvs.slice(0,3).map((ev,i)=>{
+                const pos=ev.end_month?bPos(ev,curMonth,day):"solo";
+                const isStart=pos==="start"||pos==="solo";
+                const isEnd=pos==="end"||pos==="solo";
+                const isMid=pos==="middle";
+                return(
+                  <div key={i} style={{
+                    background:ev.color+(isMid?"cc":""),
+                    color:"#fff",fontSize:8,
+                    padding:isMid?"1px 0":"1px 4px",
+                    paddingLeft:isMid?"0":"4px",
+                    paddingRight:isMid?"0":"4px",
+                    borderRadius:isStart&&isEnd?3:isStart?"3px 0 0 3px":isEnd?"0 3px 3px 0":0,
+                    marginBottom:1,
+                    marginLeft:isMid||isEnd?"-3px":"0",
+                    marginRight:isMid||isStart&&!isEnd?"-3px":"0",
+                    overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",
+                    fontWeight:600,cursor:"pointer",
+                    opacity:isMid?0.85:1,
+                  }}
+                  title={ev.title}>
+                    {isStart?`${typeIcon[ev.type]} ${ev.title}`:""}
+                  </div>
+                );
+              })}
               {dEvs.length>3&&<div style={{fontSize:8,color:T.muted,padding:"0 4px"}}>+{dEvs.length-3}</div>}
             </div>
           );
@@ -6091,7 +6128,7 @@ function GlobalCal({ws,tasks,calEvents,meetings,T,t,setModal}){
                 <div style={{width:36,height:36,borderRadius:8,background:ev.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{typeIcon[ev.type]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600}}>{ev.title}</div>
-                  <div style={{fontSize:10,color:T.muted}}>{typeLabel[ev.type]} · {t.months[curMonth-1]} {ev.day}</div>
+                  <div style={{fontSize:10,color:T.muted}}>{typeLabel[ev.type]} · {t.months[(ev.month||curMonth)-1]} {ev.day}{ev.end_month?` → ${t.months[ev.end_month-1]} ${ev.end_day}`:""}</div>
                 </div>
                 <span style={{fontSize:10,color:ev.color,fontWeight:700,background:ev.color+"18",padding:"2px 8px",borderRadius:10}}>{typeLabel[ev.type]}</span>
               </div>
@@ -8022,6 +8059,39 @@ function MeetLinkSection({form, f, T}){
 }
 
 // ─── MODAL ────────────────────────────────────────────────────────────────
+function TaskJournal({taskId,taskNotes,addTaskNote,ws,T,user,wsId}){
+  const [newNote,setNewNote]=React.useState("");
+  const notes=(taskNotes||[]).filter(n=>String(n.task_id)===String(taskId));
+  return(
+    <div style={{marginBottom:18}}>
+      <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:8,textTransform:"uppercase"}}>📋 Journal d'avancement</div>
+      <div style={{display:"flex",gap:8,marginBottom:notes.length>0?10:0}}>
+        <input
+          value={newNote}
+          onChange={e=>setNewNote(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&newNote.trim()){addTaskNote&&addTaskNote({task_id:taskId,text:newNote.trim(),workspace:wsId,created_by:user.name});setNewNote("");}}}
+          placeholder="Note d'avancement... (Enter pour valider)"
+          style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",fontSize:12.5,color:T.text,outline:"none",fontFamily:"inherit",transition:"border-color 0.15s"}}
+          onFocus={e=>e.target.style.borderColor=ws.color}
+          onBlur={e=>e.target.style.borderColor=T.border}
+        />
+        {newNote.trim()&&<button type="button" onClick={()=>{addTaskNote&&addTaskNote({task_id:taskId,text:newNote.trim(),workspace:wsId,created_by:user.name});setNewNote("");}} style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>↵</button>}
+      </div>
+      {notes.length>0?(
+        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:160,overflowY:"auto"}}>
+          {notes.slice().reverse().map((n,i)=>(
+            <div key={n.id||i} style={{padding:"8px 12px",background:T.s2,borderRadius:8,borderLeft:`2px solid ${ws.color}`,animation:"fadeUp 0.2s ease"}}>
+              <div style={{fontSize:12.5,color:T.text,lineHeight:1.5}}>{n.text}</div>
+              <div style={{fontSize:9,color:T.dim,marginTop:3}}>{n.created_by||user.name} · {n.created_at?new Date(n.created_at).toLocaleDateString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):""}</div>
+            </div>
+          ))}
+        </div>
+      ):<div style={{fontSize:11,color:T.dim,fontStyle:"italic",textAlign:"center",padding:"6px 0"}}>Aucune note encore</div>}
+    </div>
+  );
+}
+
+
 function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,addProject,updateProject,deleteProject,addMeeting,updateMeeting,deleteMeeting,addInfluencer,updateInfluencer,deleteInfluencer,addCalEvent,updateCalEvent,deleteCalEvent,addExpense,updateExpense,deleteExpense,addProduct,updateProduct,deleteProduct,addClient,updateClient,deleteClient,addTaskNote,taskNotes,mediaBudget,addMediaBudget,updateMediaBudget,addMember,T,t,wsId}){
   const [form,setForm]=useState(modal.payload||modal.prefill||{});
   const close=()=>setModal(null);
@@ -8122,10 +8192,12 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       if(isEdit)await updateInfluencer(form.id,ev); else await addInfluencer(ev);
     } else if(isCal){
       if(!form.title)return;
-      const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form};
+      // Ensure end_month is set when has_end is true
+      const fixedEndMonth = form.has_end && !form.end_month ? form.month : form.end_month;
+      const ev={category:"New Product",location:"Global",month:NM,day:1,note:"",...form,end_month:fixedEndMonth};
       if(isEdit)await updateCalEvent(form.id,ev); else await addCalEvent(ev);
     } else if(isExp){
-      if(!form.title||form.amount===undefined||form.amount===""||form.amount===null)return;
+      if(!form.title||form.title.trim()==="")return; // amount can be 0
       const ev={urgency:"Moyenne",category:"Autre",location:"Global",notes:"",payment_status:"À payer",...form};
       if(isEdit)await updateExpense(form.id,ev); else await addExpense(ev);
     } else if(isProd){
@@ -8212,386 +8284,168 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
           {isEdit?(isMed?t.editInfluencer:isCal?"Modifier event":isMtg?t.editMeeting:isProj?t.editProject:t.editTask):(isMed?t.newInfluencer:isCal?t.addEvent:isMtg?t.newMeeting:isProj?t.newProject:isAcc?t.inviteMember:t.newTask)}
         </div>
 
-        {isTask&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom de la tâche"/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label={t.status} T={T}><select value={form.status||"To Do"} onChange={e=>f("status",e.target.value)}>{Object.keys(TASK_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.priority} T={T}><select value={form.priority||"Medium"} onChange={e=>f("priority",e.target.value)}>{Object.keys(TASK_PRI).map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
-            <MF label={t.owner} T={T}>
-            <select value={(form.tags||[]).includes("Commun")?"Équipe":(form.owner||user.name)} onChange={e=>{
-              const newOwner = e.target.value==="Équipe"?user.name:e.target.value;
-              f("owner", newOwner);
-              // Auto-tag Commun when assigning to someone else or Équipe
-              if(e.target.value==="Équipe" || (newOwner && newOwner!==user.name)){
-                f("tags",[...((form.tags||[]).filter(t=>t!=="Commun")),"Commun"]);
-              } else {
-                f("tags",(form.tags||[]).filter(t=>t!=="Commun"));
-              }
-            }}>
-              {members.map(m=><option key={m.id}>{m.name}</option>)}
-              <option value="Équipe">👥 Équipe</option>
-            </select>
-          </MF>
-          </div>
-          {/* ── DATES & RAPPELS ── */}
-          <div style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 16px",marginBottom:14}}>
-            <div style={{fontSize:10,fontWeight:700,color:T.muted,letterSpacing:0.8,marginBottom:12}}>📅 DATES & RAPPELS</div>
+        {isTask&&<>
+          {/* ══ TASK MODAL REDESIGN ══ */}
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-              {/* Start date */}
-              <div>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{width:8,height:8,borderRadius:"50%",background:"#0A84FF",display:"inline-block"}}/>
-                  DATE DE DÉBUT
-                </div>
-                <DatePicker value={form.start_date||""} onChange={v=>f("start_date",v)} color="#0A84FF" T={T}/>
-              </div>
-              {/* Deadline */}
-              <div>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:6,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{width:8,height:8,borderRadius:"50%",background:ws.color,display:"inline-block"}}/>
-                  DEADLINE
-                </div>
-                <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
-              </div>
-            </div>
+          {/* ── TITRE ── */}
+          <input
+            value={form.title||""}
+            onChange={e=>f("title",e.target.value)}
+            placeholder="Nom de la tâche"
+            style={{
+              width:"100%",fontSize:16,fontWeight:700,
+              background:"transparent",border:"none",
+              borderBottom:`2px solid ${ws.color}`,
+              color:T.text,padding:"4px 0 8px",marginBottom:18,
+              outline:"none",fontFamily:"inherit",letterSpacing:-0.3,
+            }}
+          />
 
-            {/* Duration indicator */}
-            {form.start_date&&form.due_date&&(()=>{
-              const s=new Date(form.start_date+"T00:00:00");
-              const e=new Date(form.due_date+"T00:00:00");
-              const diff=Math.round((e-s)/86400000);
-              const today=new Date(); today.setHours(0,0,0,0);
-              const elapsed=Math.round((today-s)/86400000);
-              const pct=diff>0?Math.min(100,Math.max(0,Math.round(elapsed/diff*100))):0;
-              if(diff<0) return <div style={{fontSize:11,color:"#FF3B30",background:"#FF3B3015",borderRadius:7,padding:"6px 10px",marginBottom:12}}>⚠️ La deadline est avant la date de début</div>;
-              return(
-                <div style={{marginBottom:12}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.muted,marginBottom:4}}>
-                    <span>Durée : {diff} jour{diff>1?"s":""}</span>
-                    <span style={{color:pct>80?"#FF3B30":pct>50?"#FF9F0A":"#00C896",fontWeight:700}}>{pct}% écoulé</span>
-                  </div>
-                  <div style={{height:4,background:T.s3,borderRadius:4,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:pct+"%",background:pct>80?"#FF3B30":pct>50?"#FF9F0A":"#00C896",borderRadius:4,transition:"width 0.3s"}}/>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Reminders */}
-            <div>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:0.8,marginBottom:8,fontWeight:600}}>🔔 RAPPELS AVANT DEADLINE</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[
-                  {label:"Jour J",  val:"0"},
-                  {label:"1 jour",  val:"1"},
-                  {label:"2 jours", val:"2"},
-                  {label:"3 jours", val:"3"},
-                  {label:"1 sem",   val:"7"},
-                  {label:"2 sem",   val:"14"},
-                ].map(r=>{
-                  const active=(form.reminders||["1","3"]).includes(r.val);
-                  return(
-                    <button key={r.val} type="button" onClick={()=>{
-                      const cur=form.reminders||["1","3"];
-                      f("reminders", active?cur.filter(x=>x!==r.val):[...cur,r.val]);
-                    }} style={{
-                      padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:active?700:400,
-                      background:active?ws.color+"22":"transparent",
-                      border:`1.5px solid ${active?ws.color:T.border}`,
-                      color:active?ws.color:T.muted,
-                      cursor:"pointer",transition:"all 0.15s",
-                    }}>{r.label}</button>
-                  );
-                })}
+          {/* ── ROW 1: Status / Priority / Owner ── */}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+            {[
+              {label:"Statut",key:"status",opts:["To Do","In Progress","Blocked","Done"]},
+              {label:"Priorité",key:"priority",opts:["Low","Medium","High"]},
+            ].map(({label,key,opts})=>(
+              <div key={key} style={{flex:1,minWidth:100}}>
+                <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:4,textTransform:"uppercase"}}>{label}</div>
+                <select value={form[key]||opts[0]} onChange={e=>f(key,e.target.value)} style={{
+                  width:"100%",background:T.s2,border:`1px solid ${T.border}`,
+                  color:T.text,borderRadius:7,padding:"6px 10px",fontSize:12,fontFamily:"inherit",outline:"none",
+                }}>
+                  {opts.map(o=><option key={o}>{o}</option>)}
+                </select>
               </div>
-              <div style={{fontSize:10,color:T.dim,marginTop:6}}>
-                {(form.reminders||["1","3"]).length>0
-                  ? `Notifications : ${(form.reminders||["1","3"]).map(v=>v==="0"?"le jour J":`${v}j avant`).join(", ")}`
-                  : "Aucun rappel configuré"}
-              </div>
+            ))}
+            <div style={{flex:1,minWidth:100}}>
+              <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:4,textTransform:"uppercase"}}>Responsable</div>
+              <select value={(form.tags||[]).includes("Commun")?"Équipe":(form.owner||user.name)} onChange={e=>{
+                const newOwner=e.target.value==="Équipe"?user.name:e.target.value;
+                f("owner",newOwner);
+                if(e.target.value==="Équipe"||(newOwner&&newOwner!==user.name)){
+                  f("tags",[...((form.tags||[]).filter(t=>t!=="Commun")),"Commun"]);
+                }else{f("tags",(form.tags||[]).filter(t=>t!=="Commun"));}
+              }} style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:7,padding:"6px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}>
+                {members.map(m=><option key={m.id}>{m.name}</option>)}
+                <option value="Équipe">👥 Équipe</option>
+              </select>
             </div>
           </div>
 
-          {/* Calendar sync */}
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:ws.color+"12",border:`1px solid ${ws.color}33`,borderRadius:7}}>
-              <input type="checkbox" id="addtocal" checked={form.add_to_cal||false} onChange={e=>f("add_to_cal",e.target.checked)}
-                style={{width:16,height:16,accentColor:ws.color,cursor:"pointer"}}/>
-              <label htmlFor="addtocal" style={{fontSize:12,color:T.text,cursor:"pointer",userSelect:"none"}}>
-                ⊞ Ajouter au calendrier BNC OS
-              </label>
+          {/* ── ROW 2: Location / Deadline ── */}
+          <div style={{display:"flex",gap:8,marginBottom:18}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:4,textTransform:"uppercase"}}>Location</div>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)} style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:7,padding:"6px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}>
+                {(LOCATIONS_BY_WS[wsId]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+              </select>
             </div>
-            {form.due_date&&(
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",background:gcalIsConnected()?"#1a73e812":"rgba(255,255,255,0.03)",border:`1px solid ${gcalIsConnected()?"#1a73e844":"rgba(255,255,255,0.08)"}`,borderRadius:7}}>
-                <span style={{fontSize:13}}>{gcalIsConnected()?"📅":"⚠️"}</span>
-                <span style={{fontSize:11,color:gcalIsConnected()?"#1a73e8":"rgba(255,255,255,0.4)",fontWeight:600}}>
-                  {gcalIsConnected()
-                    ? "Sera ajouté à Google Calendar automatiquement"
-                    : "Connecte Google Calendar (sidebar) pour sync auto"}
-                </span>
-              </div>
-            )}
+            <div style={{flex:1}}>
+              <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:4,textTransform:"uppercase"}}>Deadline</div>
+              <DatePickerInline value={form.due_date||""} onChange={v=>f("due_date",v||"")} color={ws.color} T={T}/>
+            </div>
           </div>
-                    {/* ── NOTES + CHECKLIST ── */}
+
+          {/* ── NOTES ── */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:6,textTransform:"uppercase"}}>📝 Notes</div>
+            <textarea
+              value={(()=>{const n=form.notes||"";const i=n.indexOf("---CHECKLIST---");return i>=0?n.slice(0,i).trimEnd():n;})()}
+              onChange={e=>{
+                const n=form.notes||"";
+                const i=n.indexOf("---CHECKLIST---");
+                const payPart=i>=0?"\n---CHECKLIST---\n"+n.slice(i+15).trim():"";
+                f("notes",e.target.value+payPart);
+              }}
+              placeholder="Contexte, liens, infos clés..."
+              style={{
+                width:"100%",minHeight:72,background:T.s2,
+                border:`1px solid ${T.border}`,borderRadius:8,
+                padding:"10px 12px",fontSize:13,color:T.text,
+                lineHeight:1.6,resize:"vertical",outline:"none",
+                fontFamily:"inherit",transition:"border-color 0.15s",
+                boxSizing:"border-box",
+              }}
+              onFocus={e=>e.target.style.borderColor=ws.color}
+              onBlur={e=>e.target.style.borderColor=T.border}
+            />
+          </div>
+
+          {/* ── JOURNAL D'AVANCEMENT ── */}
+          <TaskJournal
+            taskId={form.id}
+            taskNotes={taskNotes}
+            addTaskNote={addTaskNote}
+            ws={ws} T={T} user={user} wsId={wsId}
+          />
+
+          {/* ── CHECKLIST ── */}
           {(()=>{
-            const notesRaw = form.notes || "";
-            const clSep = "---CHECKLIST---";
-            const linkSep = "---LINKS---";
-            const clIdx = notesRaw.indexOf(clSep);
-            const linkIdx = notesRaw.indexOf(linkSep);
-            const endOfText = clIdx >= 0 ? clIdx : (linkIdx >= 0 ? linkIdx : notesRaw.length);
-            const plainText = notesRaw.slice(0, endOfText).trimEnd();
-            let checkItems = [];
-            if(clIdx >= 0){
-              const clEnd = linkIdx >= 0 && linkIdx > clIdx ? linkIdx : notesRaw.length;
-              const clBlock = notesRaw.slice(clIdx + clSep.length, clEnd).trim();
-              if(clBlock) checkItems = clBlock.split("\n").filter(l=>l.trim()).map((l,i)=>{
-                const done = l.startsWith("[x]") || l.startsWith("[X]");
-                const text = l.replace(/^\[.\]\s*/, "").trim();
-                return {id:i, text, done};
+            const clSep="---CHECKLIST---";
+            const notesRaw=form.notes||"";
+            const clIdx=notesRaw.indexOf(clSep);
+            const linkIdx=notesRaw.indexOf("---LINKS---");
+            const endOfText=clIdx>=0?clIdx:(linkIdx>=0?linkIdx:notesRaw.length);
+            const plainText=notesRaw.slice(0,endOfText).trimEnd();
+            let checkItems=[];
+            if(clIdx>=0){
+              const clEnd=linkIdx>=0&&linkIdx>clIdx?linkIdx:notesRaw.length;
+              const clBlock=notesRaw.slice(clIdx+clSep.length,clEnd).trim();
+              if(clBlock) checkItems=clBlock.split("\n").filter(l=>l.trim()).map((l,i)=>{
+                const done=l.startsWith("[x]")||l.startsWith("[X]");
+                const text=l.replace(/^\[.\]\s*/,"").trim();
+                return {id:i,text,done};
               });
             }
-            const linksBlock = linkIdx >= 0 ? notesRaw.slice(linkIdx) : "";
-            const rebuildNotes = (text, items, links) => {
-              let r = text;
-              if(items.length > 0) r += (r?"\n":"") + clSep + "\n" + items.map(it=>(it.done?"[x] ":"[ ] ")+it.text).join("\n");
-              if(links) r += "\n" + links;
+            const linksBlock=linkIdx>=0?notesRaw.slice(linkIdx):"";
+            const rebuild=(text,items,links)=>{
+              let r=text;
+              if(items.length>0) r+=(r?"\n":"")+clSep+"\n"+items.map(it=>(it.done?"[x] ":"[ ] ")+it.text).join("\n");
+              if(links) r+="\n"+links;
               return r;
             };
-            const doneCount = checkItems.filter(it=>it.done).length;
-            const total = checkItems.length;
-            const pct = total > 0 ? Math.round(doneCount/total*100) : 0;
-            return(<>
-              {/* Notes */}
+            const done=checkItems.filter(it=>it.done).length;
+            const total=checkItems.length;
+            const pct=total>0?Math.round(done/total*100):0;
+            return(
               <div style={{marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:7}}>
-                  <span style={{fontSize:13}}>📝</span>
-                  <span style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.5,textTransform:"uppercase"}}>Notes</span>
-                  {plainText.length>0&&<span style={{marginLeft:"auto",fontSize:9,color:T.dim}}>{plainText.length} car.</span>}
-                </div>
-                <textarea
-                  value={plainText}
-                  onChange={e=>f("notes", rebuildNotes(e.target.value, checkItems, linksBlock))}
-                  placeholder="Contexte, liens, infos clés..."
-                  rows={3}
-                  style={{
-                    width:"100%",background:T.s2,
-                    border:`1px solid ${plainText.length>0?ws.color+"55":T.border}`,
-                    borderRadius:8,padding:"10px 12px",
-                    fontSize:13,color:T.text,lineHeight:1.6,
-                    resize:"vertical",outline:"none",fontFamily:"inherit",
-                    transition:"border-color 0.15s",boxSizing:"border-box",
-                  }}
-                  onFocus={e=>e.target.style.borderColor=ws.color}
-                  onBlur={e=>e.target.style.borderColor=plainText.length>0?ws.color+"55":T.border}
-                />
-              </div>
-              {/* Checklist */}
-              <div style={{marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                  <span style={{fontSize:13}}>✅</span>
-                  <span style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.5,textTransform:"uppercase"}}>Checklist</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,textTransform:"uppercase"}}>✅ Checklist</span>
                   {total>0&&<>
-                    <span style={{fontSize:10,color:T.dim,marginLeft:2}}>{doneCount}/{total}</span>
-                    <span style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:pct===100?"#30D158":ws.color}}>{pct}%</span>
+                    <span style={{fontSize:10,color:T.dim}}>{done}/{total}</span>
+                    <div style={{flex:1,height:3,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+                      <div style={{height:"100%",borderRadius:99,width:pct+"%",background:pct===100?"#30D158":ws.color,transition:"width 0.3s ease"}}/>
+                    </div>
+                    <span style={{fontSize:10,fontWeight:700,color:pct===100?"#30D158":ws.color}}>{pct}%</span>
                   </>}
                 </div>
-                {total>0&&(
-                  <div style={{height:3,background:T.s3,borderRadius:99,marginBottom:10,overflow:"hidden"}}>
-                    <div style={{height:"100%",borderRadius:99,width:pct+"%",transition:"width 0.3s cubic-bezier(0.16,1,0.3,1)",background:pct===100?"#30D158":ws.color,boxShadow:pct===100?"0 0 6px #30D15866":`0 0 6px ${ws.color}55`}}/>
-                  </div>
-                )}
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
                   {checkItems.map((item,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:item.done?ws.color+"0d":T.s2,borderRadius:8,border:`1px solid ${item.done?ws.color+"33":T.border}`,transition:"all 0.15s",group:"true"}}>
-                      <button type="button" onClick={()=>{
-                        const upd=checkItems.map((it,j)=>j===i?{...it,done:!it.done}:it);
-                        f("notes",rebuildNotes(plainText,upd,linksBlock));
-                      }} style={{
-                        width:18,height:18,borderRadius:5,flexShrink:0,cursor:"pointer",
-                        background:item.done?ws.color:"transparent",
-                        border:`2px solid ${item.done?ws.color:T.muted}`,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        padding:0,transition:"all 0.15s",
-                      }}>
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.done?ws.color+"0d":T.s2,borderRadius:8,border:`1px solid ${item.done?ws.color+"33":T.border}`,transition:"all 0.15s"}}>
+                      <button type="button" onClick={()=>{const upd=checkItems.map((it,j)=>j===i?{...it,done:!it.done}:it);f("notes",rebuild(plainText,upd,linksBlock));}} style={{width:18,height:18,borderRadius:5,flexShrink:0,cursor:"pointer",background:item.done?ws.color:"transparent",border:`2px solid ${item.done?ws.color:T.muted}`,display:"flex",alignItems:"center",justifyContent:"center",padding:0,transition:"all 0.15s"}}>
                         {item.done&&<span style={{color:"#fff",fontSize:10,fontWeight:800,lineHeight:1}}>✓</span>}
                       </button>
-                      <input
-                        value={item.text}
-                        onChange={e=>{
-                          const upd=checkItems.map((it,j)=>j===i?{...it,text:e.target.value}:it);
-                          f("notes",rebuildNotes(plainText,upd,linksBlock));
-                        }}
+                      <input value={item.text} onChange={e=>{const upd=checkItems.map((it,j)=>j===i?{...it,text:e.target.value}:it);f("notes",rebuild(plainText,upd,linksBlock));}}
                         onKeyDown={e=>{
-                          if(e.key==="Enter"){
-                            e.preventDefault();
-                            const upd=[...checkItems.slice(0,i+1),{id:Date.now(),text:"",done:false},...checkItems.slice(i+1)];
-                            f("notes",rebuildNotes(plainText,upd,linksBlock));
-                          }
-                          if(e.key==="Backspace"&&item.text===""){
-                            const upd=checkItems.filter((_,j)=>j!==i);
-                            f("notes",rebuildNotes(plainText,upd,linksBlock));
-                          }
+                          if(e.key==="Enter"){e.preventDefault();const upd=[...checkItems.slice(0,i+1),{id:Date.now(),text:"",done:false},...checkItems.slice(i+1)];f("notes",rebuild(plainText,upd,linksBlock));}
+                          if(e.key==="Backspace"&&item.text===""){const upd=checkItems.filter((_,j)=>j!==i);f("notes",rebuild(plainText,upd,linksBlock));}
                         }}
                         placeholder="Élément..."
-                        style={{
-                          flex:1,background:"transparent",border:"none",outline:"none",
-                          color:item.done?T.dim:T.text,fontSize:12.5,padding:0,
-                          textDecoration:item.done?"line-through":"none",
-                          fontFamily:"inherit",transition:"color 0.15s",
-                        }}
+                        style={{flex:1,background:"transparent",border:"none",outline:"none",color:item.done?T.dim:T.text,fontSize:12.5,padding:0,textDecoration:item.done?"line-through":"none",fontFamily:"inherit"}}
                       />
-                      <button type="button" onClick={()=>{
-                        const upd=checkItems.filter((_,j)=>j!==i);
-                        f("notes",rebuildNotes(plainText,upd,linksBlock));
-                      }} style={{
-                        background:"transparent",border:"none",color:T.dim,
-                        fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1,
-                        flexShrink:0,opacity:0,transition:"opacity 0.1s",
-                      }}
-                      onMouseEnter={e=>e.currentTarget.style.opacity="1"}
-                      onMouseLeave={e=>e.currentTarget.style.opacity="0"}
-                      >×</button>
+                      <button type="button" onClick={()=>{const upd=checkItems.filter((_,j)=>j!==i);f("notes",rebuild(plainText,upd,linksBlock));}} style={{background:"transparent",border:"none",color:T.dim,fontSize:16,cursor:"pointer",padding:"0 2px",opacity:0,transition:"opacity 0.1s",flexShrink:0}} onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0"}>×</button>
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={()=>{
-                  const upd=[...checkItems,{id:Date.now(),text:"",done:false}];
-                  f("notes",rebuildNotes(plainText,upd,linksBlock));
-                }} style={{
-                  marginTop:6,width:"100%",background:"transparent",
-                  border:`1.5px dashed ${T.border}`,borderRadius:8,
-                  padding:"7px 12px",display:"flex",alignItems:"center",gap:7,
-                  color:T.dim,fontSize:12,cursor:"pointer",
-                  transition:"border-color 0.15s,color 0.15s",
-                }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
+                <button type="button" onClick={()=>{const upd=[...checkItems,{id:Date.now(),text:"",done:false}];f("notes",rebuild(plainText,upd,linksBlock));}} style={{marginTop:6,width:"100%",background:"transparent",border:`1.5px dashed ${T.border}`,borderRadius:8,padding:"7px 12px",display:"flex",alignItems:"center",gap:7,color:T.dim,fontSize:12,cursor:"pointer",transition:"border-color 0.15s,color 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
                   <span style={{fontSize:15,lineHeight:1,fontWeight:300}}>+</span>
                   <span>Ajouter un élément</span>
-                  <span style={{marginLeft:"auto",fontSize:10,color:T.dim,opacity:0.6}}>↵ pour continuer</span>
+                  <span style={{marginLeft:"auto",fontSize:10,color:T.dim,opacity:0.6}}>↵ continuer</span>
                 </button>
               </div>
-            </>);
+            );
           })()}
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
 
-        {isProj&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du projet"/></MF>
-          <MF label={t.description} T={T}><textarea value={form.description||""} onChange={e=>f("description",e.target.value)}/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label={t.status} T={T}><select value={form.status||"Planning"} onChange={e=>f("status",e.target.value)}>{Object.keys(PROJ_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
-            <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
-            <MF label={t.dueDate} T={T}><DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/></MF>
-          </div>
-          <MF label={`${t.progress}: ${form.progress||0}%`} T={T}><input type="range" min={0} max={100} value={form.progress||0} onChange={e=>f("progress",+e.target.value)} style={{width:"100%",accentColor:ws.color,border:"none",padding:0}}/></MF>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
-
-        {isMtg&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="Nom du meeting"/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label={t.dueDate} T={T}><DatePicker value={form.meeting_date||""} onChange={v=>f("meeting_date",v)} color={ws.color} T={T}/></MF>
-            <MF label="Heure" T={T}><input type="time" value={form.time||""} onChange={e=>f("time",e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></MF>
-            <MF label={t.status} T={T}><select value={form.status||"Upcoming"} onChange={e=>f("status",e.target.value)}>{["Upcoming","Récurrent","Done"].map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.owner} T={T}><select value={form.owner||user.name} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
-          </div>
-                    {/* Google Calendar sync status */}
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:gcalIsConnected()?"#00C89612":"#FF9F0A12",border:`1px solid ${gcalIsConnected()?"#00C89633":"#FF9F0A33"}`,borderRadius:7,marginBottom:10}}>
-            <span style={{fontSize:14}}>{gcalIsConnected()?"✅":"⚠️"}</span>
-            <span style={{fontSize:11,color:gcalIsConnected()?"#00C896":"#FF9F0A",fontWeight:600}}>{gcalIsConnected()?"Sera synchronisé dans Google Calendar":"Google Calendar non connecté"}</span>
-          </div>
-          <div style={{background:"#1a73e822",border:"1px solid #1a73e844",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{fontSize:16}}>📹</span>
-              <span style={{fontSize:12,fontWeight:700,color:"#1a73e8"}}>Google Meet</span>
-            </div>
-            {<MeetLinkSection form={form} f={f} T={T}/>}
-          </div>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/></>}
-
-        {isMed&&<><MF label={t.name} T={T}><input value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="@handle"/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label={t.platform} T={T}><select value={form.platform||"Instagram"} onChange={e=>f("platform",e.target.value)}>{["Instagram","TikTok","YouTube","Twitter"].map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
-            <MF label={t.followers} T={T}><input value={form.followers||""} onChange={e=>f("followers",e.target.value)} placeholder="ex: 45K"/></MF>
-            <MF label="Coût ($)" T={T}><input type="number" value={form.cost||""} onChange={e=>f("cost",e.target.value)} placeholder="ex: 500"/></MF>
-            <MF label={t.status} T={T}><select value={form.status||"À contacter"} onChange={e=>f("status",e.target.value)}>{Object.keys(INFL_STATUS).map(s=><option key={s}>{s}</option>)}</select></MF>
-            <MF label={t.visit} T={T}><input value={form.visit||""} onChange={e=>f("visit",e.target.value)} placeholder="ex: Apr 20"/></MF>
-            <MF label={t.content} T={T}><input value={form.content||""} onChange={e=>f("content",e.target.value)} placeholder="ex: Reel + Story"/></MF>
-          </div>
-          <MF label={t.notes} T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)}/></MF>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
-
-        {isCal&&<><MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Lancement Tacos Truffe"/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label="Catégorie" T={T}><select value={form.category||"New Product"} onChange={e=>f("category",e.target.value)}>{CAL_CATS.map(c=><option key={c}>{c}</option>)}</select></MF>
-            <MF label={t.location} T={T}><select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>{(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}</select></MF>
-          </div>
-          <div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:6}}>{t.startDate.toUpperCase()}</div>
-          <div style={{display:"flex",gap:10,marginBottom:14}}>
-            <div style={{flex:1}}><select value={form.month||NM} onChange={e=>f("month",+e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}>{MS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></div>
-            <div style={{width:90}}><input type="number" min={1} max={31} value={form.day||1} onChange={e=>f("day",Math.min(31,Math.max(1,+e.target.value)))} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <button onClick={()=>f("has_end",!form.has_end)} style={{background:form.has_end?ws.color:T.s2,color:form.has_end?"#fff":T.muted,border:`1px solid ${form.has_end?ws.color:T.border}`,borderRadius:7,padding:"6px 14px",fontSize:11,display:"flex",alignItems:"center",gap:7}}>
-              <span>{form.has_end?"☑":"☐"}</span>{form.has_end?t.periodActive:t.addEndDate}
-            </button>
-          </div>
-          {form.has_end&&<><div style={{fontSize:10,color:T.muted,letterSpacing:1,marginBottom:6}}>{t.endDate.toUpperCase()}</div>
-            <div style={{display:"flex",gap:10,marginBottom:12}}>
-              <div style={{flex:1}}><select value={form.end_month||NM} onChange={e=>f("end_month",+e.target.value)} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}>{MS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></div>
-              <div style={{width:90}}><input type="number" min={1} max={31} value={form.end_day||1} onChange={e=>f("end_day",Math.min(31,Math.max(1,+e.target.value)))} style={{background:T.inputBg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:"8px 11px",fontSize:13,width:"100%"}}/></div>
-            </div>
-            <div style={{background:ws.color+"15",border:`1px solid ${ws.color}33`,borderLeft:`3px solid ${ws.color}`,borderRadius:6,padding:"8px 12px",marginBottom:12,fontSize:12,color:T.muted}}>
-              <span style={{color:ws.color,fontWeight:700}}>{Math.max(1,Math.round((new Date(NY,form.end_month-1,form.end_day)-new Date(NY,form.month-1,form.day))/86400000)+1)} {t.days}</span>
-              {" "}&nbsp;·&nbsp; {MS[form.month-1]} {form.day} → {MS[(form.end_month||form.month)-1]} {form.end_day||form.day}
-            </div></>}
-          <MF label={t.notes} T={T}><input value={form.note||""} onChange={e=>f("note",e.target.value)} placeholder="Plateforme, détails..."/></MF>
-          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t}/></>}
-
-        {isExp&&<>
-          <MF label="Titre de la dépense" T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Réparation friteuse Vancouver"/></MF>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label="Montant (CAD $)" T={T}><input type="number" min={0} value={form.amount||""} onChange={e=>f("amount",e.target.value)} placeholder="ex: 450"/></MF>
-            <MF label="Niveau d'urgence" T={T}>
-              <select value={form.urgency||"Moyenne"} onChange={e=>f("urgency",e.target.value)}>
-                {Object.keys(URGENCY).map(u=><option key={u}>{u}</option>)}
-              </select>
-            </MF>
-            <MF label="Catégorie" T={T}>
-              <select value={form.category||"Autre"} onChange={e=>f("category",e.target.value)}>
-                {EXP_CATS.map(c=><option key={c}>{c}</option>)}
-              </select>
-            </MF>
-            <MF label="Location" T={T}>
-              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
-                {(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
-              </select>
-            </MF>
-          </div>
-          <MF label="Date prévue" T={T}>
-            <DatePicker value={form.due_date||""} onChange={v=>f("due_date",v)} color={ws.color} T={T}/>
-          </MF>
-          {/* Payment status */}
-          <MF label="Statut de paiement" T={T}>
-            <div style={{display:"flex",gap:8}}>
-              {Object.entries(PAY_STATUS).map(([key,ps])=>(
-                <button key={key} type="button" onClick={()=>f("payment_status",key)} style={{
-                  flex:1,padding:"10px",borderRadius:9,border:`1.5px solid ${(form.payment_status||"À payer")===key?ps.color:T.border}`,
-                  background:(form.payment_status||"À payer")===key?ps.bg:"transparent",
-                  color:(form.payment_status||"À payer")===key?ps.color:T.muted,
-                  fontSize:13,fontWeight:700,cursor:"pointer",transition:"all 0.15s",
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-                }}>
-                  <span style={{fontSize:16}}>{ps.icon}</span>{ps.label}
-                </button>
-              ))}
-            </div>
-          </MF>
-          <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Détails, fournisseur, justification..."/></MF>
-
-                    {/* Urgency preview */}
-          <UrgencyPreview urgency={form.urgency} amount={form.amount} T={T}/>
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
 
