@@ -2345,7 +2345,7 @@ function App(){
           {module==="de_launch"&&wsId==="de"&&<DELaunchTracker ws={ws} tasks={tasks} updateTask={updateTask} T={T}/>}
           {module==="projects" &&<Projects ws={ws} projects={filtered_projects} setModal={setModal} updateProject={updateProject} T={T} t={t}/>}
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
-          {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer}/>}
+          {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer} addCalEvent={addCalEvent} calEvents={calEvents}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
           {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
           {module==="products" &&<Products2 ws={ws} products={products} setModal={setModal} updateProduct={updateProduct} T={T} t={t}/>}
@@ -4540,7 +4540,7 @@ function MeetingWeek({allMeetings,ws,T,onSelect,setModal}){
 }
 
 // ─── MEDIA PRO ────────────────────────────────────────────────────────────
-function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer}){
+function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer,calEvents}){
   const now = new Date();
   const currentMonth = now.toISOString().slice(0,7); // "2026-04"
 
@@ -4711,6 +4711,59 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
         {visibleInfluencers.length===0&&<span style={{fontSize:11,color:T.dim}}>Aucun influenceur ce mois</span>}
       </div>
 
+      {/* ── AGENDA VISITES INFLUENCEURS ── */}
+      {(()=>{
+        const today = new Date(); today.setHours(0,0,0,0);
+        const visitEvents = (calEvents||[])
+          .filter(ev=>(ev.category==="Influencer Visit"||ev.type==="Influencer Visit")&&ev.workspace===ws.id)
+          .map(ev=>{
+            const d = new Date(new Date().getFullYear(), (ev.month||1)-1, ev.day||1);
+            return {...ev, _date:d};
+          })
+          .filter(ev=>ev._date>=today)
+          .sort((a,b)=>a._date-b._date)
+          .slice(0,6);
+        if(visitEvents.length===0) return null;
+        return(
+          <div style={{marginBottom:16,background:T.s2,borderRadius:12,padding:"14px 16px",border:`1px solid ${T.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <span style={{fontSize:14}}>📅</span>
+              <span style={{fontSize:12,fontWeight:700,color:T.text}}>Prochaines visites</span>
+              <span style={{fontSize:10,color:T.dim,background:T.s3,borderRadius:99,padding:"1px 8px",marginLeft:4}}>{visitEvents.length}</span>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {visitEvents.map((ev,i)=>{
+                const isToday=ev._date.toDateString()===today.toDateString();
+                const dayDiff=Math.ceil((ev._date-today)/86400000);
+                const timeMatch=(ev.title||"").match(/·\s*(\d{2}h\d{2})/);
+                const timeStr=timeMatch?timeMatch[1]:null;
+                const name=(ev.title||"").replace(/^📸\s*/,"").replace(/\s*·\s*\d{2}h\d{2}/,"");
+                return(
+                  <div key={ev.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,background:isToday?ws.color+"15":T.surface,border:`1px solid ${isToday?ws.color+"44":T.border}`}}>
+                    <div style={{width:36,height:36,borderRadius:8,flexShrink:0,background:isToday?ws.color:"transparent",border:`1.5px solid ${isToday?ws.color:T.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                      <span style={{fontSize:8,fontWeight:700,color:isToday?"#fff":T.dim,lineHeight:1,textTransform:"uppercase"}}>
+                        {["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"][ev._date.getMonth()]}
+                      </span>
+                      <span style={{fontSize:14,fontWeight:800,color:isToday?"#fff":T.text,lineHeight:1}}>{ev._date.getDate()}</span>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12.5,fontWeight:600,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{name}</div>
+                      <div style={{fontSize:10,color:T.muted,marginTop:2}}>{ev.location||"Global"}{ev.note&&<span style={{marginLeft:6,color:T.dim}}>· {ev.note}</span>}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
+                      {timeStr&&<span style={{fontSize:11,fontWeight:700,color:ws.color}}>{timeStr}</span>}
+                      <span style={{fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:99,background:isToday?ws.color+"22":"transparent",color:isToday?ws.color:T.dim,border:`1px solid ${isToday?ws.color+"44":"transparent"}`}}>
+                        {isToday?"Aujourd'hui":dayDiff===1?"Demain":"Dans "+dayDiff+"j"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── INLINE EDITABLE TABLE ── */}
       <InlineInfluencerTable
         influencers={visibleInfluencers}
@@ -4719,6 +4772,7 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
         updateInfluencer={updateInfluencer}
         deleteInfluencer={deleteInfluencer}
         addInfluencer={addInfluencer}
+        addCalEvent={addCalEvent}
         selMonth={selMonth}
         mthLabel={mthLabel}
         setModal={setModal}
@@ -4728,7 +4782,86 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
 }
 
 // ─── INLINE INFLUENCER TABLE (édition Monday-style) ──────────────────────
-function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluencer,deleteInfluencer,addInfluencer,selMonth,mthLabel,setModal}){
+function VisitPickerPopup({inf, visitToISO, commitVisit, updateInfluencer, setShowCal, ws, T, pos}, ref){
+  const [pendingDate, setPendingDate] = React.useState(visitToISO(inf.visit)||"");
+  const [timeStr, setTimeStr] = React.useState(()=>{
+    // Extract time from existing visit string "May 15 · 14h00"
+    const m = (inf.visit||"").match(/·\s*(\d{2}h\d{2})/);
+    if(m) return m[1].replace("h",":");
+    return "";
+  });
+
+  const timeLabel = timeStr ? timeStr.replace(":","h") : "";
+
+  return(
+    <div ref={ref} onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} style={{
+      position:"fixed", left:pos.x, top:pos.y, zIndex:9999,
+      width:280, boxShadow:"0 12px 32px rgba(0,0,0,0.4)",
+      borderRadius:12, overflow:"hidden",
+      border:`1px solid ${T.border}`, background:T.surface,
+      animation:"fadeUp 0.15s ease",
+    }}>
+      {/* Date picker */}
+      <DatePicker
+        value={pendingDate}
+        onChange={v=>{if(v)setPendingDate(v);}}
+        color={ws.color} T={T}
+      />
+
+      {/* Time + Confirm */}
+      {pendingDate&&(
+        <div style={{padding:"12px 14px",borderTop:`1px solid ${T.border}`,background:T.s2}}>
+          <div style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:8,textTransform:"uppercase"}}>Heure de visite</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input
+              type="time"
+              value={timeStr}
+              onChange={e=>setTimeStr(e.target.value)}
+              style={{
+                flex:1,background:T.surface,border:`1px solid ${T.border}`,
+                borderRadius:7,padding:"6px 10px",fontSize:13,
+                color:T.text,outline:"none",fontFamily:"inherit",
+                transition:"border-color 0.15s",
+              }}
+              onFocus={e=>e.target.style.borderColor=ws.color}
+              onBlur={e=>e.target.style.borderColor=T.border}
+            />
+            <button
+              type="button"
+              onClick={()=>commitVisit(inf, pendingDate, timeLabel)}
+              style={{
+                background:ws.color,color:"#fff",border:"none",
+                borderRadius:7,padding:"7px 14px",fontSize:12,
+                fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",
+                transition:"opacity 0.15s",
+              }}>
+              ✓ Confirmer
+            </button>
+          </div>
+          {timeStr&&(
+            <div style={{fontSize:11,color:T.dim,marginTop:6}}>
+              📸 Visite le {pendingDate} à {timeLabel}
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+            <button type="button" onClick={()=>{updateInfluencer(inf.id,{...inf,visit:""});setShowCal(null);}}
+              style={{background:"transparent",border:"none",color:T.dim,fontSize:11,cursor:"pointer",padding:0}}>
+              Effacer la visite
+            </button>
+            {!timeStr&&<button type="button" onClick={()=>commitVisit(inf,pendingDate,"")}
+              style={{background:"transparent",border:"none",color:ws.color,fontSize:11,cursor:"pointer",fontWeight:600,padding:0}}>
+              Sans heure →
+            </button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+VisitPickerPopup = React.forwardRef(VisitPickerPopup);
+
+
+function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluencer,deleteInfluencer,addInfluencer,addCalEvent,selMonth,mthLabel,setModal}){
   const [editId, setEditId] = useState(null);
   const [editField, setEditField] = useState(null);
   const [editVal, setEditVal] = useState("");
@@ -4741,9 +4874,13 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
   const PLATFORMS = ["Instagram","TikTok","YouTube","Twitter","LinkedIn"];
 
   // Close calendar on outside click
+  const calPopupRef = React.useRef(null);
   React.useEffect(()=>{
     if(!showCal) return;
-    function handler(e){ setShowCal(null); }
+    function handler(e){
+      if(calPopupRef.current && calPopupRef.current.contains(e.target)) return;
+      setShowCal(null);
+    }
     document.addEventListener("mousedown", handler);
     return ()=>document.removeEventListener("mousedown", handler);
   },[showCal]);
@@ -4777,13 +4914,27 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
     setEditId(null); setEditField(null); setEditVal("");
   }
 
-  function commitVisit(inf, dateStr){
+  function commitVisit(inf, dateStr, timeStr){
     const d = new Date(dateStr+"T12:00:00");
-    const label = d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const dateLabel = d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const label = timeStr ? dateLabel+" · "+timeStr : dateLabel;
     if(inf._pending){
       setPending(p=>p.map(r=>r.id===inf.id?{...r,visit:label}:r));
     } else {
       updateInfluencer(inf.id, {...inf, visit: label});
+    }
+    // Auto-add to BNC OS calendar
+    if(addCalEvent){
+      const month = d.getMonth()+1;
+      const day = d.getDate();
+      addCalEvent({
+        title:"📸 "+(inf.name||"Influenceur")+(timeStr?" · "+timeStr:""),
+        category:"Influencer Visit",type:"Influencer Visit",
+        month,day,has_end:false,end_month:null,end_day:null,
+        location:inf.location||"Global",
+        note:(inf.platform||"")+(inf.followers?" · "+inf.followers+" followers":""),
+        color:ws.color,
+      });
     }
     setShowCal(null); setEditId(null);
   }
@@ -4929,8 +5080,14 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
 
             {/* Visit — calendar popup */}
             <Cell inf={inf} field="visit" width={COL_W.visit} center>
-              <span style={{fontSize:11,color:inf.visit?T.text:T.dim,display:"flex",alignItems:"center",gap:4}}>
-                {inf.visit||"📅 Ajouter"}
+              <span style={{fontSize:11,color:inf.visit?T.text:T.dim,display:"flex",alignItems:"center",gap:4,flexDirection:"column",lineHeight:1.3}}>
+                {inf.visit?(()=>{
+                  const parts=(inf.visit||"").split(" · ");
+                  return(<>
+                    <span style={{fontWeight:500}}>{parts[0]}</span>
+                    {parts[1]&&<span style={{fontSize:9,color:ws.color,fontWeight:600}}>{parts[1]}</span>}
+                  </>);
+                })():"📅 Ajouter"}
               </span>
             </Cell>
 
@@ -4952,18 +5109,16 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
 
           {/* Calendar dropdown for visit field - fixed to avoid crop */}
           {showCal===inf.id&&(
-            <div onClick={e=>e.stopPropagation()} style={{
-              position:"fixed",
-              left:calPos.x, top:calPos.y,
-              zIndex:9999,
-              width:260,
-              boxShadow:"0 12px 32px rgba(0,0,0,0.4)",
-              borderRadius:12,overflow:"hidden",
-              border:`1px solid ${T.border}`,
-              background:T.surface,
-            }}>
-              <DatePicker value={visitToISO(inf.visit)} onChange={v=>{if(v)commitVisit(inf,v);else{updateInfluencer(inf.id,{...inf,visit:""});setShowCal(null);}}} color={ws.color} T={T}/>
-            </div>
+            <VisitPickerPopup
+              ref={calPopupRef}
+              inf={inf}
+              visitToISO={visitToISO}
+              commitVisit={commitVisit}
+              updateInfluencer={updateInfluencer}
+              setShowCal={setShowCal}
+              ws={ws} T={T}
+              pos={calPos}
+            />
           )}
         </div>
       ))}
@@ -8061,32 +8216,56 @@ function MeetLinkSection({form, f, T}){
 // ─── MODAL ────────────────────────────────────────────────────────────────
 function TaskJournal({taskId,taskNotes,addTaskNote,ws,T,user,wsId}){
   const [newNote,setNewNote]=React.useState("");
-  const notes=(taskNotes||[]).filter(n=>String(n.task_id)===String(taskId));
+  const notes=(taskNotes||[]).filter(n=>String(n.task_id)===String(taskId)||String(n.taskId)===String(taskId));
+  const colors=["#FF6B00","#0A84FF","#30D158","#BF5AF2","#FF9F0A","#FF3B30"];
+  const userColor=(name)=>colors[(name||"").split("").reduce((a,c)=>a+c.charCodeAt(0),0)%colors.length];
   return(
     <div style={{marginBottom:18}}>
-      <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:8,textTransform:"uppercase"}}>📋 Journal d'avancement</div>
-      <div style={{display:"flex",gap:8,marginBottom:notes.length>0?10:0}}>
-        <input
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+        <div style={{width:3,height:14,borderRadius:99,background:ws.color}}/>
+        <span style={{fontSize:11,fontWeight:700,color:T.text,letterSpacing:-0.1}}>Journal d'avancement</span>
+        {notes.length>0&&<span style={{fontSize:10,color:T.dim,background:T.s3,padding:"1px 7px",borderRadius:99}}>{notes.length}</span>}
+      </div>
+      {/* Notes list */}
+      {notes.length>0&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10,maxHeight:180,overflowY:"auto",paddingRight:2}}>
+          {notes.slice().reverse().map((n,i)=>{
+            const name=n.created_by||n.userName||user.name;
+            const initial=(name||"?")[0].toUpperCase();
+            const color=userColor(name);
+            return(
+              <div key={n.id||i} style={{display:"flex",gap:8,animation:"fadeUp 0.18s ease"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",background:color+"22",border:`1px solid ${color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color,flexShrink:0,marginTop:2}}>{initial}</div>
+                <div style={{flex:1,background:T.s2,borderRadius:"0 8px 8px 8px",padding:"7px 10px",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:12.5,color:T.text,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{n.text}</div>
+                  <div style={{fontSize:9,color:T.dim,marginTop:4}}>{name} · {n.created_at?new Date(n.created_at).toLocaleDateString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):""}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {notes.length===0&&<div style={{fontSize:11,color:T.dim,padding:"6px 0 10px",fontStyle:"italic"}}>Aucune note encore — documente tes avancements ici</div>}
+      {/* Input */}
+      <div style={{display:"flex",gap:6,alignItems:"flex-end"}}>
+        <textarea
           value={newNote}
           onChange={e=>setNewNote(e.target.value)}
-          onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&newNote.trim()){addTaskNote&&addTaskNote({task_id:taskId,text:newNote.trim(),workspace:wsId,created_by:user.name});setNewNote("");}}}
-          placeholder="Note d'avancement... (Enter pour valider)"
-          style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",fontSize:12.5,color:T.text,outline:"none",fontFamily:"inherit",transition:"border-color 0.15s"}}
+          onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(newNote.trim()){addTaskNote(taskId,newNote.trim(),user.name);setNewNote("");}}}}
+          placeholder="Note d'avancement... (Enter pour envoyer, Shift+Enter pour nouvelle ligne)"
+          rows={newNote.split("\n").length>1||newNote.length>60?3:1}
+          style={{flex:1,background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 11px",fontSize:12.5,color:T.text,outline:"none",fontFamily:"inherit",resize:"none",lineHeight:1.5,transition:"border-color 0.15s,rows 0.15s"}}
           onFocus={e=>e.target.style.borderColor=ws.color}
           onBlur={e=>e.target.style.borderColor=T.border}
         />
-        {newNote.trim()&&<button type="button" onClick={()=>{addTaskNote&&addTaskNote({task_id:taskId,text:newNote.trim(),workspace:wsId,created_by:user.name});setNewNote("");}} style={{background:ws.color,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>↵</button>}
+        <button type="button" disabled={!newNote.trim()} onClick={()=>{if(newNote.trim()){addTaskNote(taskId,newNote.trim(),user.name);setNewNote("");}}} style={{
+          background:newNote.trim()?ws.color:T.s3,
+          color:newNote.trim()?"#fff":T.dim,
+          border:"none",borderRadius:8,padding:"8px 12px",
+          fontSize:12,fontWeight:600,cursor:newNote.trim()?"pointer":"default",
+          flexShrink:0,transition:"all 0.15s",alignSelf:"flex-end",
+        }}>↵</button>
       </div>
-      {notes.length>0?(
-        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:160,overflowY:"auto"}}>
-          {notes.slice().reverse().map((n,i)=>(
-            <div key={n.id||i} style={{padding:"8px 12px",background:T.s2,borderRadius:8,borderLeft:`2px solid ${ws.color}`,animation:"fadeUp 0.2s ease"}}>
-              <div style={{fontSize:12.5,color:T.text,lineHeight:1.5}}>{n.text}</div>
-              <div style={{fontSize:9,color:T.dim,marginTop:3}}>{n.created_by||user.name} · {n.created_at?new Date(n.created_at).toLocaleDateString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):""}</div>
-            </div>
-          ))}
-        </div>
-      ):<div style={{fontSize:11,color:T.dim,fontStyle:"italic",textAlign:"center",padding:"6px 0"}}>Aucune note encore</div>}
     </div>
   );
 }
@@ -8385,19 +8564,17 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             const notesRaw=form.notes||"";
             const clIdx=notesRaw.indexOf(clSep);
             const linkIdx=notesRaw.indexOf("---LINKS---");
-            const endOfText=clIdx>=0?clIdx:(linkIdx>=0?linkIdx:notesRaw.length);
-            const plainText=notesRaw.slice(0,endOfText).trimEnd();
+            const plainText=notesRaw.slice(0,clIdx>=0?clIdx:(linkIdx>=0?linkIdx:notesRaw.length)).trimEnd();
+            const linksBlock=linkIdx>=0?notesRaw.slice(linkIdx):"";
             let checkItems=[];
             if(clIdx>=0){
               const clEnd=linkIdx>=0&&linkIdx>clIdx?linkIdx:notesRaw.length;
               const clBlock=notesRaw.slice(clIdx+clSep.length,clEnd).trim();
               if(clBlock) checkItems=clBlock.split("\n").filter(l=>l.trim()).map((l,i)=>{
                 const done=l.startsWith("[x]")||l.startsWith("[X]");
-                const text=l.replace(/^\[.\]\s*/,"").trim();
-                return {id:i,text,done};
+                return {id:i,text:l.replace(/^\[.\]\s*/,"").trim(),done};
               });
             }
-            const linksBlock=linkIdx>=0?notesRaw.slice(linkIdx):"";
             const rebuild=(text,items,links)=>{
               let r=text;
               if(items.length>0) r+=(r?"\n":"")+clSep+"\n"+items.map(it=>(it.done?"[x] ":"[ ] ")+it.text).join("\n");
@@ -8409,43 +8586,103 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
             const pct=total>0?Math.round(done/total*100):0;
             return(
               <div style={{marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                  <span style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:0.8,textTransform:"uppercase"}}>✅ Checklist</span>
+                {/* Header */}
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                  <div style={{width:3,height:14,borderRadius:99,background:pct===100?"#30D158":ws.color}}/>
+                  <span style={{fontSize:11,fontWeight:700,color:T.text,letterSpacing:-0.1}}>Checklist</span>
                   {total>0&&<>
-                    <span style={{fontSize:10,color:T.dim}}>{done}/{total}</span>
-                    <div style={{flex:1,height:3,background:T.s3,borderRadius:99,overflow:"hidden"}}>
-                      <div style={{height:"100%",borderRadius:99,width:pct+"%",background:pct===100?"#30D158":ws.color,transition:"width 0.3s ease"}}/>
+                    <span style={{fontSize:10,color:T.dim,background:T.s3,padding:"1px 7px",borderRadius:99}}>{done}/{total}</span>
+                    <div style={{flex:1,maxWidth:120,height:3,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:pct+"%",background:pct===100?"#30D158":ws.color,borderRadius:99,transition:"width 0.4s cubic-bezier(0.16,1,0.3,1)"}}/>
                     </div>
-                    <span style={{fontSize:10,fontWeight:700,color:pct===100?"#30D158":ws.color}}>{pct}%</span>
+                    <span style={{fontSize:10,fontWeight:700,color:pct===100?"#30D158":ws.color,marginLeft:2}}>{pct}%</span>
                   </>}
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {/* Items */}
+                <div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:6}}>
                   {checkItems.map((item,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:item.done?ws.color+"0d":T.s2,borderRadius:8,border:`1px solid ${item.done?ws.color+"33":T.border}`,transition:"all 0.15s"}}>
-                      <button type="button" onClick={()=>{const upd=checkItems.map((it,j)=>j===i?{...it,done:!it.done}:it);f("notes",rebuild(plainText,upd,linksBlock));}} style={{width:18,height:18,borderRadius:5,flexShrink:0,cursor:"pointer",background:item.done?ws.color:"transparent",border:`2px solid ${item.done?ws.color:T.muted}`,display:"flex",alignItems:"center",justifyContent:"center",padding:0,transition:"all 0.15s"}}>
+                    <div key={i} style={{
+                      display:"flex",alignItems:"center",gap:8,
+                      padding:"7px 10px",borderRadius:8,
+                      background:item.done?ws.color+"0a":T.s2,
+                      border:`1px solid ${item.done?ws.color+"30":T.border}`,
+                      transition:"background 0.15s,border-color 0.15s",
+                    }}>
+                      {/* Checkbox */}
+                      <button type="button" onClick={()=>{
+                        const upd=checkItems.map((it,j)=>j===i?{...it,done:!it.done}:it);
+                        f("notes",rebuild(plainText,upd,linksBlock));
+                      }} style={{
+                        width:18,height:18,borderRadius:5,flexShrink:0,
+                        background:item.done?ws.color:"transparent",
+                        border:`2px solid ${item.done?ws.color:T.muted}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        padding:0,cursor:"pointer",transition:"all 0.15s",
+                      }}>
                         {item.done&&<span style={{color:"#fff",fontSize:10,fontWeight:800,lineHeight:1}}>✓</span>}
                       </button>
-                      <input value={item.text} onChange={e=>{const upd=checkItems.map((it,j)=>j===i?{...it,text:e.target.value}:it);f("notes",rebuild(plainText,upd,linksBlock));}}
+                      {/* Text */}
+                      <input
+                        value={item.text}
+                        onChange={e=>{
+                          const upd=checkItems.map((it,j)=>j===i?{...it,text:e.target.value}:it);
+                          f("notes",rebuild(plainText,upd,linksBlock));
+                        }}
                         onKeyDown={e=>{
-                          if(e.key==="Enter"){e.preventDefault();const upd=[...checkItems.slice(0,i+1),{id:Date.now(),text:"",done:false},...checkItems.slice(i+1)];f("notes",rebuild(plainText,upd,linksBlock));}
-                          if(e.key==="Backspace"&&item.text===""){const upd=checkItems.filter((_,j)=>j!==i);f("notes",rebuild(plainText,upd,linksBlock));}
+                          if(e.key==="Enter"){
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const upd=[...checkItems.slice(0,i+1),{id:Date.now(),text:"",done:false},...checkItems.slice(i+1)];
+                            f("notes",rebuild(plainText,upd,linksBlock));
+                          }
+                          if(e.key==="Backspace"&&item.text===""){
+                            e.preventDefault();
+                            const upd=checkItems.filter((_,j)=>j!==i);
+                            f("notes",rebuild(plainText,upd,linksBlock));
+                          }
                         }}
                         placeholder="Élément..."
-                        style={{flex:1,background:"transparent",border:"none",outline:"none",color:item.done?T.dim:T.text,fontSize:12.5,padding:0,textDecoration:item.done?"line-through":"none",fontFamily:"inherit"}}
+                        style={{
+                          flex:1,background:"transparent",border:"none",outline:"none",
+                          color:item.done?T.dim:T.text,fontSize:13,padding:0,
+                          textDecoration:item.done?"line-through":"none",
+                          fontFamily:"inherit",transition:"color 0.15s",
+                        }}
                       />
-                      <button type="button" onClick={()=>{const upd=checkItems.filter((_,j)=>j!==i);f("notes",rebuild(plainText,upd,linksBlock));}} style={{background:"transparent",border:"none",color:T.dim,fontSize:16,cursor:"pointer",padding:"0 2px",opacity:0,transition:"opacity 0.1s",flexShrink:0}} onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0"}>×</button>
+                      {/* Delete */}
+                      <button type="button" onClick={()=>{
+                        const upd=checkItems.filter((_,j)=>j!==i);
+                        f("notes",rebuild(plainText,upd,linksBlock));
+                      }} style={{
+                        background:"transparent",border:"none",color:T.dim,
+                        fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1,
+                        opacity:0,transition:"opacity 0.1s",flexShrink:0,
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                      onMouseLeave={e=>e.currentTarget.style.opacity="0"}>×</button>
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={()=>{const upd=[...checkItems,{id:Date.now(),text:"",done:false}];f("notes",rebuild(plainText,upd,linksBlock));}} style={{marginTop:6,width:"100%",background:"transparent",border:`1.5px dashed ${T.border}`,borderRadius:8,padding:"7px 12px",display:"flex",alignItems:"center",gap:7,color:T.dim,fontSize:12,cursor:"pointer",transition:"border-color 0.15s,color 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
-                  <span style={{fontSize:15,lineHeight:1,fontWeight:300}}>+</span>
+                {/* Add button */}
+                <button type="button" onClick={()=>{
+                  const upd=[...checkItems,{id:Date.now(),text:"",done:false}];
+                  f("notes",rebuild(plainText,upd,linksBlock));
+                }} style={{
+                  width:"100%",background:"transparent",
+                  border:`1.5px dashed ${T.border}`,borderRadius:8,
+                  padding:"7px 12px",display:"flex",alignItems:"center",gap:7,
+                  color:T.dim,fontSize:12,cursor:"pointer",
+                  transition:"border-color 0.15s,color 0.15s",
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=ws.color;e.currentTarget.style.color=ws.color;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color=T.dim;}}>
+                  <span style={{fontSize:16,lineHeight:1,fontWeight:300}}>+</span>
                   <span>Ajouter un élément</span>
-                  <span style={{marginLeft:"auto",fontSize:10,color:T.dim,opacity:0.6}}>↵ continuer</span>
+                  <span style={{marginLeft:"auto",fontSize:10,opacity:0.5}}>↵ continuer · ⌫ supprimer</span>
                 </button>
               </div>
             );
           })()}
-
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
 
