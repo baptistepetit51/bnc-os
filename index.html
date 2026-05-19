@@ -4540,7 +4540,7 @@ function MeetingWeek({allMeetings,ws,T,onSelect,setModal}){
 }
 
 // ─── MEDIA PRO ────────────────────────────────────────────────────────────
-function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer,calEvents}){
+function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaBudget,updateInfluencer,deleteInfluencer,addInfluencer,addCalEvent,calEvents}){
   const now = new Date();
   const currentMonth = now.toISOString().slice(0,7); // "2026-04"
 
@@ -4715,7 +4715,7 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
       {(()=>{
         const today = new Date(); today.setHours(0,0,0,0);
         const visitEvents = (calEvents||[])
-          .filter(ev=>(ev.category==="Influencer Visit"||ev.type==="Influencer Visit")&&ev.workspace===ws.id)
+          .filter(ev=>(ev.category==="Influencer Visit"||ev.type==="Influencer Visit"))
           .map(ev=>{
             const d = new Date(new Date().getFullYear(), (ev.month||1)-1, ev.day||1);
             return {...ev, _date:d};
@@ -4782,83 +4782,46 @@ function Media({ws,influencers,allInfluencers,setModal,T,t,mediaBudget,addMediaB
 }
 
 // ─── INLINE INFLUENCER TABLE (édition Monday-style) ──────────────────────
-function VisitPickerPopup({inf, visitToISO, commitVisit, updateInfluencer, setShowCal, ws, T, pos}, ref){
+function VisitPickerPopup({inf, visitToISO, commitVisit, updateInfluencer, setShowCal, ws, T, pos, popupRef}){
   const [pendingDate, setPendingDate] = React.useState(visitToISO(inf.visit)||"");
   const [timeStr, setTimeStr] = React.useState(()=>{
-    // Extract time from existing visit string "May 15 · 14h00"
-    const m = (inf.visit||"").match(/·\s*(\d{2}h\d{2})/);
-    if(m) return m[1].replace("h",":");
-    return "";
+    const m=(inf.visit||"").match(/·\s*(\d{1,2}h\d{2})/);
+    return m?m[1].replace("h",":"):"";
   });
-
-  const timeLabel = timeStr ? timeStr.replace(":","h") : "";
-
+  const timeLabel=timeStr?timeStr.replace(":","h"):"";
   return(
-    <div ref={ref} onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} style={{
-      position:"fixed", left:pos.x, top:pos.y, zIndex:9999,
-      width:280, boxShadow:"0 12px 32px rgba(0,0,0,0.4)",
-      borderRadius:12, overflow:"hidden",
-      border:`1px solid ${T.border}`, background:T.surface,
-      animation:"fadeUp 0.15s ease",
+    <div ref={popupRef} onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} style={{
+      position:"fixed",left:pos.x,top:pos.y,zIndex:9999,width:280,
+      boxShadow:"0 12px 32px rgba(0,0,0,0.4)",borderRadius:12,overflow:"hidden",
+      border:`1px solid ${T.border}`,background:T.surface,animation:"fadeUp 0.15s ease",
     }}>
-      {/* Date picker */}
-      <DatePicker
-        value={pendingDate}
-        onChange={v=>{if(v)setPendingDate(v);}}
-        color={ws.color} T={T}
-      />
-
-      {/* Time + Confirm */}
+      <DatePicker value={pendingDate} onChange={v=>{if(v)setPendingDate(v);}} color={ws.color} T={T}/>
       {pendingDate&&(
         <div style={{padding:"12px 14px",borderTop:`1px solid ${T.border}`,background:T.s2}}>
           <div style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.8,marginBottom:8,textTransform:"uppercase"}}>Heure de visite</div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <input
-              type="time"
-              value={timeStr}
-              onChange={e=>setTimeStr(e.target.value)}
-              style={{
-                flex:1,background:T.surface,border:`1px solid ${T.border}`,
-                borderRadius:7,padding:"6px 10px",fontSize:13,
-                color:T.text,outline:"none",fontFamily:"inherit",
-                transition:"border-color 0.15s",
-              }}
+            <input type="time" value={timeStr} onChange={e=>setTimeStr(e.target.value)}
+              style={{flex:1,background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",fontSize:13,color:T.text,outline:"none",fontFamily:"inherit"}}
               onFocus={e=>e.target.style.borderColor=ws.color}
               onBlur={e=>e.target.style.borderColor=T.border}
             />
-            <button
-              type="button"
-              onClick={()=>commitVisit(inf, pendingDate, timeLabel)}
-              style={{
-                background:ws.color,color:"#fff",border:"none",
-                borderRadius:7,padding:"7px 14px",fontSize:12,
-                fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",
-                transition:"opacity 0.15s",
-              }}>
-              ✓ Confirmer
+            <button type="button" onClick={()=>commitVisit(inf,pendingDate,timeLabel)}
+              style={{background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+              ✓ OK
             </button>
           </div>
-          {timeStr&&(
-            <div style={{fontSize:11,color:T.dim,marginTop:6}}>
-              📸 Visite le {pendingDate} à {timeLabel}
-            </div>
-          )}
+          {timeStr&&<div style={{fontSize:11,color:T.dim,marginTop:6}}>📸 Visite le {pendingDate} à {timeLabel}</div>}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
             <button type="button" onClick={()=>{updateInfluencer(inf.id,{...inf,visit:""});setShowCal(null);}}
-              style={{background:"transparent",border:"none",color:T.dim,fontSize:11,cursor:"pointer",padding:0}}>
-              Effacer la visite
-            </button>
+              style={{background:"transparent",border:"none",color:T.dim,fontSize:11,cursor:"pointer",padding:0}}>Effacer</button>
             {!timeStr&&<button type="button" onClick={()=>commitVisit(inf,pendingDate,"")}
-              style={{background:"transparent",border:"none",color:ws.color,fontSize:11,cursor:"pointer",fontWeight:600,padding:0}}>
-              Sans heure →
-            </button>}
+              style={{background:"transparent",border:"none",color:ws.color,fontSize:11,cursor:"pointer",fontWeight:600,padding:0}}>Sans heure →</button>}
           </div>
         </div>
       )}
     </div>
   );
 }
-VisitPickerPopup = React.forwardRef(VisitPickerPopup);
 
 
 function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluencer,deleteInfluencer,addInfluencer,addCalEvent,selMonth,mthLabel,setModal}){
@@ -5110,7 +5073,7 @@ function InlineInfluencerTable({influencers,ws,T,parseVisitMonth,updateInfluence
           {/* Calendar dropdown for visit field - fixed to avoid crop */}
           {showCal===inf.id&&(
             <VisitPickerPopup
-              ref={calPopupRef}
+              popupRef={calPopupRef}
               inf={inf}
               visitToISO={visitToISO}
               commitVisit={commitVisit}
