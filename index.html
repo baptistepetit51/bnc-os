@@ -8535,7 +8535,11 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
               const clBlock=notesRaw.slice(clIdx+clSep.length,clEnd).trim();
               if(clBlock) checkItems=clBlock.split("\n").filter(l=>l.trim()).map((l,i)=>{
                 const done=l.startsWith("[x]")||l.startsWith("[X]");
+<<<<<<< HEAD
                 return {id:i,text:l.replace(/^\[.\]\s*/,""),done};
+=======
+                return {id:i,text:l.replace(/^\[.\]\s*/,"").trim(),done};
+>>>>>>> 3b9a12ac09193944f7489b01191d0702e3ed8a39
               });
             }
             const rebuild=(text,items,links)=>{
