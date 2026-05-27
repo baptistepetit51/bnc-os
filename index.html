@@ -473,7 +473,16 @@ function lsDel(key,id){ lsSet(key,lsGet(key).filter(x=>String(x.id)!==String(id)
 // Seed initial data if empty
 (function seedLocal(){
   // Only seed profiles for local login fallback - never overwrite tasks/projects
-  if(lsGet("profiles").length>0) return;
+  const existingProfiles = lsGet("profiles");
+  if(existingProfiles.length>0){
+    // Ensure Mahaliana exists even in existing installs
+    if(!existingProfiles.find(p=>p.email==="mratoejanahary@gmail.com")){
+      lsSet("profiles",[...existingProfiles,
+        {id:3,name:"Mahaliana",email:"mratoejanahary@gmail.com",password_hash:"123456mp",role:"intern",workspace_access:["bnc"],locations:["Global","Toronto","Seattle","Vancouver"],avatar:"M"},
+      ]);
+    }
+    return;
+  }
   lsSet("profiles",[
     {id:1,name:"Tito",email:"baptiste.petit@brickncheese.com",password_hash:"4caq16xQ.",role:"admin",workspace_access:["bnc","tk","de","tito"],locations:["Global"],avatar:"T"},
     {id:2,name:"Samy",email:"samy.eljabri@brickncheese.com",password_hash:"Kara6mdapk*",role:"partner",workspace_access:["bnc","samy"],locations:["Global"],avatar:"S"},
@@ -1382,16 +1391,26 @@ function App(){
     {id:"clients",    label:"Clients",         icon:"👤"},
     {id:"calendar",   label:t.calendar,        icon:"⊞"},
     {id:"expenses",   label:"Dépenses",        icon:"$"},
-  ] : [
-    {id:"dashboard", label:t.dashboard, icon:"◈"},
-    {id:"tasks",     label:t.tasks,     icon:"☑"},
-    {id:"projects",  label:t.projects,  icon:"◎"},
-    {id:"meetings",  label:t.meetings,  icon:"⊕"},
-    {id:"media",     label:t.media,     icon:"★"},
-    {id:"calendar",  label:t.calendar,  icon:"⊞"},
-    {id:"products",  label:"Produits",  icon:"🚀"},
-    {id:"expenses",  label:"Dépenses",  icon:"$"},
-  ];
+  ] : (()=>{
+    const base=[
+      {id:"dashboard", label:t.dashboard, icon:"◈"},
+      {id:"tasks",     label:t.tasks,     icon:"☑"},
+      {id:"projects",  label:t.projects,  icon:"◎"},
+      {id:"meetings",  label:t.meetings,  icon:"⊕"},
+      {id:"media",     label:t.media,     icon:"★"},
+      {id:"calendar",  label:t.calendar,  icon:"⊞"},
+      {id:"products",  label:"Produits",  icon:"🚀"},
+      {id:"expenses",  label:"Dépenses",  icon:"$"},
+    ];
+    // Intern sees Stage Projet first, limited other modules
+    if(user?.role==="intern") return [
+      {id:"stage",     label:"Stage Projet", icon:"🎯"},
+      {id:"media",     label:t.media,     icon:"★"},
+      {id:"calendar",  label:t.calendar,  icon:"⊞"},
+      {id:"tasks",     label:t.tasks,     icon:"☑"},
+    ];
+    return [...base, {id:"stage", label:"Stage Projet", icon:"🎯"}];
+  })();
 
   // CRUD helpers
   async function addTask(form){
@@ -2380,6 +2399,7 @@ function App(){
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
           {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer} addCalEvent={addCalEvent} calEvents={calEvents}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
+          {module==="stage"    &&<StageProjet ws={ws} T={T} user={user} tasks={tasks} addTask={addTask} updateTask={updateTask}/>}
           {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
           {module==="products" &&<Products2 ws={ws} products={products} setModal={setModal} updateProduct={updateProduct} T={T} t={t}/>}
           {module==="access"   &&<Access ws={ws} members={members} setModal={setModal} T={T} t={t}/>}
@@ -8261,6 +8281,348 @@ function TaskJournal({taskId,taskNotes,addTaskNote,ws,T,user,wsId}){
           fontSize:12,fontWeight:600,cursor:newNote.trim()?"pointer":"default",
           flexShrink:0,transition:"all 0.15s",alignSelf:"flex-end",
         }}>↵</button>
+      </div>
+    </div>
+  );
+}
+
+
+function StageProjet({ws, T, user}){
+  const LS = "stage_bnc_v2";
+  const isAdmin = user?.role==="admin" || user?.role==="partner";
+  const isIntern = user?.role==="intern";
+  const canEdit = isAdmin || isIntern;
+
+  const [activeWeek, setActiveWeek] = React.useState(1);
+  const [data, setData] = React.useState(()=>{
+    try{ return JSON.parse(localStorage.getItem(LS)||"{}"); }catch(e){return {};}
+  });
+  const [editing, setEditing] = React.useState(null); // "plan_1", "recap_2", "task_1_0"
+  const [draft, setDraft] = React.useState("");
+
+  function save(key, val){
+    const upd = {...data, [key]: val};
+    setData(upd);
+    localStorage.setItem(LS, JSON.stringify(upd));
+    setEditing(null); setDraft("");
+  }
+
+  const WEEKS = [
+    {
+      num:1, h:"~32h", theme:"Onboarding · Accès · Voix BNC · Premières stories",
+      pillars:[
+        {icon:"📣", title:"Influencer Engine", h:"10h", color:"#FF6B00",
+         tasks:["Construire les shortlists par ville (TO · SEA · VAN)","Créer le tracker promo-code + ROI","Identifier 20+ micro-influenceurs par ville","Paramétrer les codes trackables UberEats/DoorDash"]},
+        {icon:"📸", title:"Instagram & Stories", h:"12h", color:"#BF5AF2",
+         tasks:["Apprendre la voix BNC (ton direct, sharp, smart)","Démarrer les stories quotidiennes","Rédiger ton plan de contenu mensuel","Retouche photos avec HoloAI"]},
+        {icon:"🌐", title:"Site Web & SEO", h:"10h", color:"#0A84FF",
+         tasks:["Obtenir tous les accès (Claude, photos, assets)","Audit site actuel + Google Business profiles","Collecter + retoucher les photos produit","Architecture EN/FR + pages villes"]},
+      ]
+    },
+    {
+      num:2, h:"~40h", theme:"Lancement · Premiers deals · Page prise en main",
+      pillars:[
+        {icon:"📣", title:"Influencer Engine", h:"18h", color:"#FF6B00",
+         tasks:["Outreach massif — messages chaque jour sans arrêt","Lancer 1-2 collabs avec codes trackables","Négocier + confirmer les premiers deals","Mesurer: vues Reels vs followers réels"]},
+        {icon:"📸", title:"Instagram & Stories", h:"14h", color:"#BF5AF2",
+         tasks:["Stories quotidiennes en live tous les jours","Prendre en charge les comments & DMs","Répondre à tout le monde dans la voix BNC","Lancer les polls & questions"]},
+        {icon:"🌐", title:"Site Web & SEO", h:"8h", color:"#0A84FF",
+         tasks:["Démarrer la structure du site dans Claude","Plan EN/FR — pages villes Toronto/Seattle/Vancouver","Première version architecture + navigation"]},
+      ]
+    },
+    {
+      num:3, h:"~42h", theme:"Toronto fort · Cadence qui monte · Little Italy",
+      pillars:[
+        {icon:"📣", title:"Influencer Engine", h:"16h", color:"#FF6B00",
+         tasks:["Push Toronto — volume max cette semaine","Closer plus de deals, couper ce qui ne répond pas","Suivi actif des codes en cours (sales?)","Chercher comptes médias locaux TO"]},
+        {icon:"📸", title:"Instagram & Stories", h:"14h", color:"#BF5AF2",
+         tasks:["Stories quotidiennes + contenu Little Italy (12-14 juin)","Créer contenus spéciaux festival","Engager la communauté autour de l'événement","UGC — reposter les clients"]},
+        {icon:"🌐", title:"Site Web & SEO", h:"12h", color:"#0A84FF",
+         tasks:["Pages bilingues EN/FR avancées","Keyword mapping per-city (Toronto, Seattle, Vancouver)","SEO local — optimisation balises + métadonnées"]},
+      ]
+    },
+    {
+      num:4, h:"~40h", theme:"Consolider · Lire les données · Premier bilan ROI",
+      pillars:[
+        {icon:"📣", title:"Influencer Engine", h:"16h", color:"#FF6B00",
+         tasks:["Atteindre la cadence budget mensuelle (~2,000$)","Premier snapshot ROI — sales par code","Identifier ce qui convertit vs ce qui ne convertit pas","Préparer le plan mois 2"]},
+        {icon:"📸", title:"Instagram & Stories", h:"14h", color:"#BF5AF2",
+         tasks:["Analyser ce qui a le plus engagé ce mois","Affiner le plan contenu selon les perfs","Préparer le calendrier contenu mois 2","Engagement rate — où en est-on?"]},
+        {icon:"🌐", title:"Site Web & SEO", h:"10h", color:"#0A84FF",
+         tasks:["Section franchise + galerie photos","Google Business per-city — mise à jour","Finalisation structure V1 du site"]},
+      ]
+    },
+  ];
+
+  const STORY_RHYTHM = [
+    {day:"Lun", type:"Behind scenes", detail:"Cuisine · prépa · équipe", color:"#FF6B00"},
+    {day:"Mar", type:"Product hero", detail:"Un brick, en gros plan", color:"#FF9F0A"},
+    {day:"Mer", type:"Poll / Quiz", detail:"Faire taper la communauté", color:"#30D158"},
+    {day:"Jeu", type:"UGC / Repost", detail:"Contenu client", color:"#0A84FF"},
+    {day:"Ven", type:"Promo / Code", detail:"Drive le week-end", color:"#FF453A"},
+    {day:"Sam", type:"Influencer", detail:"Spotlight partenaire", color:"#BF5AF2"},
+    {day:"Dim", type:"Teaser", detail:"Ce qui arrive", color:"#64D2FF"},
+  ];
+
+  const w = WEEKS[activeWeek-1];
+  const planKey = "plan_"+activeWeek;
+  const recapKey = "recap_"+activeWeek;
+
+  function EditBlock({eKey, placeholder, label, icon}){
+    const val = data[eKey]||"";
+    const isMe = editing===eKey;
+    return(
+      <div style={{background:T.s2,borderRadius:10,border:`1px solid ${isMe?ws.color:T.border}`,padding:"14px 16px",transition:"border-color 0.15s"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:7}}>
+            <span style={{fontSize:14}}>{icon}</span>
+            <span style={{fontSize:12,fontWeight:700,color:T.text}}>{label}</span>
+            {val&&<span style={{fontSize:9,background:"#30D15820",color:"#30D158",borderRadius:99,padding:"1px 7px",fontWeight:700}}>✓ Posté</span>}
+          </div>
+          {canEdit&&<button type="button" onClick={()=>{
+            if(isMe){setEditing(null);setDraft("");}
+            else{setEditing(eKey);setDraft(val);}
+          }} style={{
+            background:isMe?"transparent":ws.color+"18",
+            color:isMe?T.dim:ws.color,
+            border:`1px solid ${isMe?T.border:ws.color+"44"}`,
+            borderRadius:6,padding:"3px 10px",fontSize:10,fontWeight:600,cursor:"pointer",
+          }}>{isMe?"Annuler":"✏️ Éditer"}</button>}
+        </div>
+        {isMe?(
+          <div>
+            <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder={placeholder} rows={5}
+              style={{width:"100%",background:T.surface,border:`1px solid ${ws.color}55`,borderRadius:8,padding:"10px 12px",fontSize:13,color:T.text,outline:"none",fontFamily:"inherit",resize:"vertical",lineHeight:1.6,boxSizing:"border-box"}}
+              autoFocus
+              onFocus={e=>e.target.style.borderColor=ws.color}
+            />
+            <button type="button" onClick={()=>save(eKey,draft)} style={{marginTop:8,background:ws.color,color:"#fff",border:"none",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              ✓ Sauvegarder
+            </button>
+          </div>
+        ):val?(
+          <div style={{fontSize:12.5,color:T.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{val}</div>
+        ):(
+          <div style={{fontSize:11,color:T.dim,fontStyle:"italic",padding:"4px 0"}}>
+            {isIntern?`${label.includes("Plan")?"À remplir lundi matin avant de commencer":"À envoyer vendredi soir avec les chiffres"}`:"En attente de Mahaliana"}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function TaskChecklist({pillar, week}){
+    return(
+      <div style={{background:T.s2,borderRadius:12,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+        <div style={{background:pillar.color+"15",borderBottom:`1px solid ${pillar.color}22`,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:15}}>{pillar.icon}</span>
+            <span style={{fontSize:12,fontWeight:700,color:T.text}}>{pillar.title}</span>
+          </div>
+          <span style={{fontSize:10,fontWeight:700,background:pillar.color+"25",color:pillar.color,borderRadius:99,padding:"3px 9px"}}>{pillar.h}</span>
+        </div>
+        <div style={{padding:"10px 14px",display:"flex",flexDirection:"column",gap:5}}>
+          {pillar.tasks.map((task,i)=>{
+            const tKey = "task_"+week+"_"+pillar.title.replace(/\s/g,"")+"_"+i;
+            const done = data[tKey];
+            return(
+              <div key={i} onClick={()=>canEdit&&save(tKey,!done)} style={{
+                display:"flex",alignItems:"flex-start",gap:9,cursor:canEdit?"pointer":"default",
+                padding:"5px 6px",borderRadius:7,
+                background:done?"#30D15808":"transparent",
+                transition:"background 0.15s",
+              }}
+              onMouseEnter={e=>{if(canEdit)e.currentTarget.style.background=done?"#30D15812":T.surface;}}
+              onMouseLeave={e=>{e.currentTarget.style.background=done?"#30D15808":"transparent";}}>
+                <div style={{
+                  width:16,height:16,borderRadius:4,flexShrink:0,marginTop:1,
+                  background:done?"#30D158":"transparent",
+                  border:`2px solid ${done?"#30D158":T.muted}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  transition:"all 0.15s",
+                }}>
+                  {done&&<span style={{color:"#fff",fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
+                </div>
+                <span style={{
+                  fontSize:12,color:done?T.dim:T.text,
+                  textDecoration:done?"line-through":"none",
+                  lineHeight:1.5,transition:"all 0.15s",
+                }}>{task}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Progress per week
+  function weekProgress(wNum){
+    const ww = WEEKS[wNum-1];
+    let total=0,done=0;
+    ww.pillars.forEach(p=>p.tasks.forEach((t,i)=>{
+      total++;
+      if(data["task_"+wNum+"_"+p.title.replace(/\s/g,"")+"_"+i]) done++;
+    }));
+    return total>0?Math.round(done/total*100):0;
+  }
+
+  return(
+    <div style={{maxWidth:960,margin:"0 auto",animation:"fadeUp 0.2s ease"}}>
+
+      {/* ── HERO ── */}
+      <div style={{
+        background:`linear-gradient(135deg,${ws.color} 0%,${ws.color}99 100%)`,
+        borderRadius:16,padding:"28px 32px",marginBottom:20,
+        color:"#fff",position:"relative",overflow:"hidden",
+      }}>
+        <div style={{position:"absolute",right:-50,top:-50,width:250,height:250,borderRadius:"50%",background:"rgba(255,255,255,0.06)"}}/>
+        <div style={{position:"absolute",right:100,bottom:-80,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.04)"}}/>
+        <div style={{position:"relative",zIndex:1}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",opacity:0.65,marginBottom:6}}>Stage Projet · Brick'N'Cheese</div>
+              <div style={{fontSize:24,fontWeight:800,letterSpacing:-0.5,marginBottom:4}}>Mahaliana Ratoejanahary</div>
+              <div style={{fontSize:13,opacity:0.75,marginBottom:14}}>Master 2 IAE Montpellier · 14 semaines · Start ~25 mai 2026</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {["📣 Influencer Engine","📸 Instagram Daily","🌐 Website Rebuild"].map(p=>(
+                  <span key={p} style={{fontSize:11,fontWeight:600,background:"rgba(255,255,255,0.15)",borderRadius:99,padding:"5px 13px",backdropFilter:"blur(4px)"}}>{p}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+              <div style={{background:"rgba(255,255,255,0.15)",borderRadius:10,padding:"10px 16px",textAlign:"center"}}>
+                <div style={{fontSize:22,fontWeight:800}}>{weekProgress(activeWeek)}%</div>
+                <div style={{fontSize:9,opacity:0.75,textTransform:"uppercase",letterSpacing:1}}>Semaine {activeWeek}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RULES + BUDGET ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:20}}>
+        {[
+          {icon:"🎯",label:"KPI Prioritaire",val:"Sales via promo code"},
+          {icon:"📊",label:"2ème KPI",val:"Coût d'acquisition"},
+          {icon:"📤",label:"3ème KPI",val:"Volume outreach/sem"},
+          {icon:"⭐",label:"Règle d'or",val:"Impact > Reach"},
+        ].map(k=>(
+          <div key={k.label} style={{background:T.s2,borderRadius:10,padding:"12px 14px",border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:18,marginBottom:5}}>{k.icon}</div>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{k.label}</div>
+            <div style={{fontSize:12,fontWeight:700,color:T.text}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── WEEK TABS ── */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20}}>
+        {WEEKS.map(w=>{
+          const pct=weekProgress(w.num);
+          const hasPlan=!!data["plan_"+w.num];
+          const hasRecap=!!data["recap_"+w.num];
+          return(
+            <button key={w.num} onClick={()=>setActiveWeek(w.num)} style={{
+              background:activeWeek===w.num?T.surface:T.s2,
+              border:`2px solid ${activeWeek===w.num?ws.color:T.border}`,
+              borderRadius:10,padding:"12px",cursor:"pointer",
+              transition:"all 0.15s",textAlign:"left",
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:12,fontWeight:800,color:activeWeek===w.num?ws.color:T.text}}>Semaine {w.num}</span>
+                <span style={{fontSize:10,color:T.dim,fontWeight:600}}>{w.h}</span>
+              </div>
+              {/* Progress bar */}
+              <div style={{height:3,background:T.s3,borderRadius:99,marginBottom:6,overflow:"hidden"}}>
+                <div style={{height:"100%",width:pct+"%",background:pct===100?"#30D158":ws.color,borderRadius:99,transition:"width 0.4s ease"}}/>
+              </div>
+              <div style={{display:"flex",gap:5}}>
+                <span style={{fontSize:9,fontWeight:600,padding:"2px 6px",borderRadius:99,background:hasPlan?"#30D15818":"transparent",color:hasPlan?"#30D158":T.dim,border:`1px solid ${hasPlan?"#30D15830":T.border}`}}>Plan</span>
+                <span style={{fontSize:9,fontWeight:600,padding:"2px 6px",borderRadius:99,background:hasRecap?"#30D15818":"transparent",color:hasRecap?"#30D158":T.dim,border:`1px solid ${hasRecap?"#30D15830":T.border}`}}>Recap</span>
+                {pct>0&&<span style={{fontSize:9,fontWeight:700,color:ws.color,marginLeft:"auto"}}>{pct}%</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── WEEK HEADER ── */}
+      <div style={{background:T.s2,borderRadius:10,border:`1px solid ${T.border}`,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:36,height:36,borderRadius:9,background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800,color:"#fff",flexShrink:0}}>
+          {activeWeek}
+        </div>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:T.text}}>{w.theme}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:1}}>Semaine {activeWeek} · {w.h} · {weekProgress(activeWeek)}% complété</div>
+        </div>
+      </div>
+
+      {/* ── MAIN GRID ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+
+        {/* Left col: Checklists */}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {w.pillars.map(p=><TaskChecklist key={p.title} pillar={p} week={activeWeek}/>)}
+        </div>
+
+        {/* Right col: Plan + Recap + Story rhythm */}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <EditBlock eKey={planKey} icon="📌" label="Plan du lundi" placeholder="Écris ton plan pour la semaine — objectifs, actions prioritaires, ce que tu vas mesurer..."/>
+          <EditBlock eKey={recapKey} icon="📊" label="Recap du vendredi" placeholder="Ce qui est fait + les chiffres — influenceurs contactés, deals confirmés, codes activés, ventes..."/>
+
+          {/* Story rhythm card (always visible) */}
+          <div style={{background:T.s2,borderRadius:12,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:14}}>📅</span>
+              <span style={{fontSize:12,fontWeight:700,color:T.text}}>Rythme Stories — Semaine type</span>
+            </div>
+            <div style={{padding:"10px 14px",display:"grid",gridTemplateColumns:"1fr",gap:4}}>
+              {STORY_RHYTHM.map(s=>(
+                <div key={s.day} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 6px",borderRadius:7,background:T.surface}}>
+                  <div style={{width:28,height:20,borderRadius:5,background:s.color+"22",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{fontSize:8,fontWeight:800,color:s.color,textTransform:"uppercase"}}>{s.day}</span>
+                  </div>
+                  <span style={{fontSize:11,fontWeight:600,color:T.text,flex:1}}>{s.type}</span>
+                  <span style={{fontSize:10,color:T.dim}}>{s.detail}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── BUDGET BAR ── */}
+      <div style={{background:T.s2,borderRadius:12,border:`1px solid ${T.border}`,padding:"16px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <span style={{fontSize:12,fontWeight:700,color:T.text}}>💰 Budget Influenceurs</span>
+          <span style={{fontSize:13,fontWeight:800,color:ws.color}}>2,000 $/mois</span>
+        </div>
+        <div style={{display:"flex",height:8,borderRadius:99,overflow:"hidden",marginBottom:14,gap:1}}>
+          <div style={{flex:65,background:ws.color,borderRadius:"99px 0 0 99px"}}/>
+          <div style={{flex:25,background:"#F5A23C"}}/>
+          <div style={{flex:10,background:T.muted,borderRadius:"0 99px 99px 0"}}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          {[
+            {city:"Toronto",flag:"🇨🇦",pct:"65%",amt:"~1,300$",note:"Marché principal — volume max",color:ws.color},
+            {city:"Seattle",flag:"🇺🇸",pct:"25%",amt:"~500$",note:"Marché validé — deals sélectifs",color:"#F5A23C"},
+            {city:"Vancouver",flag:"🇨🇦",pct:"10%",amt:"~200$",note:"Touch légère — picks précis",color:T.muted},
+          ].map(c=>(
+            <div key={c.city} style={{background:T.surface,borderRadius:9,padding:"12px 14px",border:`1px solid ${T.border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                <span>{c.flag}</span>
+                <span style={{fontSize:12,fontWeight:800,color:T.text}}>{c.city}</span>
+                <span style={{marginLeft:"auto",fontSize:16,fontWeight:900,color:c.color}}>{c.pct}</span>
+              </div>
+              <div style={{height:3,background:T.s3,borderRadius:99,marginBottom:6,overflow:"hidden"}}>
+                <div style={{height:"100%",width:c.pct,background:c.color,borderRadius:99}}/>
+              </div>
+              <div style={{fontSize:11,fontWeight:700,color:c.color,marginBottom:2}}>{c.amt}</div>
+              <div style={{fontSize:10,color:T.dim}}>{c.note}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
