@@ -8779,10 +8779,10 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
       const actions=[...(meeting.actions||[]),{title:form.title,owner:form.owner||"",due:form.due||"",done:false}];
       lsUpd("meetings",meeting.id,{actions});
     } else if(isBudget){
-      const currentMonth=new Date().toISOString().slice(0,7);
-      const existing=(mediaBudget||[]).find(b=>b.month===currentMonth&&b.location==="Global");
+      const targetMonth=modal.prefillMonth||new Date().toISOString().slice(0,7);
+      const existing=(mediaBudget||[]).find(b=>b.month===targetMonth&&b.location==="Global");
       if(existing) updateMediaBudget(existing.id,{budget:+form.budget});
-      else addMediaBudget({month:currentMonth,location:"Global",budget:+form.budget});
+      else addMediaBudget({month:targetMonth,location:"Global",budget:+form.budget});
     } else if(isClient){
       if(!form.name)return;
       const ev={status:"Prospect",notes:"",interactions:[],...form};
@@ -9139,7 +9139,9 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
         </>}
 
         {isBudget&&<>
-          <div style={{marginBottom:16,fontSize:13,color:T.muted}}>Définit le budget média mensuel alloué pour les influenceurs.</div>
+          <div style={{marginBottom:16,fontSize:13,color:T.muted}}>
+            Budget influenceurs pour <strong style={{color:T.text}}>{modal.prefillMonth||new Date().toISOString().slice(0,7)}</strong>
+          </div>
           <MF label="Budget mensuel (CAD $)" T={T}><input type="number" value={form.budget||""} onChange={e=>f("budget",e.target.value)} placeholder="ex: 2000"/></MF>
           <Btns color={ws.color} onSave={save} onDelete={null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
