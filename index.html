@@ -868,7 +868,13 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
           if(rows){onLogin(rows);return;}
         }catch(e){}
         const profiles=lsGet("profiles");
-        const d=profiles.find(p=>p.email===savedEmail&&p.password_hash===savedPass);
+        let d=profiles.find(p=>p.email===savedEmail&&p.password_hash===savedPass);
+        if(!d){
+          const INTERN_ACCOUNTS=[
+            {id:3,name:"Mahaliana",email:"mratoejanahary@gmail.com",password_hash:"123456mp",role:"intern",workspace_access:["bnc"],locations:["Global","Toronto","Seattle","Vancouver"],avatar:"M"},
+          ];
+          d=INTERN_ACCOUNTS.find(a=>a.email===savedEmail&&a.password_hash===savedPass);
+        }
         if(d)onLogin(d);
       })();
     }
@@ -884,6 +890,14 @@ function LoginPage({onLogin,T,t,theme,setTheme,lang,setLang}){
     } catch(e){
       const profiles=lsGet("profiles");
       data=profiles.find(p=>p.email===email.toLowerCase().trim()&&p.password_hash===pass);
+    }
+    // Hardcoded fallback for intern accounts not yet in Supabase
+    if(!data){
+      const INTERN_ACCOUNTS=[
+        {id:3,name:"Mahaliana",email:"mratoejanahary@gmail.com",password_hash:"123456mp",role:"intern",workspace_access:["bnc"],locations:["Global","Toronto","Seattle","Vancouver"],avatar:"M"},
+      ];
+      const intern=INTERN_ACCOUNTS.find(a=>a.email===email.toLowerCase().trim()&&a.password_hash===pass);
+      if(intern) data=intern;
     }
     setLoading(false);
     if(!data){setErr(t.loginError);return;}
