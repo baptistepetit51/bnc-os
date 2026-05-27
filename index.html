@@ -1665,6 +1665,11 @@ function App(){
     }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
+    // Load media_budget from Supabase
+    try{
+      const r=await fetch(SUPA_URL+"/rest/v1/media_budget?workspace=eq."+wsId+"&order=created_at.desc",{headers:SUPA_HEADERS});
+      if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0){setMediaBudget(d);lsSet("media_budget",d);}}
+    }catch(e){}
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
     setTitoFocus(lsGet(wsId+"_focus")||[]);
     setTitoNotes(localStorage.getItem(wsId+"_notes")||"");
@@ -1716,14 +1721,31 @@ function App(){
     lsIns("task_notes",{workspace:wsId,taskId,text,author:userName,timestamp:ts});
     loadExpenses();
   }
-  function addMediaBudget(form){
-    const item={...form,workspace:wsId,created_by:user.name,id:Date.now()};
+  async function addMediaBudget(form){
+    const item={...form,workspace:wsId,created_by:user.name,created_at:new Date().toISOString()};
     lsIns("media_budget",item);
-    setMediaBudget(prev=>[...prev,item]);
+    setMediaBudget(prev=>[...prev.filter(b=>!(b.month===form.month&&b.workspace===wsId)),item]);
+    try{
+      // Check if already exists in Supabase
+      const existing=await fetch(SUPA_URL+"/rest/v1/media_budget?workspace=eq."+wsId+"&month=eq."+encodeURIComponent(form.month)+"&location=eq.Global",{headers:SUPA_HEADERS});
+      const rows=await existing.json();
+      if(Array.isArray(rows)&&rows.length>0){
+        await fetch(SUPA_URL+"/rest/v1/media_budget?id=eq."+rows[0].id,{method:"PATCH",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({budget:form.budget})});
+      } else {
+        const {error}=await supaInsert("media_budget",{...item});
+        if(error)console.error("addMediaBudget error:",error);
+      }
+    }catch(e){console.warn("addMediaBudget supabase:",e);}
+    loadExpenses();
   }
-  function updateMediaBudget(id,form){
+  async function updateMediaBudget(id,form){
     lsUpd("media_budget",id,form);
-    setMediaBudget(prev=>prev.map(b=>b.id===id?{...b,...form}:b));
+    setMediaBudget(prev=>prev.map(b=>String(b.id)===String(id)?{...b,...form}:b));
+    try{
+      const {error}=await supaUpdate("media_budget",id,form);
+      if(error)console.error("updateMediaBudget error:",error);
+    }catch(e){console.warn("updateMediaBudget supabase:",e);}
+    loadExpenses();
   }
   async function addExpense(form){
     const EXP_COLS=["workspace","title","amount","category","date","location","urgency","payment","due_date","notes","created_by","created_at"];
@@ -8301,6 +8323,218 @@ function TaskJournal({taskId,taskNotes,addTaskNote,ws,T,user,wsId}){
 }
 
 
+function DailyStageView({ws, T, user, canEdit, data, save}){
+  const today = new Date();
+  const [weekOffset, setWeekOffset] = React.useState(0);
+  const [editDay, setEditDay] = React.useState(null);
+  const [draft, setDraft] = React.useState("");
+
+  // Get Monday of week with offset
+  function getMondayOfWeek(offset){
+    const d = new Date(today);
+    const day = d.getDay();
+    const diff = day===0 ? -6 : 1-day;
+    d.setDate(d.getDate()+diff+(offset*7));
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  const monday = getMondayOfWeek(weekOffset);
+  const days = Array.from({length:7},(_,i)=>{
+    const d = new Date(monday);
+    d.setDate(monday.getDate()+i);
+    return d;
+  });
+
+  const DAY_LABELS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+  const AREAS = [
+    {icon:"📣", label:"Influencer", color:"#FF6B00"},
+    {icon:"📸", label:"Instagram", color:"#BF5AF2"},
+    {icon:"🌐", label:"Website", color:"#0A84FF"},
+    {icon:"📝", label:"Autre", color:"#64D2FF"},
+  ];
+
+  function dayKey(d){ return d.toISOString().slice(0,10); }
+  function getDayData(d){ return data["day_"+dayKey(d)]||{}; }
+  function saveDayField(d, field, val){
+    const k = "day_"+dayKey(d);
+    save(k, {...getDayData(d), [field]: val});
+  }
+  function toggleTask(d, taskIdx){
+    const dd = getDayData(d);
+    const tasks = dd.tasks||[];
+    const updated = tasks.map((t,i)=>i===taskIdx?{...t,done:!t.done}:t);
+    const k = "day_"+dayKey(d);
+    save(k, {...dd, tasks:updated});
+  }
+  function addTask(d, text, area){
+    if(!text.trim()) return;
+    const dd = getDayData(d);
+    const tasks = [...(dd.tasks||[]), {text:text.trim(), area, done:false, time:new Date().toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"})}];
+    const k = "day_"+dayKey(d);
+    save(k, {...dd, tasks});
+  }
+  function deleteTask(d, taskIdx){
+    const dd = getDayData(d);
+    const tasks = (dd.tasks||[]).filter((_,i)=>i!==taskIdx);
+    const k = "day_"+dayKey(d);
+    save(k, {...dd, tasks});
+  }
+
+  const isToday = (d) => d.toDateString()===today.toDateString();
+  const isPast = (d) => d < today && !isToday(d);
+  const weekLabel = monday.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})+" → "+days[6].toLocaleDateString("fr-CA",{day:"numeric",month:"short"});
+
+  return(
+    <div>
+      {/* Week nav */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+        <button onClick={()=>setWeekOffset(o=>o-1)} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",cursor:"pointer",color:T.text,fontSize:13}}>◀</button>
+        <div style={{flex:1,textAlign:"center",fontSize:13,fontWeight:700,color:T.text}}>{weekLabel}</div>
+        <button onClick={()=>setWeekOffset(0)} style={{background:weekOffset===0?ws.color+"18":"transparent",border:`1px solid ${weekOffset===0?ws.color:T.border}`,borderRadius:7,padding:"6px 12px",cursor:"pointer",color:weekOffset===0?ws.color:T.muted,fontSize:11,fontWeight:600}}>Aujourd'hui</button>
+        <button onClick={()=>setWeekOffset(o=>o+1)} style={{background:T.s2,border:`1px solid ${T.border}`,borderRadius:7,padding:"6px 10px",cursor:"pointer",color:T.text,fontSize:13}}>▶</button>
+      </div>
+
+      {/* Days grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8}}>
+        {days.map((d,di)=>{
+          const dd = getDayData(d);
+          const tasks = dd.tasks||[];
+          const note = dd.note||"";
+          const doneTasks = tasks.filter(t=>t.done).length;
+          const isEdit = editDay===dayKey(d);
+          const isTodayDay = isToday(d);
+          const isPastDay = isPast(d);
+
+          return(
+            <div key={di} style={{
+              background:isTodayDay?ws.color+"0f":T.s2,
+              border:`2px solid ${isTodayDay?ws.color:T.border}`,
+              borderRadius:12,padding:"10px 10px",
+              opacity:isPastDay&&!tasks.length&&!note?0.6:1,
+              transition:"all 0.15s",
+            }}>
+              {/* Day header */}
+              <div style={{marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+                  <span style={{fontSize:10,fontWeight:800,color:isTodayDay?ws.color:T.muted,textTransform:"uppercase",letterSpacing:0.8}}>{DAY_LABELS[di]}</span>
+                  {tasks.length>0&&<span style={{fontSize:9,color:doneTasks===tasks.length?"#30D158":T.dim,fontWeight:700}}>{doneTasks}/{tasks.length}</span>}
+                </div>
+                <div style={{fontSize:15,fontWeight:800,color:isTodayDay?ws.color:T.text}}>{d.getDate()}</div>
+                {isTodayDay&&<div style={{height:2,background:ws.color,borderRadius:99,marginTop:4}}/>}
+              </div>
+
+              {/* Tasks list */}
+              <div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:6,minHeight:tasks.length?0:20}}>
+                {tasks.map((task,ti)=>{
+                  const area = AREAS.find(a=>a.label===task.area)||AREAS[3];
+                  return(
+                    <div key={ti} style={{display:"flex",alignItems:"flex-start",gap:5,padding:"4px 5px",borderRadius:6,background:task.done?"#30D15808":T.surface,transition:"background 0.1s"}}>
+                      <button type="button" onClick={()=>canEdit&&toggleTask(d,ti)} style={{
+                        width:12,height:12,borderRadius:3,flexShrink:0,marginTop:2,
+                        background:task.done?area.color:"transparent",
+                        border:`1.5px solid ${task.done?area.color:T.border}`,
+                        padding:0,cursor:canEdit?"pointer":"default",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                      }}>
+                        {task.done&&<span style={{color:"#fff",fontSize:7,fontWeight:900,lineHeight:1}}>✓</span>}
+                      </button>
+                      <span style={{fontSize:10.5,color:task.done?T.dim:T.text,textDecoration:task.done?"line-through":"none",lineHeight:1.4,flex:1}}>{task.text}</span>
+                      {canEdit&&<button type="button" onClick={()=>deleteTask(d,ti)} style={{background:"transparent",border:"none",color:T.dim,fontSize:10,cursor:"pointer",padding:"0 1px",lineHeight:1,flexShrink:0,opacity:0,transition:"opacity 0.1s"}}
+                        onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0"}>×</button>}
+                    </div>
+                  );
+                })}
+                {tasks.length===0&&!isEdit&&<div style={{fontSize:9,color:T.dim,fontStyle:"italic",textAlign:"center",padding:"4px 0"}}>{isTodayDay?"Ajoute tes tâches":"Aucune tâche"}</div>}
+              </div>
+
+              {/* Note */}
+              {note&&<div style={{fontSize:10,color:T.muted,borderTop:`1px solid ${T.border}`,paddingTop:5,marginBottom:5,lineHeight:1.4,whiteSpace:"pre-wrap"}}>{note}</div>}
+
+              {/* Add button */}
+              {canEdit&&!isEdit&&(
+                <button type="button" onClick={()=>{setEditDay(dayKey(d));setDraft("");}} style={{
+                  width:"100%",background:"transparent",border:`1px dashed ${isTodayDay?ws.color+"66":T.border}`,
+                  borderRadius:6,padding:"4px",fontSize:9,color:isTodayDay?ws.color:T.dim,cursor:"pointer",
+                  transition:"all 0.1s",
+                }}>+ Ajouter</button>
+              )}
+
+              {/* Quick add form */}
+              {isEdit&&canEdit&&<DayAddForm ws={ws} T={T} day={d} AREAS={AREAS}
+                onAdd={(text,area)=>{addTask(d,text,area);}}
+                onNote={(txt)=>{saveDayField(d,"note",txt);}}
+                currentNote={note}
+                onClose={()=>setEditDay(null)}
+              />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div style={{display:"flex",gap:12,marginTop:12,flexWrap:"wrap"}}>
+        {AREAS.map(a=>(
+          <div key={a.label} style={{display:"flex",alignItems:"center",gap:5}}>
+            <div style={{width:8,height:8,borderRadius:2,background:a.color}}/>
+            <span style={{fontSize:10,color:T.muted}}>{a.icon} {a.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DayAddForm({ws, T, day, AREAS, onAdd, onNote, currentNote, onClose}){
+  const [text, setText] = React.useState("");
+  const [area, setArea] = React.useState("Influencer");
+  const [showNote, setShowNote] = React.useState(false);
+  const [noteDraft, setNoteDraft] = React.useState(currentNote||"");
+
+  return(
+    <div style={{marginTop:4}}>
+      {!showNote?(
+        <>
+          <input autoFocus value={text} onChange={e=>setText(e.target.value)}
+            onKeyDown={e=>{
+              if(e.key==="Enter"&&text.trim()){onAdd(text,area);setText("");}
+              if(e.key==="Escape")onClose();
+            }}
+            placeholder="Tâche..."
+            style={{width:"100%",background:T.surface,border:`1px solid ${ws.color}`,borderRadius:6,padding:"5px 7px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+          />
+          <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>
+            {AREAS.map(a=>(
+              <button key={a.label} type="button" onClick={()=>setArea(a.label)} style={{
+                background:area===a.label?a.color+"25":"transparent",
+                border:`1px solid ${area===a.label?a.color:T.border}`,
+                borderRadius:4,padding:"2px 6px",fontSize:9,color:area===a.label?a.color:T.dim,cursor:"pointer",
+              }}>{a.icon}</button>
+            ))}
+            <button type="button" onClick={()=>setShowNote(true)} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:4,padding:"2px 6px",fontSize:9,color:T.dim,cursor:"pointer",marginLeft:"auto"}}>📝</button>
+            <button type="button" onClick={onClose} style={{background:"transparent",border:"none",color:T.dim,fontSize:11,cursor:"pointer",padding:0}}>✕</button>
+          </div>
+          {text.trim()&&<button type="button" onClick={()=>{onAdd(text,area);setText("");}} style={{marginTop:4,width:"100%",background:ws.color,color:"#fff",border:"none",borderRadius:5,padding:"4px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Ajouter →</button>}
+        </>
+      ):(
+        <>
+          <textarea value={noteDraft} onChange={e=>setNoteDraft(e.target.value)}
+            placeholder="Note de la journée..."
+            rows={3}
+            style={{width:"100%",background:T.surface,border:`1px solid ${ws.color}`,borderRadius:6,padding:"5px 7px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",resize:"none",boxSizing:"border-box"}}
+            autoFocus
+          />
+          <div style={{display:"flex",gap:4,marginTop:4}}>
+            <button type="button" onClick={()=>{onNote(noteDraft);setShowNote(false);}} style={{flex:1,background:ws.color,color:"#fff",border:"none",borderRadius:5,padding:"4px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Sauvegarder</button>
+            <button type="button" onClick={()=>setShowNote(false)} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"4px 8px",fontSize:10,color:T.dim,cursor:"pointer"}}>Retour</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 function StageProjet({ws, T, user}){
   const LS = "stage_bnc_v2";
   const isAdmin = user?.role==="admin" || user?.role==="partner";
@@ -8311,14 +8545,49 @@ function StageProjet({ws, T, user}){
   const [data, setData] = React.useState(()=>{
     try{ return JSON.parse(localStorage.getItem(LS)||"{}"); }catch(e){return {};}
   });
-  const [editing, setEditing] = React.useState(null); // "plan_1", "recap_2", "task_1_0"
+  const [view, setView] = React.useState("semaines");
+  const [editing, setEditing] = React.useState(null);
   const [draft, setDraft] = React.useState("");
 
-  function save(key, val){
+  // Sync to/from Supabase via task_notes table with type="stage_kv"
+  const STAGE_NOTE_TYPE = "stage_kv";
+
+  React.useEffect(()=>{
+    loadFromSupabase();
+    const interval = setInterval(loadFromSupabase, 15000); // poll every 15s
+    return ()=>clearInterval(interval);
+  },[]);
+
+  async function loadFromSupabase(){
+    try{
+      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&type=eq."+STAGE_NOTE_TYPE+"&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
+      if(r.ok){
+        const rows=await r.json();
+        if(Array.isArray(rows)&&rows.length>0&&rows[0].text){
+          const remoteData=JSON.parse(rows[0].text);
+          setData(prev=>{
+            const merged={...prev,...remoteData};
+            localStorage.setItem(LS, JSON.stringify(merged));
+            return merged;
+          });
+        }
+      }
+    }catch(e){}
+  }
+
+  async function save(key, val){
     const upd = {...data, [key]: val};
     setData(upd);
     localStorage.setItem(LS, JSON.stringify(upd));
     setEditing(null); setDraft("");
+    // Sync to Supabase
+    try{
+      // Delete old stage_kv entry, insert new one
+      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&type=eq."+STAGE_NOTE_TYPE,{method:"DELETE",headers:SUPA_HEADERS});
+      await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
+        body:JSON.stringify({workspace:ws.id,task_id:0,type:STAGE_NOTE_TYPE,text:JSON.stringify(upd),created_by:"system",created_at:new Date().toISOString()})
+      });
+    }catch(e){console.warn("stage sync error:",e);}
   }
 
   const WEEKS = [
@@ -8530,6 +8799,21 @@ function StageProjet({ws, T, user}){
         ))}
       </div>
 
+      {/* ── VIEW TABS ── */}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {["semaines","journalier"].map(v=>(
+          <button key={v} onClick={()=>setView(v)} style={{
+            background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,
+            border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:8,
+            padding:"7px 16px",fontSize:11,fontWeight:700,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.6,
+            transition:"all 0.15s",
+          }}>{v==="semaines"?"📋 Plan semaines":"📅 Journalier"}</button>
+        ))}
+      </div>
+
+      {view==="journalier"&&<DailyStageView ws={ws} T={T} user={user} canEdit={canEdit} data={data} save={save}/>}
+      {view==="semaines"&&<>
+
       {/* ── WEEK TABS ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20}}>
         {WEEKS.map(w=>{
@@ -8638,6 +8922,7 @@ function StageProjet({ws, T, user}){
           ))}
         </div>
       </div>
+      </>}
     </div>
   );
 }
