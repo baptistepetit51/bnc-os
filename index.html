@@ -1639,12 +1639,45 @@ function App(){
     setTitoInbox(lsGet(wsId+"_inbox")||[]);
     setTitoJournal(lsGet(wsId+"_journal")||[]);
   }
-  function addProduct(form){ lsIns("products",{...form,workspace:wsId,created_by:user.name,phase:"Idée",updates:[]}); loadExpenses(); }
+  async function addProduct(form){
+    const PROD_COLS=["workspace","title","description","phase","locations","location","launch_date","launch_end_date","menu_duration","cost","price","category","add_to_cal","updates","created_by","created_at"];
+    const item={...form,workspace:wsId,created_by:user.name,phase:form.phase||"Idée",updates:form.updates||[],created_at:new Date().toISOString()};
+    lsIns("products",item);
+    setProducts(prev=>[item,...prev.filter(p=>p.id!==item.id)]);
+    try{
+      const supaItem={};
+      PROD_COLS.forEach(k=>{if(item[k]!==undefined)supaItem[k]=item[k];});
+      delete supaItem.id;
+      const {data,error}=await supaInsert("products",supaItem);
+      if(error)console.error("addProduct error:",error);
+      else if(data&&data[0]){lsUpd("products",item.id,{id:data[0].id});setProducts(prev=>prev.map(p=>p.id===item.id?{...p,id:data[0].id}:p));}
+    }catch(e){console.warn("addProduct supabase error:",e);}
+    loadExpenses();
+  }
   function addClient(form){ lsIns("clients",{...form,workspace:wsId,created_by:user.name,status:"Prospect",notes:"",interactions:[]}); loadExpenses(); }
   function updateClient(id,form){ lsUpd("clients",id,form); loadExpenses(); }
   function deleteClient(id){ lsDel("clients",id); loadExpenses(); }
-  function updateProduct(id,form){ lsUpd("products",id,form); loadExpenses(); }
-  function deleteProduct(id){ lsDel("products",id); loadExpenses(); }
+  async function updateProduct(id,form){
+    lsUpd("products",id,form);
+    setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p,...form}:p));
+    try{
+      const PROD_COLS=["workspace","title","description","phase","locations","location","launch_date","launch_end_date","menu_duration","cost","price","category","add_to_cal","updates","created_by"];
+      const supaItem={};
+      PROD_COLS.forEach(k=>{if(form[k]!==undefined)supaItem[k]=form[k];});
+      const {error}=await supaUpdate("products",id,supaItem);
+      if(error)console.error("updateProduct error:",error);
+    }catch(e){console.warn("updateProduct supabase error:",e);}
+    loadExpenses();
+  }
+  async function deleteProduct(id){
+    lsDel("products",id);
+    setProducts(prev=>prev.filter(p=>String(p.id)!==String(id)));
+    try{
+      const {error}=await supaDelete("products",id);
+      if(error)console.error("deleteProduct error:",error);
+    }catch(e){console.warn("deleteProduct supabase error:",e);}
+    loadExpenses();
+  }
   function addTaskNote(taskId,text,userName){
     const ts=new Date().toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
     lsIns("task_notes",{workspace:wsId,taskId,text,author:userName,timestamp:ts});
