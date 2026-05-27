@@ -1665,11 +1665,22 @@ function App(){
     }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
-    // Load media_budget from Supabase
+    // Load media_budget from task_notes (budget_kv type)
     try{
-      const r=await fetch(SUPA_URL+"/rest/v1/media_budget?workspace=eq."+wsId+"&order=created_at.desc",{headers:SUPA_HEADERS});
-      if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0){setMediaBudget(d);lsSet("media_budget",d);}}
-    }catch(e){}
+      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+wsId+"&task_id=eq.-1&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
+      if(r.ok){
+        const rows=await r.json();
+        if(Array.isArray(rows)&&rows.length>0){
+          try{
+            const parsed=JSON.parse(rows[0].text);
+            if(parsed._type==="budget_kv"&&Array.isArray(parsed.budgets)&&parsed.budgets.length>0){
+              setMediaBudget(parsed.budgets);lsSet("media_budget",parsed.budgets);
+              console.log("✅ budgets loaded:",parsed.budgets.length);
+            }
+          }catch(e){}
+        }
+      }
+    }catch(e){console.warn("budget load:",e);}
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
     setTitoFocus(lsGet(wsId+"_focus")||[]);
     setTitoNotes(localStorage.getItem(wsId+"_notes")||"");
@@ -1722,30 +1733,26 @@ function App(){
     loadExpenses();
   }
   async function addMediaBudget(form){
-    const item={...form,workspace:wsId,created_by:user.name,created_at:new Date().toISOString()};
+    const item={...form,workspace:wsId,created_by:user.name,id:form.id||Date.now(),created_at:new Date().toISOString()};
     lsIns("media_budget",item);
     setMediaBudget(prev=>[...prev.filter(b=>!(b.month===form.month&&b.workspace===wsId)),item]);
+    // Store in task_notes as budget_kv (no new table needed)
     try{
-      // Check if already exists in Supabase
-      const existing=await fetch(SUPA_URL+"/rest/v1/media_budget?workspace=eq."+wsId+"&month=eq."+encodeURIComponent(form.month)+"&location=eq.Global",{headers:SUPA_HEADERS});
-      const rows=await existing.json();
-      if(Array.isArray(rows)&&rows.length>0){
-        await fetch(SUPA_URL+"/rest/v1/media_budget?id=eq."+rows[0].id,{method:"PATCH",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({budget:form.budget})});
-      } else {
-        const {error}=await supaInsert("media_budget",{...item});
-        if(error)console.error("addMediaBudget error:",error);
-      }
-    }catch(e){console.warn("addMediaBudget supabase:",e);}
+      const noteKey="budget_kv_"+wsId+"_"+form.month;
+      const payload=JSON.stringify({...item,_key:noteKey});
+      // Use task_id=-1 for budget entries (no new column needed)
+      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+wsId+"&task_id=eq.-1",{method:"DELETE",headers:SUPA_HEADERS});
+      await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
+        body:JSON.stringify({workspace:wsId,task_id:-1,text:JSON.stringify({_type:"budget_kv",workspace:wsId,budgets:[...((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId)),item]}),created_by:user.name,created_at:new Date().toISOString()})
+      });
+      console.log("✅ Budget synced:", form.month, form.budget);
+    }catch(e){console.warn("addMediaBudget sync:",e);}
     loadExpenses();
   }
   async function updateMediaBudget(id,form){
     lsUpd("media_budget",id,form);
     setMediaBudget(prev=>prev.map(b=>String(b.id)===String(id)?{...b,...form}:b));
-    try{
-      const {error}=await supaUpdate("media_budget",id,form);
-      if(error)console.error("updateMediaBudget error:",error);
-    }catch(e){console.warn("updateMediaBudget supabase:",e);}
-    loadExpenses();
+    await addMediaBudget({...form,id});
   }
   async function addExpense(form){
     const EXP_COLS=["workspace","title","amount","category","date","location","urgency","payment","due_date","notes","created_by","created_at"];
@@ -8560,7 +8567,7 @@ function StageProjet({ws, T, user}){
 
   async function loadFromSupabase(){
     try{
-      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&type=eq."+STAGE_NOTE_TYPE+"&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
+      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-2&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
       if(r.ok){
         const rows=await r.json();
         if(Array.isArray(rows)&&rows.length>0&&rows[0].text){
@@ -8583,9 +8590,9 @@ function StageProjet({ws, T, user}){
     // Sync to Supabase
     try{
       // Delete old stage_kv entry, insert new one
-      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&type=eq."+STAGE_NOTE_TYPE,{method:"DELETE",headers:SUPA_HEADERS});
+      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-2",{method:"DELETE",headers:SUPA_HEADERS});
       await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({workspace:ws.id,task_id:0,type:STAGE_NOTE_TYPE,text:JSON.stringify(upd),created_by:"system",created_at:new Date().toISOString()})
+        body:JSON.stringify({workspace:ws.id,task_id:-2,text:JSON.stringify(upd),created_by:"system",created_at:new Date().toISOString()})
       });
     }catch(e){console.warn("stage sync error:",e);}
   }
