@@ -1665,17 +1665,17 @@ function App(){
     }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
-    // Load media_budget from task_notes (budget_kv type)
+    // Load media_budget from cal_events (type=media_budget_sync)
     try{
-      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+wsId+"&task_id=eq.-1&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
+      const r=await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+wsId+"&type=eq.media_budget_sync&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
       if(r.ok){
         const rows=await r.json();
-        if(Array.isArray(rows)&&rows.length>0){
+        if(Array.isArray(rows)&&rows.length>0&&rows[0].note){
           try{
-            const parsed=JSON.parse(rows[0].text);
-            if(parsed._type==="budget_kv"&&Array.isArray(parsed.budgets)&&parsed.budgets.length>0){
-              setMediaBudget(parsed.budgets);lsSet("media_budget",parsed.budgets);
-              console.log("✅ budgets loaded:",parsed.budgets.length);
+            const budgets=JSON.parse(rows[0].note);
+            if(Array.isArray(budgets)&&budgets.length>0){
+              setMediaBudget(budgets);lsSet("media_budget",budgets);
+              console.log("✅ budgets loaded:",budgets.length);
             }
           }catch(e){}
         }
@@ -1736,24 +1736,36 @@ function App(){
     const item={...form,workspace:wsId,created_by:user.name,id:form.id||Date.now(),created_at:new Date().toISOString()};
     lsIns("media_budget",item);
     setMediaBudget(prev=>[...prev.filter(b=>!(b.month===form.month&&b.workspace===wsId)),item]);
-    // Store in task_notes as budget_kv (no new table needed)
+    // Sync ALL budgets for this workspace to cal_events (type=media_budget_sync)
     try{
-      const noteKey="budget_kv_"+wsId+"_"+form.month;
-      const payload=JSON.stringify({...item,_key:noteKey});
-      // Use task_id=-1 for budget entries (no new column needed)
-      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+wsId+"&task_id=eq.-1",{method:"DELETE",headers:SUPA_HEADERS});
-      await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({workspace:wsId,task_id:-1,text:JSON.stringify({_type:"budget_kv",workspace:wsId,budgets:[...((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId)),item]}),created_by:user.name,created_at:new Date().toISOString()})
+      // Delete old sync entry
+      await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+wsId+"&type=eq.media_budget_sync",{method:"DELETE",headers:SUPA_HEADERS});
+      // Get all current budgets (including new one)
+      const allBudgets=(lsGet("media_budget")||[]).filter(b=>b.workspace===wsId);
+      const hasNew=allBudgets.find(b=>b.month===form.month);
+      const finalBudgets=hasNew?allBudgets:[...allBudgets,item];
+      // Insert new sync entry
+      const {error}=await supaInsert("cal_events",{
+        workspace:wsId,
+        type:"media_budget_sync",
+        title:"media_budget_sync",
+        month:1,day:1,
+        note:JSON.stringify(finalBudgets),
+        color:"#000",
+        category:"media_budget_sync",
+        has_end:false,
       });
-      console.log("✅ Budget synced:", form.month, form.budget);
-    }catch(e){console.warn("addMediaBudget sync:",e);}
+      if(error)console.error("budget sync error:",error);
+      else console.log("✅ Budget synced to cal_events:", form.month, form.budget);
+    }catch(e){console.warn("budget sync error:",e);}
     loadExpenses();
   }
   async function updateMediaBudget(id,form){
     lsUpd("media_budget",id,form);
     setMediaBudget(prev=>prev.map(b=>String(b.id)===String(id)?{...b,...form}:b));
-    await addMediaBudget({...form,id});
+    await addMediaBudget({...((lsGet("media_budget")||[]).find(b=>String(b.id)===String(id))||{}), ...form});
   }
+  
   async function addExpense(form){
     const EXP_COLS=["workspace","title","amount","category","date","location","urgency","payment","due_date","notes","created_by","created_at"];
     const expItem={...form,workspace:wsId,created_by:user.name,created_at:new Date().toISOString()};
@@ -8567,11 +8579,11 @@ function StageProjet({ws, T, user}){
 
   async function loadFromSupabase(){
     try{
-      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-2&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
+      const r=await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+ws.id+"&type=eq.stage_data_sync&order=created_at.desc&limit=1",{headers:SUPA_HEADERS});
       if(r.ok){
         const rows=await r.json();
         if(Array.isArray(rows)&&rows.length>0&&rows[0].text){
-          const remoteData=JSON.parse(rows[0].text);
+          const remoteData=JSON.parse(rows[0].note||rows[0].text||"{}");
           setData(prev=>{
             const merged={...prev,...remoteData};
             localStorage.setItem(LS, JSON.stringify(merged));
@@ -8590,9 +8602,10 @@ function StageProjet({ws, T, user}){
     // Sync to Supabase
     try{
       // Delete old stage_kv entry, insert new one
-      await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-2",{method:"DELETE",headers:SUPA_HEADERS});
-      await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({workspace:ws.id,task_id:-2,text:JSON.stringify(upd),created_by:"system",created_at:new Date().toISOString()})
+      await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+ws.id+"&type=eq.stage_data_sync",{method:"DELETE",headers:SUPA_HEADERS});
+      const {err2}=await supaInsert("cal_events",{
+        workspace:ws.id,type:"stage_data_sync",title:"stage_data_sync",
+        month:1,day:1,note:JSON.stringify(upd),color:"#000",category:"stage_data_sync",has_end:false,
       });
     }catch(e){console.warn("stage sync error:",e);}
   }
