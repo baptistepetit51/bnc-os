@@ -5788,128 +5788,164 @@ function getMonths(count=6, pastMonths=0){
 }
 
 function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencers,updateExpense}){
-  const [locFilt,  setLocFilt]  = useState("Global");
-  const [selMonth, setSelMonth] = useState(new Date().toISOString().slice(0,7));
-  const months = getMonths();
+  const [locFilt,setLocFilt]=useState("Global");
+  const [selMonth,setSelMonth]=useState(new Date().toISOString().slice(0,7));
+  const [view,setView]=useState("mensuel");
+  const months=getMonths();
 
-  const filtered = expenses.filter(e => {
-    const matchLoc = locFilt==="Global" || e.location===locFilt;
-    const matchMonth = !e.due_date || e.due_date.slice(0,7)===selMonth;
-    return matchLoc && matchMonth;
+  function expMonth(e){return(e.date||e.due_date||e.created_at||"").slice(0,7);}
+  const realExp=(expenses||[]).filter(e=>e.category!=="budget_media");
+  const filtered=realExp.filter(e=>{
+    const ml=locFilt==="Global"||e.location===locFilt;
+    return ml&&expMonth(e)===selMonth;
   });
 
-  // ALL filtered expenses count toward budget (À payer + Payé)
-  const grandTotal    = filtered.reduce((s,e)=>s+(+e.amount||0),0);
-  const totalPaid     = filtered.filter(e=>e.payment_status==="Payé").reduce((s,e)=>s+(+e.amount||0),0);
-  const totalUnpaid   = filtered.filter(e=>e.payment_status!=="Payé").reduce((s,e)=>s+(+e.amount||0),0);
-  const totalByUrgency = (u) => filtered.filter(e=>e.urgency===u).reduce((s,e)=>s+(+e.amount||0),0);
+  const grandTotal=filtered.reduce((s,e)=>s+(+e.amount||0),0);
+  const totalUnpaid=filtered.filter(e=>e.payment!=="Payé").reduce((s,e)=>s+(+e.amount||0),0);
 
-  // Media budget & influencer spend this month
-  const mediaBudgetEntry = (mediaBudget||[]).find(b=>b.month===selMonth&&b.location==="Global");
-  const mediaBudgetAmt   = mediaBudgetEntry ? +mediaBudgetEntry.budget : 0;
-  const inflSpend        = (influencers||[]).filter(i=>i.cost&&i.status!=="Annulé").reduce((s,i)=>s+(+i.cost||0),0);
-  const totalConsolidé   = grandTotal + inflSpend;
+  const mbEntry=(mediaBudget||[]).find(b=>b.month===selMonth&&b.location==="Global");
+  const mbAmt=mbEntry?+mbEntry.budget:0;
+  const inflSpend=(influencers||[]).filter(i=>{
+    if(!i.cost||i.status==="Annulé")return false;
+    const vm=(i.visit||"").match(/\d{4}-\d{2}/);
+    return vm?vm[0]===selMonth:selMonth===new Date().toISOString().slice(0,7);
+  }).reduce((s,i)=>s+(+i.cost||0),0);
+  const budgetLeft=mbAmt-inflSpend;
+  const budgetPct=mbAmt>0?Math.min(100,Math.round(inflSpend/mbAmt*100)):0;
+
+  // Annual
+  const allMonths=getMonths(3,9); // 9 past months + current + 2 future
+  const maxAmt=Math.max(...allMonths.map(m=>realExp.filter(e=>expMonth(e)===m.key).reduce((s,e)=>s+(+e.amount||0),0)),1);
+  const annualTotal=allMonths.reduce((s,m)=>s+realExp.filter(e=>expMonth(e)===m.key).reduce((ss,e)=>ss+(+e.amount||0),0),0);
 
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
-      {/* Month selector */}
-      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
-        {months.map(m=>(
-          <button key={m.key} onClick={()=>setSelMonth(m.key)} style={{
-            background:selMonth===m.key?ws.color:T.s2,
-            color:selMonth===m.key?"#fff":T.muted,
-            border:`1px solid ${selMonth===m.key?ws.color:T.border}`,
-            borderRadius:20,padding:"5px 14px",fontSize:11,
-            fontWeight:selMonth===m.key?700:400,
-            whiteSpace:"nowrap",flexShrink:0,cursor:"pointer",
-            boxShadow:m.isCurrent&&selMonth!==m.key?`0 0 0 2px ${ws.color}44`:"none",
-          }}>
+      {/* Top controls */}
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4}}>
+          {[["mensuel","📅"],["annuel","📊"]].map(([v,ic])=>(
+            <button key={v} onClick={()=>setView(v)} style={{background:view===v?ws.color:T.s2,color:view===v?"#fff":T.muted,border:`1px solid ${view===v?ws.color:T.border}`,borderRadius:7,padding:"5px 13px",fontSize:11,fontWeight:700,cursor:"pointer",transition:"all 0.15s"}}>{ic} {v.charAt(0).toUpperCase()+v.slice(1)}</button>
+          ))}
+        </div>
+        {view==="mensuel"&&months.map(m=>(
+          <button key={m.key} onClick={()=>setSelMonth(m.key)} style={{background:selMonth===m.key?ws.color:T.s2,color:selMonth===m.key?"#fff":T.muted,border:`1px solid ${selMonth===m.key?ws.color:T.border}`,borderRadius:20,padding:"5px 14px",fontSize:11,fontWeight:selMonth===m.key?700:400,whiteSpace:"nowrap",cursor:"pointer"}}>
             {m.isCurrent?"📍 ":""}{m.label}
           </button>
         ))}
-      </div>
-
-      {/* Location filter */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:9,color:T.muted,letterSpacing:2}}>LOCATION</span>
-        {(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=>(
-          <button key={l} onClick={()=>setLocFilt(l)} style={{background:locFilt===l?ws.color:T.s2,color:locFilt===l?"#fff":T.muted,border:`1px solid ${locFilt===l?ws.color:T.border}`,borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:locFilt===l?600:400,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-
-      {/* Consolidated totals */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12}}>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"14px 16px",borderLeft:`3px solid ${ws.color}`}}>
-          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>DÉPENSES OPS</div>
-          <div style={{fontSize:22,fontWeight:800,color:ws.color}}>{grandTotal.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{filtered.length} entrée{filtered.length!==1?"s":""}</div>
-        </div>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"14px 16px",borderLeft:"3px solid #BF5AF2"}}>
-          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>BUDGET INFLUENCEURS</div>
-          <div style={{fontSize:22,fontWeight:800,color:"#BF5AF2"}}>{mediaBudgetAmt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>Alloué ce mois</div>
-        </div>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"14px 16px",borderLeft:"3px solid #FF9F0A"}}>
-          <div style={{fontSize:9,color:T.muted,letterSpacing:1,marginBottom:6}}>DÉPENSÉ INFLUENCEURS</div>
-          <div style={{fontSize:22,fontWeight:800,color:inflSpend>mediaBudgetAmt&&mediaBudgetAmt>0?"#FF3B30":"#FF9F0A"}}>{inflSpend.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>{mediaBudgetAmt>0?(mediaBudgetAmt-inflSpend).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})+" restant":"—"}</div>
-        </div>
-        <div style={{background:ws.color+"15",border:`1px solid ${ws.color}`,borderRadius:10,padding:"14px 16px"}}>
-          <div style={{fontSize:9,color:ws.color,letterSpacing:1,marginBottom:6,fontWeight:700}}>TOTAL CONSOLIDÉ</div>
-          <div style={{fontSize:22,fontWeight:800,color:ws.color}}>{totalConsolidé.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-          <div style={{fontSize:10,color:T.muted,marginTop:4}}>Ops + Influenceurs</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginLeft:"auto"}}>
+          {(LOCATIONS_BY_WS[ws?.id]||LOCATIONS).map(l=>(
+            <button key={l} onClick={()=>setLocFilt(l)} style={{background:locFilt===l?ws.color+"22":"transparent",color:locFilt===l?ws.color:T.dim,border:`1px solid ${locFilt===l?ws.color+"44":T.border}`,borderRadius:99,padding:"3px 10px",fontSize:10,fontWeight:locFilt===l?700:400,cursor:"pointer"}}>{l}</button>
+          ))}
         </div>
       </div>
 
-      {/* Media budget bar */}
-      {mediaBudgetAmt>0&&(
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:"12px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-            <span style={{fontSize:11,color:T.muted}}>Budget influenceurs utilisé</span>
-            <span style={{fontSize:11,fontWeight:700,color:inflSpend>mediaBudgetAmt?"#FF3B30":"#00C896"}}>{Math.round((inflSpend/mediaBudgetAmt)*100)}%</span>
+      {view==="mensuel"&&<>
+        {/* KPI Row */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+          <div style={{background:T.s2,borderRadius:12,padding:"14px 16px",border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Dépenses OPS</div>
+            <div style={{fontSize:22,fontWeight:800,color:T.text}}>{grandTotal.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+            <div style={{fontSize:10,color:T.dim,marginTop:3}}>{filtered.length} entrée{filtered.length!==1?"s":""}</div>
           </div>
-          <div style={{height:8,background:T.s3,borderRadius:4,overflow:"hidden"}}>
-            <div style={{height:"100%",width:Math.min(100,(inflSpend/mediaBudgetAmt)*100)+"%",background:inflSpend>mediaBudgetAmt?"#FF3B30":ws.color,borderRadius:4,transition:"width 0.4s"}}/>
+
+          <div style={{background:T.s2,borderRadius:12,padding:"14px 16px",border:`1px solid ${mbAmt>0?ws.color+"44":T.border}`}}>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Budget Influenceurs</div>
+            <div style={{fontSize:22,fontWeight:800,color:mbAmt>0?ws.color:T.dim}}>{mbAmt>0?mbAmt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}):"—"}</div>
+            {mbAmt>0&&<>
+              <div style={{height:3,background:T.s3,borderRadius:99,overflow:"hidden",margin:"6px 0 4px"}}>
+                <div style={{height:"100%",width:budgetPct+"%",background:budgetPct>90?"#FF453A":ws.color,borderRadius:99}}/>
+              </div>
+              <div style={{fontSize:10,color:T.dim}}>{inflSpend.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})} utilisé · <span style={{color:budgetLeft<0?"#FF453A":"#30D158",fontWeight:700}}>{budgetLeft.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})} restant</span></div>
+            </>}
+            {mbAmt===0&&<div style={{fontSize:10,color:T.dim,marginTop:3}}>Définir dans Médias →</div>}
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-            <span style={{fontSize:10,color:T.dim}}>Dépensé: {inflSpend.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
-            <span style={{fontSize:10,color:T.dim}}>Budget: {mediaBudgetAmt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+
+          <div style={{background:T.s2,borderRadius:12,padding:"14px 16px",border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Total Consolidé</div>
+            <div style={{fontSize:22,fontWeight:800,color:T.text}}>{(grandTotal+inflSpend).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+            <div style={{fontSize:10,color:T.dim,marginTop:3}}>OPS + Influenceurs</div>
+          </div>
+
+          <div style={{background:T.s2,borderRadius:12,padding:"14px 16px",border:`1px solid ${totalUnpaid>0?"#FF9F0A44":T.border}`}}>
+            <div style={{fontSize:9,fontWeight:600,color:T.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>À Payer</div>
+            <div style={{fontSize:22,fontWeight:800,color:totalUnpaid>0?"#FF9F0A":T.dim}}>{totalUnpaid.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+            <div style={{fontSize:10,color:T.dim,marginTop:3}}>{filtered.filter(e=>e.payment!=="Payé").length} en attente</div>
+          </div>
+        </div>
+
+        {/* Urgency row */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+          {Object.entries(URGENCY).map(([u,uc])=>{
+            const amt=filtered.filter(e=>e.urgency===u).reduce((s,e)=>s+(+e.amount||0),0);
+            return(
+              <div key={u} style={{background:uc.color+"0d",borderRadius:10,padding:"10px 14px",border:`1px solid ${uc.color}22`}}>
+                <div style={{fontSize:9,fontWeight:700,color:uc.color,marginBottom:3}}>{uc.icon} {u.toUpperCase()}</div>
+                <div style={{fontSize:16,fontWeight:800,color:T.text}}>{amt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+                <div style={{fontSize:9,color:T.dim}}>{filtered.filter(e=>e.urgency===u).length} dépenses</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <InlineExpensesTable expenses={filtered} ws={ws} T={T} updateExpense={updateExpense} addExpense={()=>setModal({type:"add_expenses"})} deleteExpense={()=>{}} sendUrgentAlert={sendUrgentAlert} setModal={setModal} selMonth={selMonth} months={months}/>
+      </>}
+
+      {view==="annuel"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{background:T.s2,borderRadius:12,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+            <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:13,fontWeight:700,color:T.text}}>12 derniers mois</span>
+              <span style={{fontSize:13,fontWeight:800,color:ws.color}}>{annualTotal.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</span>
+            </div>
+            {allMonths.map(m=>{
+              const amt=realExp.filter(e=>expMonth(e)===m.key).reduce((s,e)=>s+(+e.amount||0),0);
+              const bgt=(mediaBudget||[]).find(b=>b.month===m.key&&b.location==="Global");
+              const bgtAmt=bgt?+bgt.budget:0;
+              const pct=Math.round(amt/maxAmt*100);
+              const isCur=m.key===new Date().toISOString().slice(0,7);
+              return(
+                <div key={m.key} onClick={()=>{setSelMonth(m.key);setView("mensuel");}} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 18px",cursor:"pointer",background:isCur?ws.color+"08":"transparent",borderBottom:`1px solid ${T.border}`}}
+                  onMouseEnter={e=>e.currentTarget.style.background=T.surface}
+                  onMouseLeave={e=>e.currentTarget.style.background=isCur?ws.color+"08":"transparent"}>
+                  <div style={{width:72,fontSize:11,fontWeight:isCur?700:400,color:isCur?ws.color:T.text,flexShrink:0}}>{isCur?"📍 ":""}{m.label}</div>
+                  <div style={{flex:1,height:6,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:pct+"%",background:ws.color,borderRadius:99}}/>
+                  </div>
+                  <div style={{width:80,textAlign:"right",fontSize:12,fontWeight:700,color:amt>0?T.text:T.dim}}>{amt>0?amt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}):"—"}</div>
+                  {bgtAmt>0&&<div style={{width:60,textAlign:"right",fontSize:10,color:T.dim}}>/{bgtAmt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>}
+                  <span style={{fontSize:11,color:T.dim}}>→</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{background:T.s2,borderRadius:12,border:`1px solid ${T.border}`,padding:"14px 18px"}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:12}}>Par catégorie — cumul annuel</div>
+            {(()=>{
+              const cats={};
+              realExp.forEach(e=>{const k=e.category||"Autre";cats[k]=(cats[k]||0)+(+e.amount||0);});
+              const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+              const tot=sorted.reduce((s,[,v])=>s+v,0);
+              return sorted.map(([cat,amt])=>(
+                <div key={cat} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+                  <div style={{width:90,fontSize:11,color:T.text,textTransform:"capitalize"}}>{cat}</div>
+                  <div style={{flex:1,height:4,background:T.s3,borderRadius:99,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:(tot>0?Math.round(amt/tot*100):0)+"%",background:ws.color,borderRadius:99}}/>
+                  </div>
+                  <div style={{width:70,textAlign:"right",fontSize:11,fontWeight:700,color:T.text}}>{amt.toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
+                  <div style={{width:28,textAlign:"right",fontSize:10,color:T.dim}}>{tot>0?Math.round(amt/tot*100):0}%</div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}
-
-      {/* Urgency KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-        {Object.entries(URGENCY).map(([u,uc])=>(
-          <div key={u} style={{background:uc.bg,border:`1px solid ${uc.color}33`,borderRadius:8,padding:"12px 14px",borderLeft:`3px solid ${uc.color}`}}>
-            <div style={{fontSize:16,marginBottom:4}}>{uc.icon}</div>
-            <div style={{fontSize:10,fontWeight:700,color:uc.color,marginBottom:4,letterSpacing:0.5}}>{u.toUpperCase()}</div>
-            <div style={{fontSize:20,fontWeight:800,color:uc.color}}>{totalByUrgency(u).toLocaleString("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0})}</div>
-            <div style={{fontSize:9,color:T.muted,marginTop:2}}>{filtered.filter(e=>e.urgency===u).length} dépense{filtered.filter(e=>e.urgency===u).length!==1?"s":""}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── INLINE EXPENSES TABLE ── */}
-      <InlineExpensesTable
-        expenses={filtered}
-        ws={ws} T={T}
-        updateExpense={updateExpense}
-        addExpense={()=>setModal({type:"add_expenses"})}
-        deleteExpense={()=>{}}
-        sendUrgentAlert={sendUrgentAlert}
-        setModal={setModal}
-        selMonth={selMonth}
-        months={months}
-      />
-
     </div>
   );
 }
 
 
-// ─── INLINE EXPENSES TABLE ────────────────────────────────────────────────
 function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpense,sendUrgentAlert,setModal,selMonth,months}){
   const [editId,  setEditId]   = useState(null);
   const [editField,setEditField]= useState(null);
