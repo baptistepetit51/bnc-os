@@ -447,7 +447,9 @@ async function supaDelete(table, id) {
   return {error: r.ok ? null : await r.json()};
 }
 async function supaSelect(table, workspace) {
-  const url = SUPA_URL + '/rest/v1/' + table + '?workspace=eq.' + workspace + '&order=created_at.desc&limit=200';
+  // cal_events uses 'id' ordering, not created_at
+  const orderCol = (table==='cal_events'||table==='media_budget') ? 'id' : 'created_at';
+  const url = SUPA_URL + '/rest/v1/' + table + '?workspace=eq.' + workspace + '&order='+orderCol+'.desc&limit=200';
   const r = await fetch(url, { method: 'GET', headers: SUPA_HEADERS });
   const json = await r.json();
   if (!r.ok) {
