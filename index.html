@@ -1662,27 +1662,21 @@ function App(){
         fetch(SUPA_URL+"/rest/v1/expenses?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
         fetch(SUPA_URL+"/rest/v1/products?workspace=eq."+wsId+"&order=created_at.desc&limit=200",{headers:SUPA_HEADERS}),
       ]);
-      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ setExpenses(d); lsSet("expenses",d); } else { const ls=(lsGet("expenses")||[]).filter(e=>e.workspace===wsId); if(ls.length>0)setExpenses(ls); } }
+      if(expR.ok){ const d=await expR.json(); if(Array.isArray(d)&&d.length>0){ 
+            setExpenses(d); lsSet("expenses",d);
+            // Sync media budgets from expenses
+            const budgetExps=d.filter(e=>e.category==="budget_media"&&e.workspace===wsId);
+            if(budgetExps.length>0){
+              const budgets=budgetExps.map(e=>({id:e.id,workspace:wsId,month:e.date?e.date.slice(0,7):e.notes?.match(/\d{4}-\d{2}/)?.[0]||"",budget:+e.amount,location:"Global"}));
+              setMediaBudget(budgets); lsSet("media_budget",budgets);
+            }
+          } else { const ls=(lsGet("expenses")||[]).filter(e=>e.workspace===wsId); if(ls.length>0)setExpenses(ls); } }
       if(prodR.ok){ const d=await prodR.json(); if(Array.isArray(d)&&d.length>0){ setProducts(d); lsSet("products",d); } else { const ls=(lsGet("products")||[]).filter(p=>p.workspace===wsId); if(ls.length>0)setProducts(ls); } }
     }catch(e){ /* localStorage fallback already set */ }
     setTaskNotes((lsGet("task_notes")||[]).filter(n=>n.workspace===wsId).sort((a,b)=>b.id-a.id));
     setMediaBudget((lsGet("media_budget")||[]).filter(b=>b.workspace===wsId));
-    // Load media_budget from cal_events (type=media_budget_sync)
-    try{
-      const r=await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+wsId+"&type=eq.media_budget_sync&limit=1",{headers:SUPA_HEADERS});
-      if(r.ok){
-        const rows=await r.json();
-        if(Array.isArray(rows)&&rows.length>0&&rows[0].note){
-          try{
-            const budgets=JSON.parse(rows[0].note);
-            if(Array.isArray(budgets)&&budgets.length>0){
-              setMediaBudget(budgets);lsSet("media_budget",budgets);
-              console.log("✅ budgets loaded:",budgets.length);
-            }
-          }catch(e){}
-        }
-      }
-    }catch(e){console.warn("budget load:",e);}
+    // Load media_budget from expenses (category=budget_media)
+    // (done automatically when expenses load - see syncBudgetFromExpenses below)
     setClients((lsGet("clients")||[]).filter(c=>c.workspace===wsId));
     setTitoFocus(lsGet(wsId+"_focus")||[]);
     setTitoNotes(localStorage.getItem(wsId+"_notes")||"");
@@ -1738,29 +1732,28 @@ function App(){
     const item={...form,workspace:wsId,created_by:user.name,id:form.id||Date.now(),created_at:new Date().toISOString()};
     lsIns("media_budget",item);
     setMediaBudget(prev=>[...prev.filter(b=>!(b.month===form.month&&b.workspace===wsId)),item]);
-    // Sync ALL budgets for this workspace to cal_events (type=media_budget_sync)
+    // Store in expenses table (guaranteed to work)
     try{
-      // Delete old sync entry
-      await fetch(SUPA_URL+"/rest/v1/cal_events?workspace=eq."+wsId+"&type=eq.media_budget_sync",{method:"DELETE",headers:SUPA_HEADERS});
-      // Get all current budgets (including new one)
-      const allBudgets=(lsGet("media_budget")||[]).filter(b=>b.workspace===wsId);
-      const hasNew=allBudgets.find(b=>b.month===form.month);
-      const finalBudgets=hasNew?allBudgets:[...allBudgets,item];
-      // Insert new sync entry
-      const {error}=await supaInsert("cal_events",{
-        workspace:wsId,
-        type:"media_budget_sync",
-        title:"media_budget_sync",
-        month:1,day:1,
-        note:JSON.stringify(finalBudgets),
-        color:"#FF6B00",
-        category:"media_budget_sync",
-        has_end:false,
-      });
-      if(error){console.error("budget sync error:",JSON.stringify(error));}
-      else{console.log("✅ Budget synced:", form.month, form.budget);}
-    }catch(e){console.warn("budget sync error:",e);}
-    loadExpenses();
+      const expTitle="_budget_media_"+form.month;
+      // Delete old budget entry for this month
+      const existing=expenses.find(e=>e.title===expTitle&&e.workspace===wsId);
+      if(existing){
+        await updateExpense(existing.id,{...existing,amount:+form.budget,notes:"Budget influenceurs "+form.month});
+      } else {
+        await addExpense({
+          title:expTitle,
+          amount:+form.budget,
+          category:"budget_media",
+          date:form.month+"-01",
+          location:"Global",
+          urgency:"Moyenne",
+          payment:"Budget alloué",
+          notes:"Budget influenceurs "+form.month,
+          workspace:wsId,
+        });
+      }
+      console.log("✅ Budget saved via expenses:", form.month, form.budget);
+    }catch(e){console.warn("addMediaBudget:",e);}
   }
   async function updateMediaBudget(id,form){
     lsUpd("media_budget",id,form);
