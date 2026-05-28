@@ -9394,6 +9394,126 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
           <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
         </>}
 
+        {isCal&&<>
+          {/* ── TITRE ── */}
+          <MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Collab UberEats · Member Days"/></MF>
+
+          {/* ── CATÉGORIE + LOCATION ── */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Catégorie" T={T}>
+              <select value={form.category||"Event"} onChange={e=>f("category",e.target.value)}>
+                {CAL_CATS.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </MF>
+            <MF label={t.location} T={T}>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+                {(LOCATIONS_BY_WS[wsId]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+              </select>
+            </MF>
+          </div>
+
+          {/* ── DATE DÉBUT ── */}
+          <MF label="Date de début" T={T}>
+            <div style={{display:"flex",gap:8}}>
+              <select value={form.month||NM} onChange={e=>f("month",+e.target.value)} style={{flex:2}}>
+                {MS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <input type="number" min={1} max={31} value={form.day||ND} onChange={e=>f("day",+e.target.value)} style={{flex:1,textAlign:"center"}}/>
+            </div>
+          </MF>
+
+          {/* ── PÉRIODE ── */}
+          <button type="button" onClick={()=>f("has_end",!form.has_end)} style={{
+            display:"flex",alignItems:"center",gap:8,background:form.has_end?ws.color+"18":"transparent",
+            border:`1px solid ${form.has_end?ws.color:T.border}`,borderRadius:8,padding:"8px 12px",
+            cursor:"pointer",color:form.has_end?ws.color:T.muted,fontSize:12,fontWeight:600,
+          }}>
+            <span style={{fontSize:14}}>{form.has_end?"✓":"○"}</span> {t.periodActive||"Période activée"}
+          </button>
+
+          {form.has_end&&<>
+            <MF label="Date de fin" T={T}>
+              <div style={{display:"flex",gap:8}}>
+                <select value={form.end_month||(form.month||NM)} onChange={e=>f("end_month",+e.target.value)} style={{flex:2}}>
+                  {MS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+                </select>
+                <input type="number" min={1} max={31} value={form.end_day||(form.day||ND)} onChange={e=>f("end_day",+e.target.value)} style={{flex:1,textAlign:"center"}}/>
+              </div>
+            </MF>
+            {form.month&&form.end_month&&<div style={{background:ws.color+"15",border:`1px solid ${ws.color}33`,borderLeft:`3px solid ${ws.color}`,borderRadius:6,padding:"8px 12px",fontSize:12,color:T.muted}}>
+              <span style={{color:ws.color,fontWeight:700}}>{Math.max(1,Math.round((new Date(NY,(form.end_month||form.month)-1,(form.end_day||form.day))-new Date(NY,form.month-1,form.day))/86400000)+1)} {t.days||"jours"}</span>
+              {" "}&nbsp;·&nbsp; {MS[(form.month||NM)-1]} {form.day} → {MS[((form.end_month||form.month))-1]} {form.end_day||form.day}
+            </div>}
+          </>}
+
+          {/* ── NOTE ── */}
+          <MF label="Notes" T={T}><textarea value={form.note||""} onChange={e=>f("note",e.target.value)} placeholder="Détails, partenaire, liens..." rows={2}/></MF>
+
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
+        </>}
+
+        {isProj&&<>
+          <MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Ubereats World Cup Collab"/></MF>
+          <MF label={t.description} T={T}><textarea value={form.description||""} onChange={e=>f("description",e.target.value)} placeholder="Objectif, contexte, résultat attendu..."/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Statut" T={T}>
+              <select value={form.status||"Planning"} onChange={e=>f("status",e.target.value)}>
+                {["Planning","Active","On Hold","Done"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </MF>
+            <MF label={t.location} T={T}>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+                {(LOCATIONS_BY_WS[wsId]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+              </select>
+            </MF>
+          </div>
+          <MF label="Date limite" T={T}><input type="date" value={form.due_date||""} onChange={e=>f("due_date",e.target.value)}/></MF>
+          <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Liens, ressources, prochaines étapes..."/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
+        </>}
+
+        {isMtg&&<>
+          <MF label={t.title} T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Weekly sync Samy"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Date" T={T}><input type="date" value={form.date||""} onChange={e=>f("date",e.target.value)}/></MF>
+            <MF label="Heure" T={T}><input type="time" value={form.time||""} onChange={e=>f("time",e.target.value)}/></MF>
+          </div>
+          <MF label={t.location} T={T}>
+            <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+              {(LOCATIONS_BY_WS[wsId]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+            </select>
+          </MF>
+          <MF label="Participants" T={T}><input value={form.attendees||""} onChange={e=>f("attendees",e.target.value)} placeholder="ex: Tito, Samy, Mahaliana"/></MF>
+          <MF label="Notes / Agenda" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Points à discuter, décisions..."/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
+        </>}
+
+        {isMed&&<>
+          <MF label="Nom" T={T}><input value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="ex: @tastethe6ix"/></MF>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <MF label="Plateforme" T={T}>
+              <select value={form.platform||"Instagram"} onChange={e=>f("platform",e.target.value)}>
+                {["Instagram","TikTok","YouTube","Twitter","LinkedIn"].map(p=><option key={p}>{p}</option>)}
+              </select>
+            </MF>
+            <MF label={t.location} T={T}>
+              <select value={form.location||"Global"} onChange={e=>f("location",e.target.value)}>
+                {(LOCATIONS_BY_WS[wsId]||LOCATIONS).map(l=><option key={l}>{l}</option>)}
+              </select>
+            </MF>
+          </div>
+          <MF label="Followers" T={T}><input value={form.followers||""} onChange={e=>f("followers",e.target.value)} placeholder="ex: 45k"/></MF>
+          <MF label="Coût ($)" T={T}><input type="number" value={form.cost||""} onChange={e=>f("cost",e.target.value)} placeholder="ex: 300"/></MF>
+          <MF label="Statut" T={T}>
+            <select value={form.status||"À contacter"} onChange={e=>f("status",e.target.value)}>
+              {["À contacter","Contacté","Confirmé","En cours","Annulé"].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </MF>
+          <MF label="Contenu prévu" T={T}><input value={form.content||""} onChange={e=>f("content",e.target.value)} placeholder="ex: Reel + Story"/></MF>
+          <MF label="Notes" T={T}><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="Plateforme, détails..."/></MF>
+          <Btns color={ws.color} onSave={save} onDelete={isEdit?del:null} onClose={close} t={t} confirmDel={confirmDel}/>
+        </>}
+
         {isProd&&<>
           <MF label="Nom du produit" T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Tacos Truffe Édition Limitée"/></MF>
           <MF label="Description" T={T}><textarea value={form.description||""} onChange={e=>f("description",e.target.value)} placeholder="Concept, cible, différenciation..."/></MF>
