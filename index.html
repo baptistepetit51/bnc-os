@@ -5775,10 +5775,10 @@ const PAY_STATUS = {
 };
 const EXP_CATS = ["Équipement","Ingrédients","Marketing","RH","Loyer/Opérations","Tech","Autre"];
 
-function getMonths(){
+function getMonths(count=6, pastMonths=0){
   const months=[];
   const now=new Date();
-  for(let i=0;i<6;i++){
+  for(let i=-(pastMonths||0);i<count;i++){
     const d=new Date(now.getFullYear(),now.getMonth()+i,1);
     const key=d.toISOString().slice(0,7);
     const label=d.toLocaleDateString("fr-CA",{month:"long",year:"numeric"});
