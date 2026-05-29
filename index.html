@@ -5797,7 +5797,7 @@ function Expenses({ws,expenses,setModal,sendUrgentAlert,T,mediaBudget,influencer
   const months=getMonths();
 
   function expMonth(e){return(e.date||e.due_date||e.created_at||"").slice(0,7);}
-  const realExp=(expenses||[]).filter(e=>e.category!=="budget_media");
+  const realExp=(expenses||[]).filter(e=>e.category!=="budget_media"&&e.category!=="chat_msg");
   const filtered=realExp.filter(e=>{
     const ml=locFilt==="Global"||e.location===locFilt;
     return ml&&expMonth(e)===selMonth;
@@ -5980,7 +5980,7 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
       location:newRow.location||"Global",
       urgency:newRow.urgency||"Moyenne",
       payment:newRow.payment_status||"À payer",
-      date:new Date().toISOString().slice(0,10),
+      date:(selMonth||new Date().toISOString().slice(0,7))+"-01",
       notes:newRow.notes||"",
     });
     setNewRow({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
@@ -8994,16 +8994,19 @@ function StageProjet({ws, T, user}){
 
 // ─── DISCUSSION ────────────────────────────────────────────────────────────
 const DEFAULT_CHANNELS=[
-  {id:"général",label:"général",desc:"Discussions générales"},
-  {id:"opérations",label:"opérations",desc:"Cuisine & livraison"},
+  {id:"général",   label:"général",     desc:"Discussions générales"},
+  {id:"opérations",label:"opérations",  desc:"Cuisine & livraison"},
   {id:"influenceurs",label:"influenceurs",desc:"Campagnes & médias"},
-  {id:"projets",label:"projets",desc:"Lancements & initiatives"},
+  {id:"projets",   label:"projets",     desc:"Lancements & initiatives"},
 ];
 const RXNS=["👍","🔥","✅","❤️","😂","👀","🚀","💯","⚡","🎯"];
+const MSG_CAT="chat_msg";
 
 function Discussion({ws,T,user}){
   const LS_CHAN="bnc_channels_"+ws.id;
-  const [channels,setChannels]=React.useState(()=>{try{const s=JSON.parse(localStorage.getItem(LS_CHAN)||"null");return s||DEFAULT_CHANNELS;}catch(e){return DEFAULT_CHANNELS;}});
+  const [channels,setChannels]=React.useState(()=>{
+    try{const s=JSON.parse(localStorage.getItem(LS_CHAN)||"null");return s||DEFAULT_CHANNELS;}catch(e){return DEFAULT_CHANNELS;}
+  });
   const [chan,setChan]=React.useState("général");
   const [msgs,setMsgs]=React.useState([]);
   const [draft,setDraft]=React.useState("");
@@ -9020,32 +9023,37 @@ function Discussion({ws,T,user}){
   const AC={"Tito":"#FF6B00","Samy":"#0A84FF","Mahaliana":"#30D158"};
   const aColor=n=>AC[n]||"#BF5AF2";
 
+  // Store messages in expenses table (category=chat_msg, title=channel)
+  // This table is PROVEN to work with Supabase
   async function loadMsgs(ch,silent){
     try{
-      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-99&order=created_at.asc&limit=300",{headers:SUPA_HEADERS});
-      if(!r.ok)return;
+      const r=await fetch(
+        SUPA_URL+"/rest/v1/expenses?workspace=eq."+ws.id+"&category=eq."+encodeURIComponent(MSG_CAT)+"&title=eq."+encodeURIComponent(ch)+"&order=created_at.asc&limit=200",
+        {headers:SUPA_HEADERS}
+      );
+      if(!r.ok){console.error("loadMsgs error:",r.status,await r.text());return;}
       const rows=await r.json();
       if(!Array.isArray(rows))return;
-      // Parse and filter by channel
-      const all=rows.map(row=>{
-        try{const d=JSON.parse(row.text);return{...d,id:row.id,created_at:row.created_at,sender:row.created_by};}
-        catch(e){return null;}
+      const parsed=rows.map(row=>{
+        try{
+          const d=JSON.parse(row.notes||"{}");
+          return{...d,id:row.id,sender:row.created_by||d.sender,created_at:row.created_at};
+        }catch(e){return null;}
       }).filter(Boolean);
-      // Update unread for other channels
       if(!silent){
         setUnread(u=>{
           const nu={...u};
           channels.forEach(c=>{
             if(c.id!==ch){
-              const cnt=all.filter(m=>m.channel===c.id&&(!lastSeen[c.id]||new Date(m.created_at)>new Date(lastSeen[c.id]))).length;
+              const cnt=rows.filter(r=>r.title===c.id&&(!lastSeen[c.id]||new Date(r.created_at)>new Date(lastSeen[c.id]))).length;
               if(cnt>0)nu[c.id]=(nu[c.id]||0)+cnt;
             }
           });
           return nu;
         });
       }
-      setMsgs(all.filter(m=>m.channel===ch));
-    }catch(e){}
+      setMsgs(parsed);
+    }catch(e){console.error("loadMsgs catch:",e);}
   }
 
   React.useEffect(()=>{
@@ -9056,9 +9064,7 @@ function Discussion({ws,T,user}){
     return()=>clearInterval(iv);
   },[chan,ws.id]);
 
-  React.useEffect(()=>{
-    bottomRef.current?.scrollIntoView({behavior:"smooth"});
-  },[msgs]);
+  React.useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
 
   function saveChannels(updated){
     setChannels(updated);
@@ -9070,24 +9076,40 @@ function Discussion({ws,T,user}){
     if(!id||channels.find(c=>c.id===id))return;
     saveChannels([...channels,{id,label:id,desc:newChanDesc.trim()||"Canal "+id}]);
     setNewChanName("");setNewChanDesc("");setAddChanOpen(false);
-    setChan(id);
+    setTimeout(()=>setChan(id),100);
   }
 
   async function send(){
     if(!draft.trim()||sending)return;
     const text=draft.trim();
     setDraft("");setSending(true);
-    const payload={channel:chan,text,reactions:{},ts:new Date().toISOString()};
+    const now=new Date().toISOString();
+    const msgData={channel:chan,text,reactions:{},sender:user.name};
     const tempId="tmp_"+Date.now();
-    setMsgs(p=>[...p,{...payload,id:tempId,sender:user.name,created_at:new Date().toISOString()}]);
+    setMsgs(p=>[...p,{...msgData,id:tempId,created_at:now}]);
     try{
-      await fetch(SUPA_URL+"/rest/v1/task_notes",{
+      const body={
+        workspace:ws.id,
+        title:chan,              // channel name as title
+        category:MSG_CAT,
+        amount:0,
+        date:now.slice(0,10),
+        notes:JSON.stringify(msgData),
+        created_by:user.name,
+        created_at:now,
+        location:"Global",
+        urgency:"Faible",
+        payment:"Payé",
+      };
+      const r=await fetch(SUPA_URL+"/rest/v1/expenses",{
         method:"POST",
         headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({workspace:ws.id,task_id:-99,text:JSON.stringify(payload),created_by:user.name,created_at:new Date().toISOString()})
+        body:JSON.stringify(body)
       });
-      setTimeout(()=>loadMsgs(chan,true),400);
-    }catch(e){}
+      if(!r.ok)console.error("send error:",r.status,await r.text());
+      else console.log("✅ Message sent to #"+chan);
+      setTimeout(()=>loadMsgs(chan,true),300);
+    }catch(e){console.error("send catch:",e);}
     setSending(false);
     setTimeout(()=>taRef.current?.focus(),50);
   }
@@ -9103,10 +9125,11 @@ function Discussion({ws,T,user}){
     setMsgs(p=>p.map(m=>String(m.id)===String(msgId)?{...m,reactions:r}:m));
     setEmojiFor(null);
     try{
-      await fetch(SUPA_URL+"/rest/v1/task_notes?id=eq."+msgId,{
+      const updatedNotes=JSON.stringify({...msg,reactions:r});
+      await fetch(SUPA_URL+"/rest/v1/expenses?id=eq."+msgId,{
         method:"PATCH",
         headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
-        body:JSON.stringify({text:JSON.stringify({...msg,reactions:r})})
+        body:JSON.stringify({notes:updatedNotes})
       });
     }catch(e){}
   }
@@ -9126,28 +9149,13 @@ function Discussion({ws,T,user}){
   };
 
   const chanInfo=channels.find(c=>c.id===chan)||channels[0]||{id:"général",label:"général",desc:""};
-  const totalUnread=Object.values(unread).reduce((a,b)=>a+(b||0),0);
 
   return(
-    <div style={{
-      display:"flex",height:"calc(100vh - 120px)",
-      borderRadius:12,overflow:"hidden",
-      border:`1px solid ${T.border}`,
-      boxShadow:"0 4px 24px rgba(0,0,0,0.12)",
-    }}>
+    <div style={{display:"flex",height:"calc(100vh - 120px)",borderRadius:12,overflow:"hidden",border:`1px solid ${T.border}`,boxShadow:"0 4px 24px rgba(0,0,0,0.12)"}}>
 
       {/* ══ SIDEBAR ══ */}
-      <div style={{
-        width:240,background:T.s2,
-        borderRight:`1px solid ${T.border}`,
-        display:"flex",flexDirection:"column",flexShrink:0,
-      }}>
-        {/* Workspace */}
-        <div style={{
-          padding:"14px 14px 12px",
-          borderBottom:`1px solid ${T.border}`,
-          background:`linear-gradient(160deg,${ws.color}22 0%,transparent 70%)`,
-        }}>
+      <div style={{width:240,background:T.s2,borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
+        <div style={{padding:"14px 14px 12px",borderBottom:`1px solid ${T.border}`,background:`linear-gradient(160deg,${ws.color}22 0%,transparent 70%)`}}>
           <div style={{display:"flex",alignItems:"center",gap:9}}>
             <div style={{width:30,height:30,borderRadius:8,background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,color:"#fff",flexShrink:0,boxShadow:`0 2px 8px ${ws.color}55`}}>
               {(ws.abbr||ws.name||"B").slice(0,2).toUpperCase()}
@@ -9162,34 +9170,24 @@ function Discussion({ws,T,user}){
           </div>
         </div>
 
-        {/* Channels list */}
         <div style={{flex:1,overflowY:"auto",padding:"8px 6px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"2px 8px 6px"}}>
             <span style={{fontSize:10,fontWeight:700,color:T.dim,textTransform:"uppercase",letterSpacing:1}}>Canaux</span>
-            <button type="button" onClick={()=>setAddChanOpen(!addChanOpen)} style={{
-              background:"transparent",border:"none",cursor:"pointer",
-              color:T.dim,fontSize:16,lineHeight:1,padding:"0 2px",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              width:18,height:18,borderRadius:4,transition:"all 0.1s",
-            }}
-            onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.color=ws.color;}}
-            onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.dim;}}>+</button>
+            <button type="button" onClick={()=>setAddChanOpen(!addChanOpen)} style={{background:"transparent",border:"none",cursor:"pointer",color:T.dim,fontSize:18,lineHeight:1,padding:"0 2px",display:"flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:4,transition:"all 0.1s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.color=ws.color;}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.dim;}}>+</button>
           </div>
 
-          {/* New channel form */}
           {addChanOpen&&(
-            <div style={{margin:"0 4px 8px",background:T.surface,borderRadius:8,padding:"10px 10px",border:`1px solid ${ws.color}44`}}>
+            <div style={{margin:"0 4px 8px",background:T.surface,borderRadius:8,padding:"10px",border:`1px solid ${ws.color}44`}}>
               <input value={newChanName} onChange={e=>setNewChanName(e.target.value)}
-                placeholder="nom-du-canal"
-                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"5px 8px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",marginBottom:5,boxSizing:"border-box"}}
+                placeholder="nom-du-canal" autoFocus
                 onKeyDown={e=>{if(e.key==="Enter")createChannel();if(e.key==="Escape")setAddChanOpen(false);}}
-                autoFocus
-              />
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"5px 8px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",marginBottom:5,boxSizing:"border-box"}}/>
               <input value={newChanDesc} onChange={e=>setNewChanDesc(e.target.value)}
                 placeholder="Description (optionnel)"
-                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"5px 8px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",marginBottom:6,boxSizing:"border-box"}}
                 onKeyDown={e=>{if(e.key==="Enter")createChannel();}}
-              />
+                style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,borderRadius:6,padding:"5px 8px",fontSize:11,color:T.text,outline:"none",fontFamily:"inherit",marginBottom:6,boxSizing:"border-box"}}/>
               <div style={{display:"flex",gap:5}}>
                 <button type="button" onClick={createChannel} style={{flex:1,background:ws.color,color:"#fff",border:"none",borderRadius:5,padding:"5px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Créer</button>
                 <button type="button" onClick={()=>{setAddChanOpen(false);setNewChanName("");}} style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:5,padding:"5px 8px",fontSize:11,color:T.muted,cursor:"pointer"}}>✕</button>
@@ -9201,15 +9199,9 @@ function Discussion({ws,T,user}){
             const isActive=chan===ch.id;
             const cnt=unread[ch.id]||0;
             return(
-              <button key={ch.id} onClick={()=>{setChan(ch.id);setUnread(u=>({...u,[ch.id]:0}));setLastSeen(s=>({...s,[ch.id]:new Date().toISOString()}));}} style={{
-                width:"100%",display:"flex",alignItems:"center",gap:7,
-                padding:"5px 8px",borderRadius:7,
-                background:isActive?ws.color+"1a":"transparent",
-                border:"none",cursor:"pointer",
-                transition:"background 0.08s",marginBottom:1,
-              }}
-              onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background=T.surface+"cc";}}
-              onMouseLeave={e=>{if(!isActive)e.currentTarget.style.background="transparent";}}>
+              <button key={ch.id} onClick={()=>{setChan(ch.id);setUnread(u=>({...u,[ch.id]:0}));setLastSeen(s=>({...s,[ch.id]:new Date().toISOString()}));}} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"5px 8px",borderRadius:7,background:isActive?ws.color+"1a":"transparent",border:"none",cursor:"pointer",transition:"background 0.08s",marginBottom:1}}
+                onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background=T.surface+"cc";}}
+                onMouseLeave={e=>{if(!isActive)e.currentTarget.style.background="transparent";}}>
                 <span style={{fontSize:11,fontWeight:700,color:isActive?ws.color:T.dim,width:10,textAlign:"center",flexShrink:0}}>#</span>
                 <span style={{fontSize:12,fontWeight:isActive?700:cnt>0?600:400,color:isActive?ws.color:cnt>0?T.text:T.muted,flex:1,textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ch.label}</span>
                 {cnt>0&&!isActive&&<span style={{fontSize:9,fontWeight:800,background:"#FF453A",color:"#fff",borderRadius:99,minWidth:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",flexShrink:0}}>{cnt>9?"9+":cnt}</span>}
@@ -9218,7 +9210,6 @@ function Discussion({ws,T,user}){
           })}
         </div>
 
-        {/* Current user footer */}
         <div style={{padding:"10px 12px",borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:8,background:T.s2}}>
           <div style={{position:"relative",flexShrink:0}}>
             <div style={{width:28,height:28,borderRadius:7,background:aColor(user.name),display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#fff",boxShadow:`0 2px 6px ${aColor(user.name)}44`}}>{user.name[0]}</div>
@@ -9233,14 +9224,7 @@ function Discussion({ws,T,user}){
 
       {/* ══ MAIN ══ */}
       <div style={{flex:1,display:"flex",flexDirection:"column",background:T.surface,minWidth:0}}>
-
-        {/* Channel header */}
-        <div style={{
-          padding:"11px 18px",
-          borderBottom:`1px solid ${T.border}`,
-          display:"flex",alignItems:"center",gap:12,
-          background:T.surface,flexShrink:0,
-        }}>
+        <div style={{padding:"11px 18px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:12,background:T.surface,flexShrink:0}}>
           <span style={{fontSize:16,fontWeight:900,color:ws.color,fontFamily:"monospace"}}>#</span>
           <div style={{flex:1}}>
             <span style={{fontSize:14,fontWeight:800,color:T.text,letterSpacing:-0.3}}>{chanInfo.label}</span>
@@ -9254,19 +9238,10 @@ function Discussion({ws,T,user}){
           </div>
         </div>
 
-        {/* Messages */}
         <div style={{flex:1,overflowY:"auto",padding:"8px 0",display:"flex",flexDirection:"column"}}>
           {msgs.length===0&&(
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"60px 20px",textAlign:"center"}}>
-              <div style={{
-                width:56,height:56,borderRadius:16,
-                background:`linear-gradient(135deg,${ws.color}22,${ws.color}08)`,
-                border:`1.5px solid ${ws.color}33`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:22,marginBottom:14,
-              }}>
-                #
-              </div>
+              <div style={{width:56,height:56,borderRadius:16,background:`linear-gradient(135deg,${ws.color}22,${ws.color}08)`,border:`1.5px solid ${ws.color}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:14,fontWeight:900,color:ws.color,fontFamily:"monospace"}}>#</div>
               <div style={{fontSize:18,fontWeight:800,color:T.text,marginBottom:6,letterSpacing:-0.4}}>Début de # {chanInfo.label}</div>
               <div style={{fontSize:12,color:T.dim,maxWidth:280,lineHeight:1.6}}>{chanInfo.desc||"Envoyez le premier message."}</div>
             </div>
@@ -9277,31 +9252,17 @@ function Discussion({ws,T,user}){
             const rxns=msg.reactions||{};
             const hasRxns=Object.values(rxns).some(u=>u?.length>0);
             return(
-              <div key={msg.id||i}
-                style={{
-                  padding:msg.isHead?"10px 18px 2px":"1px 18px",
-                  background:isHov?"rgba(255,255,255,0.03)":"transparent",
-                  transition:"background 0.06s",position:"relative",
-                }}
+              <div key={msg.id||i} style={{padding:msg.isHead?"10px 18px 2px":"1px 18px",background:isHov?"rgba(255,255,255,0.03)":"transparent",transition:"background 0.06s",position:"relative"}}
                 onMouseEnter={()=>setHovered(msg.id)}
-                onMouseLeave={()=>{setHovered(null);}}>
+                onMouseLeave={()=>setHovered(null)}>
                 <div style={{display:"flex",gap:11,alignItems:"flex-start"}}>
-                  {/* Avatar col */}
                   <div style={{width:36,flexShrink:0}}>
                     {msg.isHead?(
-                      <div style={{
-                        width:36,height:36,borderRadius:9,
-                        background:`linear-gradient(135deg,${aColor(msg.sender)},${aColor(msg.sender)}99)`,
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:14,fontWeight:900,color:"#fff",
-                        boxShadow:`0 2px 10px ${aColor(msg.sender)}44`,
-                      }}>{msg.sender[0]}</div>
+                      <div style={{width:36,height:36,borderRadius:9,background:`linear-gradient(135deg,${aColor(msg.sender)},${aColor(msg.sender)}99)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:"#fff",boxShadow:`0 2px 10px ${aColor(msg.sender)}44`}}>{(msg.sender||"?")[0]}</div>
                     ):(
-                      isHov&&<span style={{fontSize:9,color:T.dim,paddingTop:4,display:"block",textAlign:"center",letterSpacing:0}}>{new Date(msg.created_at).toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"})}</span>
+                      isHov&&<span style={{fontSize:9,color:T.dim,paddingTop:4,display:"block",textAlign:"center"}}>{new Date(msg.created_at).toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"})}</span>
                     )}
                   </div>
-
-                  {/* Message body */}
                   <div style={{flex:1,minWidth:0}}>
                     {msg.isHead&&(
                       <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:3}}>
@@ -9313,14 +9274,9 @@ function Discussion({ws,T,user}){
                     {hasRxns&&(
                       <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:5}}>
                         {Object.entries(rxns).filter(([,u])=>u?.length>0).map(([e,u])=>(
-                          <button key={e} type="button" onClick={()=>react(msg.id,e)} style={{
-                            display:"flex",alignItems:"center",gap:4,
-                            background:u.includes(user.name)?ws.color+"20":T.s2,
-                            border:`1.5px solid ${u.includes(user.name)?ws.color+"66":T.border}`,
-                            borderRadius:99,padding:"3px 9px",cursor:"pointer",transition:"all 0.1s",
-                          }}
-                          onMouseEnter={ev=>ev.currentTarget.style.background=ws.color+"15"}
-                          onMouseLeave={ev=>ev.currentTarget.style.background=u.includes(user.name)?ws.color+"20":T.s2}>
+                          <button key={e} type="button" onClick={()=>react(msg.id,e)} style={{display:"flex",alignItems:"center",gap:4,background:u.includes(user.name)?ws.color+"20":T.s2,border:`1.5px solid ${u.includes(user.name)?ws.color+"66":T.border}`,borderRadius:99,padding:"3px 9px",cursor:"pointer",transition:"all 0.1s"}}
+                            onMouseEnter={ev=>ev.currentTarget.style.background=ws.color+"15"}
+                            onMouseLeave={ev=>ev.currentTarget.style.background=u.includes(user.name)?ws.color+"20":T.s2}>
                             <span style={{fontSize:14}}>{e}</span>
                             <span style={{fontSize:11,fontWeight:700,color:u.includes(user.name)?ws.color:T.muted}}>{u.length}</span>
                           </button>
@@ -9328,15 +9284,8 @@ function Discussion({ws,T,user}){
                       </div>
                     )}
                   </div>
-
-                  {/* Hover actions */}
                   {isHov&&(
-                    <div style={{
-                      display:"flex",gap:2,alignItems:"center",
-                      background:T.s2,border:`1px solid ${T.border}`,
-                      borderRadius:8,padding:"3px 5px",
-                      boxShadow:"0 4px 14px rgba(0,0,0,0.18)",flexShrink:0,
-                    }}>
+                    <div style={{display:"flex",gap:2,alignItems:"center",background:T.s2,border:`1px solid ${T.border}`,borderRadius:8,padding:"3px 5px",boxShadow:"0 4px 14px rgba(0,0,0,0.18)",flexShrink:0}}>
                       <button type="button" onClick={()=>setEmojiFor(emojiFor===msg.id?null:msg.id)} style={{background:"transparent",border:"none",borderRadius:5,width:28,height:28,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",transition:"background 0.1s"}}
                         onMouseEnter={e=>e.currentTarget.style.background=T.surface}
                         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>😊</button>
@@ -9346,23 +9295,12 @@ function Discussion({ws,T,user}){
                     </div>
                   )}
                 </div>
-
-                {/* Emoji picker */}
                 {emojiFor===msg.id&&(
-                  <div style={{
-                    position:"absolute",right:14,top:msg.isHead?48:28,
-                    background:T.s2,border:`1px solid ${T.border}`,
-                    borderRadius:12,padding:"8px",
-                    display:"flex",gap:1,flexWrap:"wrap",maxWidth:220,
-                    zIndex:100,boxShadow:"0 8px 28px rgba(0,0,0,0.22)",
-                  }} onMouseLeave={()=>setEmojiFor(null)}>
+                  <div style={{position:"absolute",right:14,top:msg.isHead?48:28,background:T.s2,border:`1px solid ${T.border}`,borderRadius:12,padding:"8px",display:"flex",gap:1,flexWrap:"wrap",maxWidth:220,zIndex:100,boxShadow:"0 8px 28px rgba(0,0,0,0.22)"}} onMouseLeave={()=>setEmojiFor(null)}>
                     {RXNS.map(em=>(
-                      <button key={em} type="button" onClick={()=>react(msg.id,em)} style={{
-                        background:"transparent",border:"none",fontSize:20,
-                        cursor:"pointer",padding:"5px 6px",borderRadius:7,transition:"all 0.1s",
-                      }}
-                      onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.transform="scale(1.25)";}}
-                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}>
+                      <button key={em} type="button" onClick={()=>react(msg.id,em)} style={{background:"transparent",border:"none",fontSize:20,cursor:"pointer",padding:"5px 6px",borderRadius:7,transition:"all 0.1s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.transform="scale(1.25)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}>
                         {em}
                       </button>
                     ))}
@@ -9374,53 +9312,24 @@ function Discussion({ws,T,user}){
           <div ref={bottomRef}/>
         </div>
 
-        {/* ── COMPOSER ── */}
         <div style={{padding:"8px 14px 14px",flexShrink:0}}>
-          <div style={{
-            background:T.s2,borderRadius:11,
-            border:`1.5px solid ${T.border}`,
-            transition:"border-color 0.15s",overflow:"hidden",
-          }}
-          onFocusCapture={e=>e.currentTarget.style.borderColor=ws.color}
-          onBlurCapture={e=>e.currentTarget.style.borderColor=T.border}>
-            <textarea
-              ref={taRef}
-              value={draft}
-              onChange={e=>setDraft(e.target.value)}
+          <div style={{background:T.s2,borderRadius:11,border:`1.5px solid ${T.border}`,transition:"border-color 0.15s",overflow:"hidden"}}
+            onFocusCapture={e=>e.currentTarget.style.borderColor=ws.color}
+            onBlurCapture={e=>e.currentTarget.style.borderColor=T.border}>
+            <textarea ref={taRef} value={draft} onChange={e=>setDraft(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
               placeholder={"Message #"+chan+"   ·   ↵ Envoyer  ·  ⇧↵ Nouvelle ligne"}
-              style={{
-                width:"100%",background:"transparent",border:"none",outline:"none",
-                padding:"11px 14px 5px",fontSize:14,color:T.text,
-                fontFamily:"inherit",resize:"none",lineHeight:1.55,
-                minHeight:44,maxHeight:160,overflowY:"auto",boxSizing:"border-box",
-              }}
-              rows={1}
-            />
+              style={{width:"100%",background:"transparent",border:"none",outline:"none",padding:"11px 14px 5px",fontSize:14,color:T.text,fontFamily:"inherit",resize:"none",lineHeight:1.55,minHeight:44,maxHeight:160,overflowY:"auto",boxSizing:"border-box"}}
+              rows={1}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 10px 8px"}}>
               <div style={{display:"flex",gap:2}}>
                 {[["😊","Emoji"],["@","Mentionner"],["🔗","Lien"]].map(([ic,tt])=>(
-                  <button key={ic} type="button" title={tt} style={{
-                    background:"transparent",border:"none",borderRadius:5,
-                    width:28,height:28,cursor:"pointer",fontSize:13,
-                    color:T.dim,display:"flex",alignItems:"center",justifyContent:"center",
-                    transition:"all 0.1s",
-                  }}
-                  onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.color=ws.color;}}
-                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.dim;}}>
-                    {ic}
-                  </button>
+                  <button key={ic} type="button" title={tt} style={{background:"transparent",border:"none",borderRadius:5,width:28,height:28,cursor:"pointer",fontSize:13,color:T.dim,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.1s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.color=ws.color;}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.dim;}}>{ic}</button>
                 ))}
               </div>
-              <button type="button" onClick={send} disabled={!draft.trim()||sending} style={{
-                background:draft.trim()?ws.color:"transparent",
-                color:draft.trim()?"#fff":T.dim,
-                border:`1.5px solid ${draft.trim()?ws.color:T.border}`,
-                borderRadius:8,padding:"5px 14px",fontSize:12,fontWeight:700,
-                cursor:draft.trim()?"pointer":"default",
-                display:"flex",alignItems:"center",gap:5,
-                transition:"all 0.15s",
-              }}>
+              <button type="button" onClick={send} disabled={!draft.trim()||sending} style={{background:draft.trim()?ws.color:"transparent",color:draft.trim()?"#fff":T.dim,border:`1.5px solid ${draft.trim()?ws.color:T.border}`,borderRadius:8,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:draft.trim()?"pointer":"default",display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"}}>
                 <span>Envoyer</span>
                 <kbd style={{fontSize:9,opacity:0.7,fontFamily:"monospace",background:"rgba(255,255,255,0.15)",padding:"1px 4px",borderRadius:3}}>↵</kbd>
               </button>
@@ -9434,7 +9343,7 @@ function Discussion({ws,T,user}){
 
 
 function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,addProject,updateProject,deleteProject,addMeeting,updateMeeting,deleteMeeting,addInfluencer,updateInfluencer,deleteInfluencer,addCalEvent,updateCalEvent,deleteCalEvent,addExpense,updateExpense,deleteExpense,addProduct,updateProduct,deleteProduct,addClient,updateClient,deleteClient,addTaskNote,taskNotes,mediaBudget,addMediaBudget,updateMediaBudget,addMember,T,t,wsId}){
-  const [form,setForm]=useState(modal.payload||modal.prefill||{});
+  const [form,setForm]=useState(modal.payload||modal.data||modal.task||modal.prefill||{});
   const close=()=>setModal(null);
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
@@ -9667,7 +9576,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
                   f("tags",[...((form.tags||[]).filter(t=>t!=="Commun")),"Commun"]);
                 }else{f("tags",(form.tags||[]).filter(t=>t!=="Commun"));}
               }} style={{width:"100%",background:T.s2,border:`1px solid ${T.border}`,color:T.text,borderRadius:7,padding:"6px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}>
-                {members.map(m=><option key={m.id}>{m.name}</option>)}
+                {(members||[]).map(m=><option key={m.id}>{m.name}</option>)}
                 <option value="Équipe">👥 Équipe</option>
               </select>
             </div>
@@ -10042,7 +9951,7 @@ function Modal({modal,setModal,ws,members,user,addTask,updateTask,deleteTask,add
         {isAction&&<>
           <MF label="Action item" T={T}><input value={form.title||""} onChange={e=>f("title",e.target.value)} placeholder="ex: Envoyer rapport Miami à CK"/></MF>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <MF label="Responsable" T={T}><select value={form.owner||"Tito"} onChange={e=>f("owner",e.target.value)}>{members.map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
+            <MF label="Responsable" T={T}><select value={form.owner||"Tito"} onChange={e=>f("owner",e.target.value)}>{(members||[]).map(m=><option key={m.id}>{m.name}</option>)}</select></MF>
             <MF label="Deadline" T={T}><DatePicker value={form.due||""} onChange={v=>f("due",v)} color={ws.color} T={T}/></MF>
           </div>
           <Btns color={ws.color} onSave={save} onDelete={null} onClose={close} t={t} confirmDel={confirmDel}/>
