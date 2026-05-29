@@ -1417,6 +1417,7 @@ function App(){
       {id:"calendar",  label:t.calendar,  icon:"⊞"},
       {id:"products",  label:"Produits",  icon:"🚀"},
       {id:"expenses",  label:"Dépenses",  icon:"$"},
+      {id:"discussion", label:"Discussion", icon:"💬"},
     ];
     // Intern sees Stage Projet first, limited other modules
     if(user?.role==="intern") return [
@@ -1424,6 +1425,7 @@ function App(){
       {id:"media",     label:t.media,     icon:"★"},
       {id:"calendar",  label:t.calendar,  icon:"⊞"},
       {id:"tasks",     label:t.tasks,     icon:"☑"},
+      {id:"discussion", label:"Discussion", icon:"💬"},
     ];
     return [...base, {id:"stage", label:"Stage Projet", icon:"🎯"}];
   })();
@@ -2449,6 +2451,7 @@ function App(){
           {module==="meetings" &&<Meetings ws={ws} meetings={meetings} gcalEvents={gcalEvents} setModal={setModal} T={T} t={t} deleteMeeting={deleteMeeting}/>}
           {module==="media"    &&<Media ws={ws} influencers={filtered_infl} allInfluencers={influencers} setModal={setModal} T={T} t={t} mediaBudget={mediaBudget} addMediaBudget={addMediaBudget} updateInfluencer={updateInfluencer} deleteInfluencer={deleteInfluencer} addInfluencer={addInfluencer} addCalEvent={addCalEvent} calEvents={calEvents}/>}
           {module==="calendar" &&<CalModule ws={ws} calEvents={calEvents} T={T} t={t} setModal={setModal}/>}
+          {module==="discussion"&&<Discussion ws={ws} T={T} user={user}/>}
           {module==="stage"    &&<StageProjet ws={ws} T={T} user={user} tasks={tasks} addTask={addTask} updateTask={updateTask}/>}
           {module==="expenses" &&<Expenses ws={ws} expenses={expenses} setModal={setModal} sendUrgentAlert={sendUrgentAlert} T={T} mediaBudget={mediaBudget} influencers={influencers} updateExpense={updateExpense}/>}
           {module==="products" &&<Products2 ws={ws} products={products} setModal={setModal} updateProduct={updateProduct} T={T} t={t}/>}
@@ -5968,8 +5971,18 @@ function InlineExpensesTable({expenses,ws,T,updateExpense,addExpense,deleteExpen
     if(e.key==="Escape"){setEditId(null);setEditField(null);}
   }
   function saveNewRow(){
-    if(!newRow.title.trim())return; // only title required to open modal
-    setModal({type:"add_expenses",prefill:{...newRow,due_date:"",amount:newRow.amount||""}});
+    if(!newRow.title.trim())return;
+    // Save directly without opening modal
+    addExpense({
+      title:newRow.title,
+      amount:parseFloat(newRow.amount)||0,
+      category:newRow.category||"Autre",
+      location:newRow.location||"Global",
+      urgency:newRow.urgency||"Moyenne",
+      payment:newRow.payment_status||"À payer",
+      date:new Date().toISOString().slice(0,10),
+      notes:newRow.notes||"",
+    });
     setNewRow({title:"",category:"Autre",location:"Global",amount:"",urgency:"Moyenne",payment_status:"À payer",notes:""});
     setAddingNew(false);
   }
@@ -8974,6 +8987,400 @@ function StageProjet({ws, T, user}){
         </div>
       </div>
       </>}
+    </div>
+  );
+}
+
+
+// ─── DISCUSSION ────────────────────────────────────────────────────────────
+const CHAT_CHANNELS=[
+  {id:"général",    icon:"#", label:"Général",       desc:"Pour tout le monde"},
+  {id:"opérations", icon:"#", label:"Opérations",    desc:"Cuisine, livraison, ops"},
+  {id:"influenceurs",icon:"#",label:"Influenceurs",  desc:"Campagnes & collabs"},
+  {id:"médias",     icon:"#", label:"Médias",         desc:"Contenu & stories"},
+  {id:"projets",    icon:"#", label:"Projets",        desc:"Lancements & initiatives"},
+];
+
+const CHAT_EMOJIS=["👍","🔥","✅","❤️","😂","👀","🚀","💯"];
+
+// Store chat in task_notes with task_id=-99 (no new table needed)
+function Discussion({ws, T, user}){
+  const [chan, setChan] = React.useState("général");
+  const [msgs, setMsgs] = React.useState([]);
+  const [draft, setDraft] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [emojiFor, setEmojiFor] = React.useState(null);
+  const [hovered, setHovered] = React.useState(null);
+  const [unread, setUnread] = React.useState({});
+  const [lastSeen, setLastSeen] = React.useState({});
+  const [typing, setTyping] = React.useState([]);
+  const bottomRef = React.useRef(null);
+  const taRef = React.useRef(null);
+  const AVATAR_COLORS={"Tito":"#FF6B00","Samy":"#0A84FF","Mahaliana":"#30D158","system":"#8E8E93"};
+  const aColor=n=>AVATAR_COLORS[n]||"#BF5AF2";
+
+  async function loadMsgs(ch, silent=false){
+    try{
+      const r=await fetch(SUPA_URL+"/rest/v1/task_notes?workspace=eq."+ws.id+"&task_id=eq.-99&order=created_at.asc&limit=200",{headers:SUPA_HEADERS});
+      if(r.ok){
+        const rows=await r.json();
+        if(Array.isArray(rows)){
+          const parsed=rows.map(row=>{try{const d=JSON.parse(row.text);return{...d,id:row.id,created_at:row.created_at,sender:row.created_by};}catch(e){return null;}}).filter(Boolean);
+          const channelMsgs=parsed.filter(m=>m.channel===ch);
+          if(!silent){
+            // Track unread for OTHER channels
+            const newUnread={...unread};
+            CHAT_CHANNELS.forEach(c=>{
+              if(c.id!==ch){
+                const count=parsed.filter(m=>m.channel===c.id&&(!lastSeen[c.id]||new Date(m.created_at)>new Date(lastSeen[c.id]))).length;
+                if(count>0) newUnread[c.id]=(newUnread[c.id]||0)+count;
+              }
+            });
+            setUnread(newUnread);
+          }
+          setMsgs(channelMsgs);
+        }
+      }
+    }catch(e){}
+  }
+
+  React.useEffect(()=>{
+    loadMsgs(chan);
+    setUnread(u=>({...u,[chan]:0}));
+    setLastSeen(s=>({...s,[chan]:new Date().toISOString()}));
+    const iv=setInterval(()=>loadMsgs(chan,true),5000);
+    return()=>clearInterval(iv);
+  },[chan,ws.id]);
+
+  React.useEffect(()=>{
+    if(bottomRef.current) bottomRef.current.scrollIntoView({behavior:"smooth"});
+  },[msgs]);
+
+  async function send(){
+    if(!draft.trim()||sending)return;
+    const text=draft.trim();
+    setDraft("");setSending(true);
+    const payload={channel:chan,text,reactions:{},ts:new Date().toISOString()};
+    const tempId="tmp_"+Date.now();
+    setMsgs(p=>[...p,{...payload,id:tempId,sender:user.name,created_at:new Date().toISOString()}]);
+    try{
+      await fetch(SUPA_URL+"/rest/v1/task_notes",{method:"POST",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
+        body:JSON.stringify({workspace:ws.id,task_id:-99,text:JSON.stringify(payload),created_by:user.name,created_at:new Date().toISOString()})
+      });
+      setTimeout(()=>loadMsgs(chan,true),300);
+    }catch(e){}
+    setSending(false);
+    taRef.current?.focus();
+  }
+
+  async function react(msgId,emoji){
+    if(String(msgId).startsWith("tmp_"))return;
+    const msg=msgs.find(m=>String(m.id)===String(msgId));
+    if(!msg)return;
+    const r={...(msg.reactions||{})};
+    const users=r[emoji]||[];
+    if(users.includes(user.name)){r[emoji]=users.filter(u=>u!==user.name);if(!r[emoji].length)delete r[emoji];}
+    else r[emoji]=[...users,user.name];
+    setMsgs(p=>p.map(m=>String(m.id)===String(msgId)?{...m,reactions:r}:m));
+    setEmojiFor(null);
+    try{
+      await fetch(SUPA_URL+"/rest/v1/task_notes?id=eq."+msgId,{method:"PATCH",headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"return=minimal"},
+        body:JSON.stringify({text:JSON.stringify({...msg,reactions:r})})
+      });
+    }catch(e){}
+  }
+
+  // Group consecutive messages same sender <5min
+  const grouped=msgs.map((m,i)=>{
+    const prev=msgs[i-1];
+    const isHead=!prev||prev.sender!==m.sender||(new Date(m.created_at)-new Date(prev.created_at))>300000;
+    return{...m,isHead};
+  });
+
+  const fmt=dt=>{
+    const d=new Date(dt);
+    const now=new Date();
+    const diff=now-d;
+    if(diff<60000)return"À l'instant";
+    if(diff<3600000)return Math.floor(diff/60000)+"min";
+    if(d.toDateString()===now.toDateString())return d.toLocaleTimeString("fr-CA",{hour:"2-digit",minute:"2-digit"});
+    return d.toLocaleDateString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  };
+
+  const chanInfo=CHAT_CHANNELS.find(c=>c.id===chan)||CHAT_CHANNELS[0];
+
+  return(
+    <div style={{
+      display:"flex",height:"calc(100vh - 116px)",
+      borderRadius:14,overflow:"hidden",
+      border:`1px solid ${T.border}`,
+      boxShadow:`0 0 0 1px ${T.border}`,
+      animation:"fadeUp 0.2s ease",
+    }}>
+
+      {/* ════ SIDEBAR ════ */}
+      <div style={{
+        width:220,background:T.s2,
+        borderRight:`1px solid ${T.border}`,
+        flexShrink:0,display:"flex",flexDirection:"column",
+      }}>
+        {/* Workspace header */}
+        <div style={{
+          padding:"16px 14px 12px",
+          borderBottom:`1px solid ${T.border}`,
+          background:`linear-gradient(135deg,${ws.color}18 0%,transparent 100%)`,
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:28,height:28,borderRadius:7,background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#fff",flexShrink:0}}>
+              {(ws.abbr||ws.name[0]).slice(0,2)}
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:800,color:T.text,letterSpacing:-0.3}}>{ws.name}</div>
+              <div style={{fontSize:9,color:T.dim,fontWeight:500,letterSpacing:0.3,textTransform:"uppercase"}}>Discussion</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Channels */}
+        <div style={{padding:"10px 6px",flex:1,overflowY:"auto"}}>
+          <div style={{fontSize:9,fontWeight:700,color:T.dim,letterSpacing:1.2,textTransform:"uppercase",padding:"0 8px",marginBottom:4}}>Canaux</div>
+          {CHAT_CHANNELS.map(ch=>{
+            const isActive=chan===ch.id;
+            const cnt=unread[ch.id]||0;
+            return(
+              <button key={ch.id} onClick={()=>{setChan(ch.id);setUnread(u=>({...u,[ch.id]:0}));setLastSeen(s=>({...s,[ch.id]:new Date().toISOString()}));}} style={{
+                width:"100%",display:"flex",alignItems:"center",gap:7,
+                padding:"6px 10px",borderRadius:7,
+                background:isActive?ws.color+"20":"transparent",
+                border:"none",cursor:"pointer",
+                transition:"background 0.1s",
+                marginBottom:1,
+              }}
+              onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background=T.surface;}}
+              onMouseLeave={e=>{if(!isActive)e.currentTarget.style.background="transparent";}}>
+                <span style={{fontSize:11,color:isActive?ws.color:T.muted,fontWeight:700,fontFamily:"monospace"}}>#</span>
+                <span style={{fontSize:12,fontWeight:isActive?700:cnt>0?600:400,color:isActive?ws.color:cnt>0?T.text:T.muted,flex:1,textAlign:"left"}}>{ch.label}</span>
+                {cnt>0&&!isActive&&<span style={{fontSize:9,fontWeight:800,background:ws.color,color:"#fff",borderRadius:99,minWidth:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{cnt>9?"9+":cnt}</span>}
+                {isActive&&<div style={{width:6,height:6,borderRadius:"50%",background:ws.color,flexShrink:0}}/>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Members online */}
+        <div style={{padding:"10px 14px 14px",borderTop:`1px solid ${T.border}`}}>
+          <div style={{fontSize:9,fontWeight:700,color:T.dim,letterSpacing:1.2,textTransform:"uppercase",marginBottom:8}}>Membres</div>
+          {[{name:"Tito",role:"Admin",online:true},{name:"Samy",role:"Operations",online:true},{name:"Mahaliana",role:"Stagiaire",online:false}].map(m=>(
+            <div key={m.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+              <div style={{position:"relative",flexShrink:0}}>
+                <div style={{width:26,height:26,borderRadius:"50%",background:aColor(m.name),display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#fff"}}>{m.name[0]}</div>
+                <div style={{position:"absolute",bottom:0,right:0,width:7,height:7,borderRadius:"50%",background:m.online?"#30D158":"#636366",border:`1.5px solid ${T.s2}`}}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:m.name===user.name?700:500,color:T.text,letterSpacing:-0.1}}>{m.name}{m.name===user.name&&<span style={{fontSize:9,color:T.dim}}> (vous)</span>}</div>
+                <div style={{fontSize:9,color:T.dim}}>{m.role}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ════ CHAT MAIN ════ */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",background:T.surface,minWidth:0}}>
+
+        {/* Channel header */}
+        <div style={{
+          padding:"12px 20px",
+          borderBottom:`1px solid ${T.border}`,
+          background:T.surface,
+          display:"flex",alignItems:"center",gap:12,
+          flexShrink:0,
+        }}>
+          <div style={{width:32,height:32,borderRadius:8,background:ws.color+"18",border:`1px solid ${ws.color}33`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <span style={{fontSize:13,fontWeight:800,color:ws.color,fontFamily:"monospace"}}>#</span>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:800,color:T.text,letterSpacing:-0.3}}>{chanInfo.label}</div>
+            <div style={{fontSize:11,color:T.dim,marginTop:1}}>{chanInfo.desc} · {msgs.length} message{msgs.length!==1?"s":""}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{display:"flex",gap:-4}}>
+              {["Tito","Samy","Mahaliana"].map((n,i)=>(
+                <div key={n} style={{width:22,height:22,borderRadius:"50%",background:aColor(n),border:`2px solid ${T.surface}`,marginLeft:i>0?-6:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"#fff",zIndex:3-i}}>{n[0]}</div>
+              ))}
+            </div>
+            <span style={{fontSize:11,color:T.dim}}>3 membres</span>
+          </div>
+        </div>
+
+        {/* Messages area */}
+        <div style={{flex:1,overflowY:"auto",padding:"12px 0",display:"flex",flexDirection:"column"}}>
+          {msgs.length===0&&(
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 20px",textAlign:"center"}}>
+              <div style={{width:60,height:60,borderRadius:16,background:ws.color+"15",border:`2px solid ${ws.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:16}}>
+                {chanInfo.id==="général"?"💬":chanInfo.id==="opérations"?"⚙️":chanInfo.id==="influenceurs"?"📣":chanInfo.id==="médias"?"📸":"🚀"}
+              </div>
+              <div style={{fontSize:17,fontWeight:800,color:T.text,marginBottom:6,letterSpacing:-0.3}}>Début de # {chanInfo.label}</div>
+              <div style={{fontSize:12,color:T.dim,maxWidth:260,lineHeight:1.5}}>{chanInfo.desc}. Premier message ici — lancez la conversation !</div>
+            </div>
+          )}
+
+          {grouped.map((msg,idx)=>{
+            const isMe=msg.sender===user.name;
+            const isHov=hovered===msg.id;
+            return(
+              <div key={msg.id||idx}
+                style={{padding:"1px 12px",transition:"background 0.07s",background:isHov?"rgba(255,255,255,0.025)":"transparent",position:"relative"}}
+                onMouseEnter={()=>setHovered(msg.id)}
+                onMouseLeave={()=>{setHovered(null);if(emojiFor===msg.id)setEmojiFor(null);}}>
+
+                <div style={{display:"flex",gap:10,paddingTop:msg.isHead?10:0}}>
+                  {/* Avatar */}
+                  <div style={{width:34,flexShrink:0,paddingTop:2}}>
+                    {msg.isHead&&(
+                      <div style={{
+                        width:34,height:34,borderRadius:9,
+                        background:`linear-gradient(135deg,${aColor(msg.sender)},${aColor(msg.sender)}bb)`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:13,fontWeight:800,color:"#fff",
+                        boxShadow:`0 2px 8px ${aColor(msg.sender)}44`,
+                      }}>{msg.sender[0]}</div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div style={{flex:1,minWidth:0}}>
+                    {msg.isHead&&(
+                      <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:3}}>
+                        <span style={{fontSize:13,fontWeight:800,color:aColor(msg.sender),letterSpacing:-0.2}}>{msg.sender}</span>
+                        <span style={{fontSize:10,color:T.dim}}>{fmt(msg.created_at)}</span>
+                      </div>
+                    )}
+                    <div style={{
+                      fontSize:13,color:T.text,lineHeight:1.65,
+                      wordBreak:"break-word",
+                      whiteSpace:"pre-wrap",
+                    }}>{msg.text}</div>
+
+                    {/* Reactions */}
+                    {msg.reactions&&Object.keys(msg.reactions).filter(k=>msg.reactions[k]?.length>0).length>0&&(
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:5}}>
+                        {Object.entries(msg.reactions).filter(([,u])=>u?.length>0).map(([e,u])=>(
+                          <button key={e} type="button" onClick={()=>react(msg.id,e)} style={{
+                            display:"flex",alignItems:"center",gap:4,
+                            background:u.includes(user.name)?ws.color+"25":T.s2,
+                            border:`1px solid ${u.includes(user.name)?ws.color+"55":T.border}`,
+                            borderRadius:99,padding:"2px 8px 2px 6px",cursor:"pointer",
+                            transition:"all 0.12s",
+                          }}>
+                            <span style={{fontSize:13}}>{e}</span>
+                            <span style={{fontSize:11,fontWeight:700,color:u.includes(user.name)?ws.color:T.muted}}>{u.length}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action bar on hover */}
+                  {isHov&&(
+                    <div style={{
+                      display:"flex",gap:3,alignItems:"flex-start",
+                      position:"absolute",right:14,top:msg.isHead?10:4,
+                      background:T.s2,border:`1px solid ${T.border}`,
+                      borderRadius:8,padding:"3px 4px",
+                      boxShadow:"0 4px 12px rgba(0,0,0,0.15)",
+                      zIndex:10,
+                    }}>
+                      {["😊","↩️"].map((ic,i)=>(
+                        <button key={i} type="button" onClick={()=>{if(i===0)setEmojiFor(emojiFor===msg.id?null:msg.id);else{setDraft(d=>d+(d?"\n":"")+"↩ "+msg.sender+": "+msg.text.slice(0,40)+"...");taRef.current?.focus();}}}
+                          style={{background:"transparent",border:"none",borderRadius:5,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13,transition:"background 0.1s"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=T.surface}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          {ic}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Emoji picker */}
+                  {emojiFor===msg.id&&(
+                    <div style={{
+                      position:"absolute",right:14,top:msg.isHead?42:30,
+                      background:T.s2,border:`1px solid ${T.border}`,
+                      borderRadius:12,padding:"8px 10px",
+                      display:"flex",gap:2,flexWrap:"wrap",
+                      zIndex:20,boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
+                    }}>
+                      {CHAT_EMOJIS.map(em=>(
+                        <button key={em} type="button" onClick={()=>react(msg.id,em)} style={{
+                          background:"transparent",border:"none",fontSize:20,cursor:"pointer",
+                          padding:"5px 6px",borderRadius:7,transition:"background 0.1s, transform 0.1s",
+                        }}
+                        onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.transform="scale(1.2)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}>
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef}/>
+        </div>
+
+        {/* ── Composer ── */}
+        <div style={{padding:"10px 16px 14px",flexShrink:0,borderTop:`1px solid ${T.border}`}}>
+          <div style={{
+            background:T.s2,borderRadius:12,
+            border:`1.5px solid ${T.border}`,
+            overflow:"hidden",
+            transition:"border-color 0.15s, box-shadow 0.15s",
+          }}
+          onFocusCapture={e=>e.currentTarget.style.borderColor=ws.color}
+          onBlurCapture={e=>e.currentTarget.style.borderColor=T.border}>
+            <textarea
+              ref={taRef}
+              value={draft}
+              onChange={e=>setDraft(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
+              placeholder={"Message dans # "+chan+"   ·   ↵ Envoyer  ·  ⇧↵ Saut de ligne"}
+              style={{
+                width:"100%",background:"transparent",border:"none",outline:"none",
+                padding:"12px 14px 6px",fontSize:13,color:T.text,
+                fontFamily:"inherit",resize:"none",lineHeight:1.6,
+                minHeight:42,maxHeight:140,overflowY:"auto",
+                boxSizing:"border-box",
+              }}
+              rows={1}
+            />
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 10px 8px"}}>
+              <div style={{display:"flex",gap:3}}>
+                {["😊","@","🔗"].map((ic,i)=>(
+                  <button key={i} type="button" style={{background:"transparent",border:"none",borderRadius:6,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:12,color:T.dim,transition:"all 0.1s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background=T.surface;e.currentTarget.style.color=ws.color;}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.dim;}}>
+                    {ic}
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={send} disabled={!draft.trim()||sending} style={{
+                background:draft.trim()?ws.color:"transparent",
+                color:draft.trim()?"#fff":T.dim,
+                border:`1.5px solid ${draft.trim()?ws.color:T.border}`,
+                borderRadius:8,padding:"5px 14px",fontSize:12,fontWeight:700,
+                cursor:draft.trim()?"pointer":"default",
+                display:"flex",alignItems:"center",gap:6,
+                transition:"all 0.15s",
+              }}>
+                <span>Envoyer</span>
+                <span style={{fontSize:10,opacity:0.8}}>↵</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
